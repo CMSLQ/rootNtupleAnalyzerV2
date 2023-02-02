@@ -896,7 +896,9 @@ def MakeFR2D(frGraph, reg, bins):
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/19nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # also unscaled
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/26nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots_unscaled.root"
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/inconsistenIDs_14mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # test for validation
-filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
+# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
+# filename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016Pre_06dec2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -910,8 +912,8 @@ elif "2017" in filename:
 elif "2018" in filename:
     analysisYear = 2018
 
-outputFileName = "plots.root"
-pdf_folder = "pdf"
+outputFileName = "old_data_plots.root"
+pdf_folder = "old_data_pdf"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -919,7 +921,7 @@ doMuz = False  # do Muzamil's plots
 plotZprimeFR = True
 doMCSubFR = True
 doDataDrivenFR = True
-doFractionFit = True
+doFractionFit = False
 doHEEPBasedFR = False
 
 histoBaseName = "histo2D__{sample}__{type}_{region}_{jets}{varName}"
