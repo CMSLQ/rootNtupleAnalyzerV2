@@ -348,7 +348,7 @@ doPDFReweight2016LQSignals = False
 if doPDFReweight2016LQSignals:
     print("Doing PDF reweighting for 2016 LQ B/D signal samples")
 
-ncores = 8
+ncores = 2
 pool = multiprocessing.Pool(ncores)
 result_list = []
 logString = "INFO: running {} parallel jobs for {} separate samples found in samplesToCombineFile..."

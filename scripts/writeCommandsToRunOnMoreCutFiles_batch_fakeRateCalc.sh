@@ -20,14 +20,14 @@ YEAR=$1
 
 #### INPUTS HERE ####
 #------------
-ANANAME=calcFR_egmoose_19mar2022
+ANANAME=calcFR_2016Pre_06dec2022
 #------------
-files="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
+files="/afs/cern.ch/user/e/eipearso/leptoquark_analysis/rootNtupleMacrosV2/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
 #------------
 QUEUE=workday
 #------------
 OUTDIRPATH=$LQDATA  # a subdir will be created for each cut file 
-#EOSDIR=/eos/cms/store/user/scooper/LQ/nanoV7/2016/qcdFakeRateCalc/$ANANAME
+#EOSDIR=/eos/cms/store/user/eipearso/LQ/nanoV7/2016/qcdFakeRateCalc/$ANANAME
 excludeCombining=""
 
 # output sub-directory (i.e. output will be in OUTDIRPATH/SUBDIR)
@@ -45,7 +45,8 @@ CODENAME=analysisClass_lq_QCD_FakeRateCalculation
 #INPUTLIST=config/nanoV6_2016_rskQCD_17jul2020_comb/inputListAllCurrent.txt
 #inputlist2016=config/nanoV7_2016_rskQCD_23nov2021_comb/inputListAllCurrent.txt
 #inputlist2016=config/nanoV7_2016_rskQCD_26nov2021_comb/inputListAllCurrent.txt
-inputlist2016=config/nanoV7_2016_rskQCD_looseEGM_18mar2022_comb/inputListAllCurrent.txt
+#inputlist2016=config/nanoV7_2016_rskQCD_looseEGM_18mar2022_comb/inputListAllCurrent.txt
+inputlist2016=config/myDatasets/inputListAllCurrent.txt
 #------------
 if [ "$YEAR" = "2016" ]; then
   echo "Doing 2016!"
@@ -59,8 +60,8 @@ elif [ "$YEAR" = "2018" ]; then
   ILUM=$ilumi2018
   INPUTLIST=$inputlist2018
 fi
-SUBDIR=nanoV7/${YEAR}/qcdFakeRateCalc/$ANANAME
-EOSDIR=/eos/user/s/scooper/LQ/NanoV7/${YEAR}/qcdFakeRateCalc/$ANANAME
+SUBDIR=${YEAR}/qcdFakeRateCalc/$ANANAME
+EOSDIR=/eos/user/e/eipearso/LQ/${YEAR}/qcdFakeRateCalc/$ANANAME
 COMMANDFILE=commandsToRunOnMoreCutFiles_fakeRateCalc_${YEAR}_batch_`hostname -s`.txt
 SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_QCD_calc_${YEAR}.txt
 #------------
