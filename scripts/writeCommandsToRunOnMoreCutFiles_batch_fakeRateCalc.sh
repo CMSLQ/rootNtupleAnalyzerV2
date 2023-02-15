@@ -20,7 +20,7 @@ YEAR=$1
 
 #### INPUTS HERE ####
 #------------
-ANANAME=calcFR_2016Pre_06dec2022
+ANANAME=calcFR_2016Post_Feb2023
 #------------
 files="/afs/cern.ch/user/e/eipearso/leptoquark_analysis/rootNtupleMacrosV2/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
 #------------
@@ -46,7 +46,8 @@ CODENAME=analysisClass_lq_QCD_FakeRateCalculation
 #inputlist2016=config/nanoV7_2016_rskQCD_23nov2021_comb/inputListAllCurrent.txt
 #inputlist2016=config/nanoV7_2016_rskQCD_26nov2021_comb/inputListAllCurrent.txt
 #inputlist2016=config/nanoV7_2016_rskQCD_looseEGM_18mar2022_comb/inputListAllCurrent.txt
-inputlist2016=config/myDatasets/inputListAllCurrent.txt
+#inputlist2016=config/myDatasets/inputListAllCurrent.txt
+inputlist2016=config/myDatasets/2016PostVFP/inputListAllCurrent.txt
 #------------
 if [ "$YEAR" = "2016" ]; then
   echo "Doing 2016!"
@@ -62,14 +63,14 @@ elif [ "$YEAR" = "2018" ]; then
 fi
 SUBDIR=${YEAR}/qcdFakeRateCalc/$ANANAME
 EOSDIR=/eos/user/e/eipearso/LQ/${YEAR}/qcdFakeRateCalc/$ANANAME
-COMMANDFILE=commandsToRunOnMoreCutFiles_fakeRateCalc_${YEAR}_batch_`hostname -s`.txt
-SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_QCD_calc_${YEAR}.txt
+COMMANDFILE=commandsToRunOnMoreCutFiles_fakeRateCalc_${YEAR}PostVFP_batch_`hostname -s`.txt
+SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_QCD_calc_${YEAR}PostVFP.yaml
 #------------
 FACTOR=1000 # numbers in final tables (but *not* in plots) will be multiplied by this scale factor (to see well the decimal digits)
 #------------
 EXE=main
 #------------
-XSECTION=config/xsection_13TeV_2015.txt #specify cross section file
+XSECTION=config/xsection_13TeV_2022.txt #specify cross section file
 #------------
 #### END OF INPUTS ####
 
