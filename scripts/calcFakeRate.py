@@ -739,7 +739,7 @@ def MakeFRCanvas(plotList, titleList, canTitle):
             plot.GetXaxis().SetRangeUser(0, 1000)
             plot.GetXaxis().SetTitle("E_{T} [GeV]")
             if "barrel" in canTitle.lower():
-                plot.GetYaxis().SetRangeUser(0, 0.1)
+                plot.GetYaxis().SetRangeUser(0, 0.2)
             else:
                 plot.GetYaxis().SetRangeUser(0, 0.3)
             plot.GetYaxis().SetNdivisions(510)
@@ -896,7 +896,10 @@ def MakeFR2D(frGraph, reg, bins):
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/19nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # also unscaled
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/26nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots_unscaled.root"
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/inconsistenIDs_14mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # test for validation
-filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
+# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
+# filename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016Pre_06dec2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+# filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016Post_Feb2023/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -910,8 +913,8 @@ elif "2017" in filename:
 elif "2018" in filename:
     analysisYear = 2018
 
-outputFileName = "plots.root"
-pdf_folder = "pdf"
+outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016Post_Feb2023/fractionFit_plots.root"
+pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016Post_Feb2023/plots/fractionFit_pdf"
 
 gROOT.SetBatch(True)
 writeOutput = True
