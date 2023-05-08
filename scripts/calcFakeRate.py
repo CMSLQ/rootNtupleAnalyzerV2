@@ -121,7 +121,7 @@ def GetFakeRate(shortVarName, lowEnd, highEnd, reg, jets, histDict, verbose=Fals
             histo_Data.GetName(),
         )
         sys.stdout.flush()
-    if "2D" in histo_Electrons.ClassName():
+    if "2D" in histo_Electrons.GetName():
         proj_Electrons = histo_Electrons.ProjectionY(
             "Eles" + shortVarName,
             histo_Electrons.GetXaxis().FindBin(lowEnd),
@@ -475,7 +475,7 @@ def GetFakeRateMCSub(shortVarName, lowEnd, highEnd, reg, jets, histDict, verbose
         print(
             '\t\t\thistDict[{}]["Total"][{}]={}'.format(reg, jets, histo_Data.GetName())
         )
-    if "2D" in histo_Electrons.ClassName():
+    if "2D" in histo_Electrons.GetName():
         # need to do projections
         proj_Electrons = histo_Electrons.ProjectionY(
             "Eles" + shortVarName,
@@ -931,7 +931,7 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
 # filename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016Pre_06dec2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
-filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -945,8 +945,8 @@ elif "2017" in filename:
 elif "2018" in filename:
     analysisYear = 2018
 
-outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/fakeRate_plots.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/fakeRate_plots"
+outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/fakeRate_plots.root"
+pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/fakeRate_plots"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -1316,7 +1316,7 @@ for canLeg in myCanvases:
 
 #Make 2D fake rate plots:
 frGraphs = {}
-fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/fr2DpreVFP.root"
+fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/fr2DpreVFP.root"
 fr2Dfile = TFile(fr2Dfilename, "recreate")
 fr2Dfile.cd()
 
@@ -1497,7 +1497,7 @@ for reg in detectorRegions:
         histosPt[reg]["DataLooseElectrons"][jet] = proj_data
         # histo2D_data = tfile.Get(histoNameData.format(region=reg,jets=jet))
         histo2D_data = histos[reg]["Electrons"][jet]
-        if "2D" in histo2D_data.ClassName():
+        if "2D" in histo2D_data.GetName():
             proj_data = histo2D_data.ProjectionX(
                 "EtData",
                 histo2D_data.GetYaxis().FindBin(0),
