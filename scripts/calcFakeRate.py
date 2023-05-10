@@ -93,6 +93,8 @@ def GetCanvasTitle(varName, region, jetBin):
         titleStr += ", >= 1 jets"
     elif jetBin == "2Jet_":
         titleStr += ", >= 2 jets"
+    elif "lte" in jetBin:
+        titleStr += ", <= 1 jets"
     else:
         titleStr += ", " + jetBin
     # print "Created canvas title:", titleStr, "from var=", varName, "region=", reg, "jets=", jetBin
@@ -736,7 +738,7 @@ def MakeFRCanvas(plotList, titleList, canTitle):
         .replace(",", "")
         .replace(" ", "_")
         .replace(">=", "gte")
-        .replace("<", "lt")
+        .replace("<=", "lte")
     )
     colorList = [1, kSpring - 1, kAzure + 1, kBlue, kGreen]
     markerStyleList = [8, 25, 23, 22, 21]
@@ -877,7 +879,10 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
             print("ERROR: could not understand region given:", reg, "; return empty hist")
         # print 'consider frGraph with name {}'.format(frGraph.GetName())
         frGraph = FRhistos[reg]
-        jets = GetJetBin(frGraph.GetName())
+        if "lte" in frGraph.GetName():
+            jets = "lte1Jet_"
+        else:
+            jets = GetJetBin(frGraph.GetName())
         name = "fr2D_{jets}".format(jets=jets)
         frHist2d.SetNameTitle(name, name)
         frHist2d.GetXaxis().SetTitle("SuperCluster #eta")
@@ -931,7 +936,7 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
 # filename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016Pre_06dec2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
-filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -945,8 +950,9 @@ elif "2017" in filename:
 elif "2018" in filename:
     analysisYear = 2018
 
-outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/fakeRate_plots.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/fakeRate_plots"
+outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/FakeRateClosureTest/2016PreVFP/fakeRate_plots.root"
+pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/FakeRateClosureTest/2016PreVFP/fakeRate_plots"
+fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/FakeRateClosureTest/2016PreVFP/fr2DpreVFP.root"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -964,7 +970,8 @@ electronTypes = ["Jets", "Electrons", "Total"]
 detectorRegions = ["Bar", "End1", "End2"]
 regTitleDict = {}
 # jetBins = ["", "1Jet_", "2Jet_", "3Jet_"]
-jetBins = ["", "1Jet_", "2Jet_"]
+#jetBins = ["", "1Jet_", "2Jet_"]
+jetBins = ["lte1Jet_"] # NJet <= 1 for the closure test
 # for MC
 if "2016" in filename:
     mcSamples = [
@@ -1316,7 +1323,6 @@ for canLeg in myCanvases:
 
 #Make 2D fake rate plots:
 frGraphs = {}
-fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/newSF/fr2DpreVFP.root"
 fr2Dfile = TFile(fr2Dfilename, "recreate")
 fr2Dfile.cd()
 
