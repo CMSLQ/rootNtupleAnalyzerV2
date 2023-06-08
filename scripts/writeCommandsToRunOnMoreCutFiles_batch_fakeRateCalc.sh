@@ -20,7 +20,7 @@ YEAR=$1
 
 #### INPUTS HERE ####
 #------------
-ANANAME=calcFR_2016Post_Feb2023
+ANANAME=calcFR_2016pre_June2023
 #------------
 files="/afs/cern.ch/user/e/eipearso/leptoquark_analysis/rootNtupleMacrosV2/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
 #------------
@@ -33,7 +33,7 @@ excludeCombining=""
 # output sub-directory (i.e. output will be in OUTDIRPATH/SUBDIR)
 # it is suggested to specify the luminosity in the name of the directory
 #------------
-ilumi2016=35867 #TODO
+ilumi2016=19501601.622000 #TODO
 ilumi2017=41540 #FIXME: this number is just from the Egamma twiki
 ilumi2018=59399
 CODENAME=analysisClass_lq_QCD_FakeRateCalculation
@@ -47,7 +47,7 @@ CODENAME=analysisClass_lq_QCD_FakeRateCalculation
 #inputlist2016=config/nanoV7_2016_rskQCD_26nov2021_comb/inputListAllCurrent.txt
 #inputlist2016=config/nanoV7_2016_rskQCD_looseEGM_18mar2022_comb/inputListAllCurrent.txt
 #inputlist2016=config/myDatasets/inputListAllCurrent.txt
-inputlist2016=config/myDatasets/2016PostVFP/inputListAllCurrent.txt
+inputlist2016=config/myDatasets/2016HEEPpreVFP/inputListAllCurrent.txt
 #------------
 if [ "$YEAR" = "2016" ]; then
   echo "Doing 2016!"

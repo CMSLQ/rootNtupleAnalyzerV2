@@ -13,6 +13,10 @@ from ROOT import (
     kBlue,
     kSpring,
     kAzure,
+    kViolet,
+    kCyan,
+    kOrange,
+    kBlack,
     TGraphAsymmErrors,
     TH1D,
     TLegend,
@@ -904,7 +908,7 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
                 ptBin,
                 binErr,
             )
-            print("pt: ",pt.value," fr: ",fr.value," binErr: ",binErr)
+#            print("pt: ",pt.value," fr: ",fr.value," binErr: ",binErr)
             #the last two pt bins in end2 need to have the same value bc we combined them
             #In the above code, the very highest ptBin gets filled, so I need to set the
             #next to highest bin to the same value.
@@ -936,7 +940,9 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 # filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
 # filename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016Pre_06dec2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
-filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+# filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postMay2023/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+# filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/combinePlotsTest/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -950,9 +956,9 @@ elif "2017" in filename:
 elif "2018" in filename:
     analysisYear = 2018
 
-outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/FakeRateClosureTest/2016PreVFP/fakeRate_plots.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/FakeRateClosureTest/2016PreVFP/fakeRate_plots"
-fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/FakeRateClosureTest/2016PreVFP/fr2DpreVFP.root"
+outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/fakeRate_plots.root"
+pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/fakeRate_plots"
+fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/fr2DpostVFP.root"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -970,12 +976,13 @@ electronTypes = ["Jets", "Electrons", "Total"]
 detectorRegions = ["Bar", "End1", "End2"]
 regTitleDict = {}
 # jetBins = ["", "1Jet_", "2Jet_", "3Jet_"]
-#jetBins = ["", "1Jet_", "2Jet_"]
-jetBins = ["lte1Jet_"] # NJet <= 1 for the closure test
+jetBins = ["", "1Jet_", "2Jet_"]
+#jetBins = ["lte1Jet_"] # NJet <= 1 for the closure test
 # for MC
 if "2016" in filename:
     mcSamples = [
-        "ZJet_amcatnlo_ptBinned",
+        "ZJet_amcatnlo_ptBinned_IncStitch",
+        # "ZJet_amcatnlo_ptBinned",
         # "ZJet_amcatnlo_Inc",
         # "WJet_amcatnlo_ptBinned",
         # "WJet_Madgraph_Inc",
@@ -1257,6 +1264,39 @@ for varName in allHistos:
                 numerHistDict[varName][reg][jetBin]["mc"] = histNumMC
                 denomHistDict[varName][reg][jetBin]["mc"] = histDenMC
 
+c = TCanvas()
+c.cd()
+c.SetLogy()
+c.SetGridx()
+c.SetGridy()
+mcSubNum = numerHistDict["TrkIsoHEEP7vsHLTPt_PAS"]["Bar"][""]["mc"]
+mcSubNum.SetStats(0)
+mcSubNum.SetTitle("Barrel 0Jet")
+mcSubNum.SetMinimum(10)
+mcSubNum.SetMaximum(1e9)
+mcSubNum.SetLineWidth(2)
+mcSubNum.GetXaxis().SetTitle("pT (GeV)")
+mcSubDenom = denomHistDict["TrkIsoHEEP7vsHLTPt_PAS"]["Bar"][""]["mc"]
+mcSubDenom.SetLineWidth(2)
+mcSubDenom.SetLineColor(kRed)
+dataNum = numerHistDict["TrkIsoHEEP7vsHLTPt_PAS"]["Bar"][""]["data"]
+dataNum.SetLineWidth(2)
+dataNum.SetLineColor(kGreen+1)
+mcSubNum.Draw()
+mcSubDenom.Draw("same")
+dataNum.Draw("same")
+l = TLegend(0.38, 0.71, 0.63, 0.88)
+l.AddEntry(mcSubNum, "MC sub numerator","lp")
+l.AddEntry(dataNum, "Ratio method numerator", "lp")
+l.AddEntry(mcSubDenom, "Denominator","lp")
+l.Draw("same")
+c.Print(pdf_folder+"/mcSubNumDen_Bar_0Jet.pdf")
+
+print("MC Sub numerators for Barrel, 0Jet")
+for i in range(15):
+    numContent = mcSubNum.GetBinContent(i+1)
+    print(numContent)
+
 for varName in allHistos:
     for reg in detectorRegions:
         for jetBin in jetBins:
@@ -1280,6 +1320,7 @@ for varName in allHistos:
                 )
             )
             histList.extend(varRegJetHistList)
+
 
 # # for drawing num/den hists
 # numDenHistList = [histNumEnd2ZeroJ,histDenEnd2ZeroJ,histNumEnd1ZeroJ,histDenEnd1ZeroJ,histNumBarZeroJ,histDenBarZeroJ]
@@ -1350,6 +1391,126 @@ for jets in jetBins:
     c.Print(pdfTitle)
     fakeRate2D.Write()
 fr2Dfile.Close()
+
+#make stack plots for MC
+for reg in detectorRegions:
+    stack = THStack()
+    canv = TCanvas()
+    canv.cd()
+    canv.SetLogy()
+    histsForStack = {}
+    for name in mcNames:
+        hist = histos[reg][name][""]
+        print("making stack plot hist for "+name)
+        projection = hist.ProjectionX(
+            "Et"+name,
+             hist.GetYaxis().FindBin(0),
+             hist.GetYaxis().FindBin(5) -1,
+        )
+        projection.Rebin(20)
+        histsForStack[name] = projection
+
+    histsForStack["ZJets"].SetLineColor(kCyan+1)
+    histsForStack["ZJets"].SetFillColor(kCyan+1)
+    histsForStack["ZJets"].SetLineWidth(2)
+    histsForStack["ZJets"].SetMarkerColor(kCyan+1)
+    stack.Add(histsForStack["ZJets"])
+
+    histsForStack["WJets"].SetLineColor(kRed)
+    histsForStack["WJets"].SetFillColor(kRed)
+    histsForStack["WJets"].SetLineWidth(2)
+    histsForStack["WJets"].SetMarkerColor(kRed)
+    stack.Add(histsForStack["WJets"])
+
+    histsForStack["TTBar"].SetLineColor(kGray)
+    histsForStack["TTBar"].SetFillColor(kGray)
+    histsForStack["TTBar"].SetLineWidth(2)
+    histsForStack["TTBar"].SetMarkerColor(kGray)
+    stack.Add(histsForStack["TTBar"])
+
+    histsForStack["ST"].SetLineColor(kBlue)
+    histsForStack["ST"].SetFillColor(kBlue)
+    histsForStack["ST"].SetLineWidth(2)
+    histsForStack["ST"].SetMarkerColor(kBlue)
+    stack.Add(histsForStack["ST"])
+
+    histsForStack["GJets"].SetLineColor(kViolet+6)
+    histsForStack["GJets"].SetFillColor(kViolet+6)
+    histsForStack["GJets"].SetLineWidth(2)
+    histsForStack["GJets"].SetMarkerColor(kViolet+6)
+    stack.Add(histsForStack["GJets"])
+
+    histsForStack["Diboson"].SetLineColor(kBlack)
+    histsForStack["Diboson"].SetFillColor(kBlack)
+    histsForStack["Diboson"].SetLineWidth(2)
+    histsForStack["Diboson"].SetMarkerColor(kBlack)
+    stack.Add(histsForStack["Diboson"])
+
+    stack.SetMinimum(1e-1)
+    stack.SetMaximum(1e8)
+    stack.Draw("hist")
+    stack.GetXaxis().SetTitle("pT [GeV]")
+    stack.SetTitle(reg+" 0Jet")
+    stack.Draw("hist")
+
+    histo_data_prime = histos[reg]["Electrons"][""]
+    projection_data_prime = histo_data_prime.ProjectionX(
+        "EtDataPrime",
+         histo_data_prime.GetYaxis().FindBin(0),
+         histo_data_prime.GetYaxis().FindBin(5) - 1,
+    )
+    projection_data_prime.Rebin(20)
+    projection_data_prime.SetLineColor(kGreen)
+    projection_data_prime.SetMarkerColor(kGreen)
+    projection_data_prime.SetLineWidth(2)
+    projection_data_prime.Draw("same")
+
+    histo_data_loose = histos[reg]["Total"][""]
+    projection_data_loose = histo_data_loose.ProjectionX(
+        "EtDataLoose",
+        histo_data_loose.GetYaxis().FindBin(0),
+        histo_data_loose.GetYaxis().FindBin(5) - 1,
+    )
+    projection_data_loose.Rebin(20)
+    projection_data_loose.SetMaximum(1e8)
+    projection_data_loose.SetLineColor(kGreen+2)
+    projection_data_loose.SetMarkerColor(kGreen+2)
+    projection_data_loose.SetLineWidth(2)
+    projection_data_loose.Draw("same")
+
+#    mcTotProj.Draw("same")
+
+    l = TLegend(0.38, 0.71, 0.63, 0.88)
+    for name in mcNames:
+        l.AddEntry(histsForStack[name], name, "lp")
+    l.AddEntry(projection_data_prime, "ele' electrons", "lp")
+    l.AddEntry(projection_data_loose, "loose electrons","lp")
+    l.Draw("same")
+    canv.Update()
+    canv.Print(pdf_folder+"/stackPlot"+reg+".pdf")
+
+c = TCanvas()
+c.cd()
+c.SetLogy()
+zJetHist = histos["Bar"]["ZJets"][""]
+projection = zJetHist.ProjectionX(
+    "Z jet events",
+     hist.GetYaxis().FindBin(0),
+     hist.GetYaxis().FindBin(5) -1,
+)
+projection.SetStats(0)
+projection.SetTitle("Zjets Bar 0Jet")
+projection.Rebin(20)
+projection.SetMinimum(1e-1)
+projection.SetMaximum(1e4)
+projection.SetLineWidth(2)
+projection.GetXaxis().SetRangeUser(0,1000)
+projection.GetXaxis().SetTitle("pT")
+projection.Draw()
+c.Print(pdf_folder+"/ZJets_Bar0Jet.pdf")
+nZEventsErr = ctypes.c_double()
+nZEvents = projection.IntegralAndError(0,1000,nZEventsErr)
+print("number of ZJet events: ",nZEvents," +/- ",nZEventsErr)
 
 #getting fr and errors for end1 2jet histo
 #print("End1 2Jet fake rates:")
@@ -1466,6 +1627,7 @@ for reg in detectorRegions:
 ##################################################
 # make Et plot
 ##################################################
+'''
 histoNameZ = 'histo2D__ZJet_amcatnlo_ptBinned__Electrons_{region}_{jets}TrkIsoHEEP7vsPt_PAS'
 histoNameW = 'histo2D__WJet_amcatnlo_ptBinned__Electrons_{region}_{jets}TrkIsoHEEP7vsPt_PAS'
 # histoNameData = 'histo2D__QCDFakes_DATA__Electrons_{region}_{jets}TrkIsoHEEP7vsPt_PAS'
@@ -1478,7 +1640,7 @@ for reg in detectorRegions:
     histosPt[reg]["DataLooseElectrons"] = {}
     histosPt[reg]["DataElectrons"] = {}
     for jet in jetBins:
-        histo2D_MC = tfile.Get(histoNameZ.format(region=reg,jets=jet))
+#        histo2D_MC = tfile.Get(histoNameZ.format(region=reg,jets=jet))
         histo2D_MC = histos[reg]["ZJets"][jet]
         proj_MC = histo2D_MC.ProjectionX(
             "EtZ",
@@ -1486,7 +1648,7 @@ for reg in detectorRegions:
             histo2D_MC.GetYaxis().FindBin(5) - 1,
         )
         histosPt[reg]["ZElectrons"][jet] = proj_MC
-        histo2D_MC = tfile.Get(histoNameW.format(region=reg,jets=jet))
+#        histo2D_MC = tfile.Get(histoNameW.format(region=reg,jets=jet))
         histo2D_MC = histos[reg]["WJets"][jet]
         proj_MC = histo2D_MC.ProjectionX(
             "EtW",
@@ -1567,14 +1729,15 @@ legEt.Draw()
 canvasEt.Modified()
 canvasEt.Update()
 canvasEt.Print(pdf_folder+"/stackPlot.pdf")
-low = 800
-high = 1000
-print("integrals in 800-1000:")
-print(
-    "dataLoose=",
-    histDataLoose.Integral(histDataLoose.FindBin(low), histDataLoose.FindBin(high) - 1),
-)
-print("dataEle=", histData.Integral(histData.FindBin(low), histData.FindBin(high) - 1))
+'''
+#low = 800
+#high = 1000
+#print("integrals in 800-1000:")
+#print(
+#    "dataLoose=",
+#    histDataLoose.Integral(histDataLoose.FindBin(low), histDataLoose.FindBin(high) - 1),
+#)
+#print("dataEle=", histData.Integral(histData.FindBin(low), histData.FindBin(high) - 1))
 # print "WEle=", histW.Integral(histW.FindBin(low), histW.FindBin(high) - 1)
 # print "ZEle=", histZ.Integral(histZ.FindBin(low), histZ.FindBin(high) - 1)
 

@@ -16,9 +16,10 @@ DYJetsToLL_400To650:
 DYJetsToLL_650ToInf:
   pieces:
   - /DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
-DYJetsToLL_amcatnlo:
+DYJetsToLL_amcatnlo_Inc:
   pieces:
   - /DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+  save: true
 DYJetsToLL_madgraph:
   pieces:
   - /DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
@@ -33,6 +34,12 @@ ZJet_amcatnlo_ptBinned:
   - DYJetsToLL_250To400
   - DYJetsToLL_400To650
   - DYJetsToLL_650ToInf
+  save: true
+ZJet_amcatnlo_ptBinned_IncStitch:
+  pieces:
+  - ZJet_amcatnlo_Inc
+  - ZJet_amcatnlo_ptBinned
+  save: true
 WWTo4Q_4f:
   pieces:
   - /WWTo4Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v3/NANOAODSIM
@@ -98,6 +105,7 @@ DIBOSON_nlo:
   - WWTo2L2Nu
   - ZZ_nlo
   - WZ_amcatnlo
+  save: true
 TTTo2L2Nu:
   pieces:
   - /TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
@@ -112,6 +120,7 @@ TTbar_powheg:
   - TTTo2L2Nu
   - TTToHadronic
   - TTToSemiLeptonic
+  save: true
 ST_tW_top_5f:
   pieces:
   - /ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
@@ -133,6 +142,7 @@ SingleTop:
   - ST_tW_antitop_5f
   - ST_t-channel_antitop_5f
   - ST_s-channel_4f
+  save: true
 WJetsToLNu_0J:
   pieces:
   - /WJetsToLNu_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
@@ -150,6 +160,7 @@ WJet_amcatnlo_jetBinned:
   - WJetsToLNu_0J
   - WJetsToLNu_1J
   - WJetsToLNu_2J
+  save: true
 WWW_4F:
   pieces:
   - /WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM
@@ -199,6 +210,7 @@ PhotonJets_Madgraph:
   - GJets_200To400
   - GJets_400To600
   - GJets_600ToInf
+  save: true
 OTHERBKG_WJetAMCJetBinned_dibosonNLO_triboson:
   pieces:
   - WJet_amcatnlo_jetBinned
@@ -208,6 +220,7 @@ OTHERBKG_WJetAMCJetBinned_dibosonNLO_triboson:
   - TTW
   - TTZ
   - PhotonJets_Madgraph
+  save: true
 ALLBKG_powhegTTBar_ZJetPtWJetAMCJetBinned_NLODIBOSON_triboson:
   pieces:
   - ZJet_amcatnlo_ptBinned
@@ -219,6 +232,7 @@ ALLBKG_powhegTTBar_ZJetPtWJetAMCJetBinned_NLODIBOSON_triboson:
   - TTW
   - TTZ
   - PhotonJets_Madgraph
+  save: true
 QCDFakes_SinglePhoton_2016F:
   pieces:
   - /SinglePhoton/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
@@ -233,3 +247,4 @@ QCDFakes_DATA:
   - QCDFakes_SinglePhoton_2016F
   - QCDFakes_SinglePhoton_2016G
   - QCDFakes_SinglePhoton_2016H
+  save: true
