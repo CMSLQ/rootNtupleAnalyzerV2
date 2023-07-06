@@ -79,7 +79,7 @@ def GetXBinsFromGraph(graph):
 
 
 def GetCanvasTitle(varName, region, jetBin):
-    titleStr = str(analysisYear) + " FR,"
+    titleStr = analysisYearStr + " FR,"
     if "post" in varName.lower():
         titleStr += " Run >= " + varName[varName.lower().find("post") + 4:] + ","
     elif "pre" in varName.lower():
@@ -942,7 +942,7 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postMay2023/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/combinePlotsTest/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -951,14 +951,20 @@ if not tfile or tfile.IsZombie():
 
 if "2016" in filename:
     analysisYear = 2016
+    if "pre" in filename.lower():
+        analysisYearStr = "2016 preVFP"
+    if "post" in filename.lower():
+        analysisYearStr = "2016 postVFP"
 elif "2017" in filename:
     analysisYear = 2017
+    analysisYearStr = "2017"
 elif "2018" in filename:
     analysisYear = 2018
+    analysisYearStr = "2018"
 
-outputFileName = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/fakeRate_plots.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/fakeRate_plots"
-fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016preJune2023newLumi/fr2DpostVFP.root"
+outputFileName = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/fakeRate_plots.root"
+pdf_folder = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/fakeRate_plots"
+fr2Dfilename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/fr2D_lte1Jet_postVFP.root"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -976,8 +982,8 @@ electronTypes = ["Jets", "Electrons", "Total"]
 detectorRegions = ["Bar", "End1", "End2"]
 regTitleDict = {}
 # jetBins = ["", "1Jet_", "2Jet_", "3Jet_"]
-jetBins = ["", "1Jet_", "2Jet_"]
-#jetBins = ["lte1Jet_"] # NJet <= 1 for the closure test
+#jetBins = ["", "1Jet_", "2Jet_"]
+jetBins = ["lte1Jet_"] # NJet <= 1 for the closure test
 # for MC
 if "2016" in filename:
     mcSamples = [
@@ -1263,7 +1269,8 @@ for varName in allHistos:
                 histDict[varName][reg][jetBin]["mc"] = histFRMC
                 numerHistDict[varName][reg][jetBin]["mc"] = histNumMC
                 denomHistDict[varName][reg][jetBin]["mc"] = histDenMC
-
+"""
+#comparing MC sub and ratio methods
 c = TCanvas()
 c.cd()
 c.SetLogy()
@@ -1291,12 +1298,7 @@ l.AddEntry(dataNum, "Ratio method numerator", "lp")
 l.AddEntry(mcSubDenom, "Denominator","lp")
 l.Draw("same")
 c.Print(pdf_folder+"/mcSubNumDen_Bar_0Jet.pdf")
-
-print("MC Sub numerators for Barrel, 0Jet")
-for i in range(15):
-    numContent = mcSubNum.GetBinContent(i+1)
-    print(numContent)
-
+"""
 for varName in allHistos:
     for reg in detectorRegions:
         for jetBin in jetBins:
@@ -1488,39 +1490,6 @@ for reg in detectorRegions:
     l.Draw("same")
     canv.Update()
     canv.Print(pdf_folder+"/stackPlot"+reg+".pdf")
-
-c = TCanvas()
-c.cd()
-c.SetLogy()
-zJetHist = histos["Bar"]["ZJets"][""]
-projection = zJetHist.ProjectionX(
-    "Z jet events",
-     hist.GetYaxis().FindBin(0),
-     hist.GetYaxis().FindBin(5) -1,
-)
-projection.SetStats(0)
-projection.SetTitle("Zjets Bar 0Jet")
-projection.Rebin(20)
-projection.SetMinimum(1e-1)
-projection.SetMaximum(1e4)
-projection.SetLineWidth(2)
-projection.GetXaxis().SetRangeUser(0,1000)
-projection.GetXaxis().SetTitle("pT")
-projection.Draw()
-c.Print(pdf_folder+"/ZJets_Bar0Jet.pdf")
-nZEventsErr = ctypes.c_double()
-nZEvents = projection.IntegralAndError(0,1000,nZEventsErr)
-print("number of ZJet events: ",nZEvents," +/- ",nZEventsErr)
-
-#getting fr and errors for end1 2jet histo
-#print("End1 2Jet fake rates:")
-#e1_2jet_hist = histDict["TrkIsoHEEP7vsHLTPt_PAS"]["End1"]["2Jet_"]["data"]
-#for i in range(15):
-    #fakeRate = e1_2jet_hist.GetPointY(i)
-    #err = e1_2jet_hist.GetErrorY(i)
-    #ptLow = ptBinsEndcap[i]
-    #ptHigh = ptBinsEndcap[i+1]
-    #print("pt from ",ptLow,"to ",ptHigh,": fake rate = ",fakeRate," +/- ",err)
 
 '''
 ##################################################
@@ -1738,8 +1707,6 @@ canvasEt.Print(pdf_folder+"/stackPlot.pdf")
 #    histDataLoose.Integral(histDataLoose.FindBin(low), histDataLoose.FindBin(high) - 1),
 #)
 #print("dataEle=", histData.Integral(histData.FindBin(low), histData.FindBin(high) - 1))
-# print "WEle=", histW.Integral(histW.FindBin(low), histW.FindBin(high) - 1)
-# print "ZEle=", histZ.Integral(histZ.FindBin(low), histZ.FindBin(high) - 1)
 
 
 if writeOutput:
