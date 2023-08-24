@@ -826,11 +826,11 @@ class baseClass {
     double getSumSignOnlyGenWeightSqrs(const std::string& fileName);
     double getSumTopPtWeights(const std::string& fileName);
     double getTreeEntries(const std::string& fileName);
-    double getSumWeightFromRunsTree(const std::string& fName, const std::string& name, int index = -1) { return getSumWeightFromTree(fName, "Runs", name, index); }
-    double getSumWeightFromTree(const std::string& fName, const std::string& treeName, const std::string& name, int index = -1);
     std::vector<double> getSumArrayFromRunsTree(const std::string& fName, const std::string& name, bool isArrayBranch) { return getSumArrayFromTree(fName, "Runs", name, isArrayBranch); }
     std::vector<double> getSumArrayFromTree(const std::string& fName, const std::string& treeName, const std::string& name, bool isArrayBranch);
-    double getSumOfExpressionFromEventsTree(const std::string& fName, const std::string& exp, const std::vector<std::string>& inputBranches);
+    double getSumOfExpressionFromEventsTree(const std::string& fName, const std::string& exp, const std::vector<std::string>& inputBranches) { return getSumOfExpressionFromTree(fName, "Events", exp, inputBranches); }
+    double getSumOfExpressionFromRunsTree(const std::string& fName, const std::string& exp, const std::vector<std::string>& inputBranches) { return getSumOfExpressionFromTree(fName, "Runs", exp, inputBranches); }
+    double getSumOfExpressionFromTree(const std::string& fName, const std::string& treeName, const std::string& exp, const std::vector<std::string>& inputBranches);
     void saveLHEPdfSumw(const std::string& fileName);
     void saveEventsPassingCuts(const std::string& fileName);
     std::shared_ptr<TProfile> makeNewEventsPassingSkimCutsProfile(const std::shared_ptr<TProfile> prevProfFromFile = 0);

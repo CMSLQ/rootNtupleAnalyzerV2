@@ -2060,7 +2060,7 @@ double baseClass::getSumGenWeights(const std::string& fileName)
 {
   double sumGenWeights = getInfoFromHist(fileName, "EventCounter", 3);
   if(!skimWasMade_)
-    sumGenWeights = getSumWeightFromRunsTree(fileName, "genEventSumw");
+    sumGenWeights = getSumOfExpressionFromRunsTree(fileName, "genEventSumw", std::vector<std::string>{"genEventSumw"});
   return sumGenWeights;
 }
 
@@ -2068,7 +2068,7 @@ double baseClass::getSumGenWeightSqrs(const std::string& fileName)
 {
   double sumGenWeightSqrs = pow(getInfoFromHist(fileName, "EventCounter", 3, true), 2); // need sum(w^2)
   if(!skimWasMade_)
-    sumGenWeightSqrs = getSumWeightFromRunsTree(fileName, "genEventSumw2");
+    sumGenWeightSqrs = getSumOfExpressionFromRunsTree(fileName, "genEventSumw2", std::vector<std::string>{"genEventSumw2"});
   return sumGenWeightSqrs;
 }
 
@@ -2105,14 +2105,6 @@ double baseClass::getTreeEntries(const std::string& fName)
   return chain->GetEntries();
 }
 
-double baseClass::getSumWeightFromTree(const std::string& fName, const std::string& treeName, const std::string& weightName, int index)
-{
-  if(index < 0)
-    return getSumArrayFromTree(fName, treeName, weightName, false)[0];
-  else
-    return getSumArrayFromTree(fName, treeName, weightName, true)[index];
-}
-
 template <typename T> std::shared_ptr<T> baseClass::getSavedObjectFromFile(const std::string& fileName, const std::string& histName)
 {
   auto f = std::unique_ptr<TFile>(TFile::Open(fileName.c_str()));
@@ -2145,36 +2137,36 @@ std::vector<double> baseClass::getSumArrayFromTree(const std::string& fName, con
   }
 
   auto readerTools = std::unique_ptr<TTreeReaderTools>(new TTreeReaderTools(chain));
+  readerTools->LoadEntry(0);
+  unsigned int arraySize = readerTools->ReadArrayBranch<Double_t>(weightName).GetSize();
+  if(arraySize > 0 && arraySize != sumWeightArray.size())
+      sumWeightArray.resize(arraySize);
+
   if(readerTools->GetTree()->GetBranch(weightName.c_str())) { // data may not have the branch we want
+      std::string exp = weightName;
       // suppress info messages
       int prevLevel = gErrorIgnoreLevel;
       gErrorIgnoreLevel = kWarning;
-      if(weightName == "LHEPdfSumw")
-          chain->Draw("LHEPdfSumw*genEventSumw");
-      else
-          chain->Draw(weightName.c_str());
-      gErrorIgnoreLevel = prevLevel;
-      Double_t* sumVals = chain->GetV1();
-      if(isArrayBranch) {
-          readerTools->LoadEntry(0);
-          unsigned int arraySize = readerTools->ReadArrayBranch<Double_t>(weightName).GetSize();
-          if(arraySize > 0 && arraySize != sumWeightArray.size())
-              sumWeightArray.resize(arraySize);
-          for(unsigned int index = 0; index < arraySize; ++index) {
-              sumWeightArray[index] += sumVals[index];
-          }
+      for(unsigned int index = 0; index < arraySize; ++index) {
+          std::string toDraw = exp+"["+std::to_string(index)+"]";
+          if(weightName == "LHEPdfSumw")
+              toDraw = "LHEPdfSumw["+std::to_string(index)+"]*genEventSumw["+std::to_string(index)+"]";
+          Long64_t events = chain->Draw(toDraw.c_str(), toDraw.c_str());
+          gErrorIgnoreLevel = prevLevel;
+          auto htemp = (TH1F*)gPad->GetPrimitive("htemp");
+          if(events <= 0)
+              STDOUT("ERROR: Had a problem drawing " << toDraw << " from tree '" << treeName << "' in file '" << fName << "'.");
+          sumWeightArray[index]=htemp->Integral();
       }
-      else
-          sumWeightArray[0]+=*sumVals;
   }
 
   return sumWeightArray;
 }
 
-double baseClass::getSumOfExpressionFromEventsTree(const std::string& fName, const std::string& exp, const std::vector<std::string>& inputBranches)
+double baseClass::getSumOfExpressionFromTree(const std::string& fName, const std::string& treeName, const std::string& exp, const std::vector<std::string>& inputBranches)
 {
     double toReturn = 0;
-    auto chain = std::shared_ptr<TChain>(new TChain("Events"));
+    auto chain = std::shared_ptr<TChain>(new TChain(treeName.c_str()));
     int retVal = chain->AddFile(fName.c_str(), -1);
     if(!retVal)
     {
@@ -2194,7 +2186,7 @@ double baseClass::getSumOfExpressionFromEventsTree(const std::string& fName, con
     if(events > 0)
         return htemp->Integral();
     else {
-        STDOUT("baseClass::getWeightSumFromEventsTree(): something went wrong drawing '" << exp << "' from Events tree in file " << fName << " as requested.");
+        STDOUT("baseClass::getWeightSumFromEventsTree(): something went wrong drawing '" << exp << "' from " << treeName << " tree in file " << fName << " as requested.");
         exit(-2);
     }
     return toReturn;
