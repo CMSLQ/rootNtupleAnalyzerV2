@@ -24,8 +24,15 @@ def GetSiteListFromDAS(fileNameList, dataset):
     output = proc.communicate()[0].decode().strip()
     siteList = list(output.replace("_Disk", "").split())
     return siteList
-    
 
+
+def GetDefaultCondorSites():
+    cmd = 'get_condor_sites --default'
+    proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
+    output = proc.communicate()[0].decode().strip()
+    siteList = list(output.split())
+    return siteList
+    
 
 def PrepareJobScript(outputname):
     with open(outputname, "w") as outputfile:
@@ -266,11 +273,16 @@ input.close()
 condorFileName = outputmain+'/condorSubmit.sub'
 WriteSubmitFile(condorFileName)
 
-#if options.reducedSkim or options.nanoSkim:
-#    siteList = GetSiteListFromDAS(allInputFiles, dataset)
-#else:
-#    siteList = []
-siteList = []
+if options.reducedSkim or options.nanoSkim:
+    # siteList = GetSiteListFromDAS(allInputFiles, dataset)
+    siteList = GetDefaultCondorSites()
+    # apply exclusions
+    sitesToExclude = ["T2_TR_METU", "T2_UA_KIPT"]
+    for site in sitesToExclude:
+        if site in siteList:
+            siteList.remove(site)
+else:
+    siteList = []
 
 failedToSub = False
 print('submit jobs for', options.output.rstrip("/"))
