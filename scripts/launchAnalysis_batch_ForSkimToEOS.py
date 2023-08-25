@@ -7,10 +7,22 @@ import time
 import subprocess as sp
 import shlex
 import re
+import glob
+import math
 
 # --------------------------------------------------------------------------------
 # Helper functions
 # --------------------------------------------------------------------------------
+
+
+def GetTotalsFromEventsFile(eventsFile):
+    totalEvents = 0
+    totalFiles = 0
+    with open(eventsFile, "r") as theFile:
+        for line in theFile:
+            totalEvents += int(line.strip())
+            totalFiles += 1
+    return totalEvents, totalFiles
 
 
 def eos_isdir(path):
@@ -446,24 +458,15 @@ with open(options.inputlist, "r") as inputlist_file:
             continue
     
         dataset = line.strip().split("/")[-1].split(".txt")[0]
-    
-        sublist = line.strip()
-    
-        # n_largest_file_sizes_in_bytes = get_n_largest_file_sizes_in_bytes_in_inputlist ( 5, sublist )
-        # n_files = get_n_files ( sublist )
-        # n_largest_file_sizes_in_bytes_mean = get_mean ( n_largest_file_sizes_in_bytes  )
-        # effective_size = int(n_largest_file_sizes_in_bytes_mean * n_files)
-        # suggested_jobs = int(effective_size / 10000000000) + 1
-        # jobs_to_submit = min ( suggested_jobs, int(options.ijobmax))
+        eventsFilename = line.strip().replace(".txt", "_nevents.txt")
+        eventsFileList = glob.glob(eventsFilename)
         jobs_to_submit = int(options.ijobmax)
-    
-        # print sublist
-        # print "mean size        =", n_largest_file_sizes_in_bytes_mean
-        # print "effective size   =", effective_size
-        # print "n files          =", n_files
-        # print "n jobs suggested =", suggested_jobs
-        # print "n jobs allowed   =", options.ijobmax
-        # print "n jobs to submit =", jobs_to_submit
+        if len(eventsFileList) == 1:
+            # approx splitting by max events per job
+            totalNumEvents, totalNumFiles = GetTotalsFromEventsFile(eventsFileList[0])
+            maxEventsDesiredPerJob = 2.5e6
+            suggestedJobs = math.ceil(totalNumEvents/maxEventsDesiredPerJob)
+            jobs_to_submit = min ( suggestedJobs, int(options.ijobmax))
     
         if jobs_to_submit > 0:
             total_jobs = total_jobs + jobs_to_submit
