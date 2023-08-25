@@ -60,6 +60,10 @@ def GetTxtFileNameFromDataset(dataset):
       fileName += "_APV"
     elif "Run20" in dataset:
       fileName += "_"+datasetParts[2]
+    if "ext1" in dataset:
+      fileName += "_ext1"
+    elif "ext2" in dataset:
+      fileName += "_ext2"
     fileName += ".txt"
     return fileName
 
