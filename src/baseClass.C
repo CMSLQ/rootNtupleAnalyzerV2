@@ -2137,12 +2137,12 @@ std::vector<double> baseClass::getSumArrayFromTree(const std::string& fName, con
   }
 
   auto readerTools = std::unique_ptr<TTreeReaderTools>(new TTreeReaderTools(chain));
-  readerTools->LoadEntry(0);
-  unsigned int arraySize = readerTools->ReadArrayBranch<Double_t>(weightName).GetSize();
-  if(arraySize > 0 && arraySize != sumWeightArray.size())
-      sumWeightArray.resize(arraySize);
 
   if(readerTools->GetTree()->GetBranch(weightName.c_str())) { // data may not have the branch we want
+      readerTools->LoadEntry(0);
+      unsigned int arraySize = readerTools->ReadArrayBranch<Double_t>(weightName).GetSize();
+      if(arraySize > 0 && arraySize != sumWeightArray.size())
+          sumWeightArray.resize(arraySize);
       std::string exp = weightName;
       // suppress info messages
       int prevLevel = gErrorIgnoreLevel;
