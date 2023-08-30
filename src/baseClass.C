@@ -227,7 +227,7 @@ void baseClass::init()
   readInputList();
   Long64_t ret = tree_->LoadTree(0);
   if(ret < 0) {
-    STDOUT("baseClass::init(): Had an error of code " << ret << " when calling LoadTree(); exit");
+    STDOUT("baseClass::init(): Had an error of code " << ret << " when calling LoadTree(); entries = " << tree_->GetEntries() << ". exit");
     exit(1);
   }
   if(tree_ == NULL){
