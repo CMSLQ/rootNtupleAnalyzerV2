@@ -16,6 +16,7 @@ import time
 from graphlib import TopologicalSorter
 from collections import OrderedDict
 import pprint
+from termcolor import colored
 
 import combineCommon
 
@@ -140,7 +141,7 @@ def MakeCombinedSample(args):
                     lhePdfWeightSumw = 0
                     for hist in sampleHistos:
                         if "SumOfWeights" in hist.GetName():
-                            sumWeights = hist.GetBinContent(1)
+                            sumWeights = hist.GetBinContent(1) if "powhegMiNNLO" not in rootFilename else hist.GetBinContent(3)
                         elif "LHEPdfSumw" in hist.GetName():
                             lhePdfWeightSumw = hist.GetBinContent(1)  # sum[genWeight*pdfWeight_0]
                     doPDFReweight = False
@@ -200,12 +201,13 @@ def MakeCombinedSample(args):
                 if sample in samplesToSave:
                     dictFinalHisto[sample] = histoDictThisSample
             outputTfile.Close()
+            SavePrunedSystHistos(tfileNameTemplate.format(sample), tfileNameTemplate.format(sample).replace("_plots.root", "_plots_pruned.root"))
             #dictDatasetsFileNames[sample] = tfileNameTemplate.format(sample)
             #print("[{}] now dictDatasetsFileNames={}".format(sample, dictDatasetsFileNames), flush=True)
             visitedNodes[sample] = True
             finalizedTasksQueue.put(sample)
         except Exception as e:
-            print("ERROR: exception in MakeCombinedSample for sample={}".format(sample), flush=True)
+            print(colored("ERROR: exception in MakeCombinedSample for sample={}".format(sample), "red"), flush=True)
             traceback.print_exc()
             finalizedTasksQueue.put(None)
         finally:
@@ -440,9 +442,10 @@ if options.outputDir.startswith("/eos/"):
         try:
             proc = subprocess.run(shlex.split(cmd), check=True, universal_newlines=True, stdout=sp.PIPE, stderr=sp.PIPE)
         except subprocess.CalledProcessError as ex:
-            print("cmd '{}' failed.".format(cmd))
-            print("stdout = ", ex.stdout)
-            print("stderr = ", ex.stderr)
+            print(colored("cmd '{}' failed.".format(cmd), "red"))
+            print(colored("stdout = ", ex.stdout, "green"))
+            print(colored("stderr = ", ex.stderr, "red"))
+            raise RuntimeError("cmd {} failed".format(cmd))
 else:
     if not os.path.isdir(options.outputDir):
         os.makedirs(options.outputDir)
@@ -486,8 +489,7 @@ while ts.is_active():
         queuedSamplesDict[sample] = "Queued"
     sample = finalizedTasksQueue.get()
     if sample == None:
-        print("ERROR occurred in processing of sample.", flush=True)
-        exit(-1)
+        raise RuntimeError("ERROR occurred in processing of sample.")
     # print("Finalized samples: ", sample, flush=True)
     # del queuedSamplesDict[sample]
     # print("Status of in-progress samples: ", flush=True)
@@ -506,18 +508,20 @@ for node in visitedNodes:
 
 # check results?
 if len(result_list) < jobCount:
-    print("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
-    exit(-2)
+    raise RuntimeError("ERROR: {} jobs had errors.".format(jobCount-len(result_list)))
 print()
 print("INFO: Done with individual samples", flush=True)
 
 if not options.tablesOnly:
     ncores = 8  # always use more cores for hadd
     print("INFO: hadding individual samples using {} cores...".format(ncores), end=' ', flush=True)
-    outputTFileNameHadd = tfileOutputPath + "/" + options.analysisCode + "_plots_hadd.root"
+    # outputTFileNameHadd = tfileOutputPath + "/" + options.analysisCode + "_plots_hadd.root"
+    outputTFileNameHadd = tfileOutputPath + "/" + options.analysisCode + "_plots.root"
     # hadd -fk207 -j4 outputFileComb.root [inputFiles]
     args = ["hadd", "-fk207", "-j "+str(ncores), outputTFileNameHadd]
-    args.extend(sampleFiles)
+    filesToHadd = [sampleFile.replace("_plots.root", "_plots_pruned.root") for sampleFile in sampleFiles]
+    # args.extend(sampleFiles)
+    args.extend(filesToHadd)
     # print("INFO: run cmd: ", " ".join(args))
     timeStarted = time.time()
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -531,17 +535,19 @@ if not options.tablesOnly:
         for sample in dictSamples.keys():
             fileName = sampleTFileNameTemplate.format(sample).replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
             os.remove(fileName)
+            os.remove(fileName.replace("_plots.root", "_plots_pruned.root"))
             tableFile = fileName.replace(".root", ".dat").replace("plots", "tables")
             os.remove(tableFile)
     # now prune the hists and write in a new TFile
-    print("INFO: pruning output file...", end=' ', flush=True)
-    outputTFileName = outputTFileNameHadd.replace("_hadd", "")
-    timeStarted = time.time()
-    SavePrunedSystHistos(outputTFileNameHadd, outputTFileName)
-    timeDelta = time.time() - timeStarted
-    print("INFO: Finished file pruning in "+str(round(timeDelta/60.0, 2))+" mins.", flush=True)
-    os.remove(outputTFileNameHadd.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/"))
-    outputTfile = TFile.Open(outputTFileName)
+    # print("INFO: pruning output file...", end=' ', flush=True)
+    # outputTFileName = outputTFileNameHadd.replace("_hadd", "")
+    # timeStarted = time.time()
+    # SavePrunedSystHistos(outputTFileNameHadd, outputTFileName)
+    # timeDelta = time.time() - timeStarted
+    # print("INFO: Finished file pruning in "+str(round(timeDelta/60.0, 2))+" mins.", flush=True)
+    # os.remove(outputTFileNameHadd.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/"))
+    # outputTfile = TFile.Open(outputTFileName)
+    outputTfile = TFile.Open(outputTFileNameHadd)
     outputTfile.cd()
 
 # --- Write tables

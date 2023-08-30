@@ -44,13 +44,14 @@ def FindInputFiles(inputList, analysisCode, inputDir, skipSimilarDatasets=True):
         # print combineCommon.SanitizeDatasetNameFromInputList(dataset_fromInputList) + " ... ",
         # print combineCommon.SanitizeDatasetNameFromInputList(dataset_fromInputList),dataset_fromInputList,
         # sys.stdout.flush()
+        rootFileName = dataset_fromInputList + "*.root"
         rootFileName1 = (
             analysisCode
             + "___"
-            + dataset_fromInputList
-            + ".root"
+            + rootFileName
         )
         # rootFileName2 = rootFileName1.replace(".root", "_0.root")
+        fullPath = inputDir + "/" + dataset_fromInputList
         fullPath1 = inputDir
         # fullPath2: condor style with one job per dataset
         fullPath2 = (
@@ -63,8 +64,11 @@ def FindInputFiles(inputList, analysisCode, inputDir, skipSimilarDatasets=True):
             + "output"
         )
         completeNamesTried = []
-        fileList = glob.glob(fullPath1+"/"+rootFileName1)
-        completeNamesTried.append(fullPath1+"/"+rootFileName1)
+        fileList = glob.glob(fullPath+"/"+rootFileName)
+        completeNamesTried.append(fullPath+"/"+rootFileName)
+        if len(fileList) < 1:
+            fileList = glob.glob(fullPath1+"/"+rootFileName1)
+            completeNamesTried.append(fullPath1+"/"+rootFileName1)
         if len(fileList) < 1:
             newPathToTry = fullPath2+"/"+rootFileName1.replace(".root", "*.root")
             fileList = glob.glob(newPathToTry)
@@ -73,20 +77,6 @@ def FindInputFiles(inputList, analysisCode, inputDir, skipSimilarDatasets=True):
             newPathToTry = fullPath1+"/"+analysisCode+"___"+SanitizeDatasetNameFromInputList(dataset_fromInputList)+".root"
             fileList = glob.glob(newPathToTry)
             completeNamesTried.append(newPathToTry)
-        # if len(fileList) < 1:
-        #     newPathToTry = fullPath1+"/"+rootFileName1.replace("backup", "ext*").replace(".root", "*.root")
-        #     fileList = glob.glob(newPathToTry)
-        #     completeNamesTried.append(newPathToTry)
-        # if len(fileList) < 1:
-        #     rootFileNameWithoutExt = rootFileName1[:rootFileName1.find("ext")] + rootFileName1[rootFileName1.rfind("_")+1:]
-        #     newPathToTry = fullPath1+"/"+rootFileNameWithoutExt.replace(".root", "*.root")
-        #     fileList = glob.glob(newPathToTry)
-        #     completeNamesTried.append(newPathToTry)
-        # if len(fileList) < 1:
-        #     rootFileNameWithoutBackup = rootFileName1[:rootFileName1.find("backup")] + rootFileName1[rootFileName1.rfind("_")+1:]
-        #     newPathToTry = fullPath1+"/"+rootFileNameWithoutBackup.replace(".root", "*.root")
-        #     fileList = glob.glob(newPathToTry)
-        #     completeNamesTried.append(newPathToTry)
         if len(fileList) < 1:
             print()
             print("ERROR: could not find root file for dataset:", dataset_fromInputList)
@@ -1939,7 +1929,7 @@ def DeleteTmpFiles(allTmpFilesByMass):
 def WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath="/tmp"):
     tmpCardFileNameBasePath = "{}/tmpDatacard_m{}_card{}_{}"
     tmpCardFileName = tmpCardFileNameBasePath.format(dirPath, mass, cardIndex, os.path.basename(txtFilePath))
-    print("INFO: writing tmp datacard to {}".format(tmpCardFileName))
+    print("INFO: writing tmp datacard to {}".format(tmpCardFileName), flush=True)
     with open(tmpCardFileName, "w") as tmpCardFile:
         for lineToWrite in cardContent:
             tmpCardFile.write(lineToWrite+"\n")
@@ -1951,12 +1941,13 @@ def SeparateDatacards(txtFilePath, cardIndex, dirPath):
     tmpFileByMass = {}
     cardContent = []
     for line in open(os.path.expandvars(txtFilePath)):
-        if ".txt" in line:
+        match = re.match("LQ_M(\d+)\.txt", line)
+        if match is not None:
             if len(cardContent) > 0:
                 tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
                 tmpFileByMass[mass] = tmpFile
             cardContent = []
-            mass = line.split("M")[-1].split(".txt")[0]
+            mass = match.group(1)
             massList.append(mass)
         else:
             cardContent.append(line)
