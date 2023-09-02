@@ -1256,6 +1256,7 @@ void baseClass::runSystematics()
     }
     map<string, bool> combCutNameToPassFail;
     bool shiftValue = !syst.cutNamesToBranchNames.empty();
+    float nominalPDFWeight = 1;
     for(int i=0; i < currentLength; ++i) {
       float systVal = syst.value;
       if(shiftValue) {
@@ -1291,8 +1292,19 @@ void baseClass::runSystematics()
         evaluateCuts(systCutName_cut_, combCutNameToPassFail, orderedSystCutNames_);
       }
       else {
-        if(syst.formula)
+        if(syst.formula) {
           systVal = syst.formula->EvalInstance(i);
+          if(restrictPDFWeights_ && syst.name=="LHEPdfWeight") {
+            if(i==0)
+              nominalPDFWeight = systVal;
+            else {
+              //float oldSystVal = systVal;
+              systVal = systVal > 0 ? nominalPDFWeight*min(maxPDFWeightRatio_, systVal/nominalPDFWeight) : nominalPDFWeight*max(-1*maxPDFWeightRatio_, systVal/nominalPDFWeight);
+              //if(systVal != oldSystVal)
+              //  STDOUT("INFO: Truncated LHEPdfWeight index " << i << " from " << oldSystVal << " to " << systVal);
+            }
+          }
+        }
         else if(!syst.filled) {
           STDOUT("ERROR: For systematic " << syst.name << ", no formula was given and no filled value was found either! Did you forget to call fillSystVariableWithValue()?" <<
               " Can't compute systematic for this cut. Quitting.");
@@ -1331,8 +1343,9 @@ void baseClass::runSystematics()
             systHistUnweighted->Fill(xbinCoord, ybinCoord, systVal);
             currentSystematicsHist_->Fill(xbinCoord, ybinCoord, systVal);
             //int bin = currentSystematicsHist_->FindFixBin(xbinCoord, ybinCoord);
-            //if(syst.name == "nominal")
-            //  STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
+            ////if(syst.name == "nominal")
+            //if(syst.name=="LHEPdfWeight" && cutName == "preselection" && i > 40 && i < 45)
+            //  STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", index=" << i << ", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
             //      << ", syst. weight=weight*systVal="<<systCutName_cut_[cutName]->weight << "*"
             //      << systVal << "=" << systCutName_cut_[cutName]->weight*systVal << "; binContent=" << systHist->GetBinContent(bin));
           }

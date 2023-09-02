@@ -778,6 +778,8 @@ class baseClass {
 
     void resetSkimTreeBranchAddress(const std::string& branchName, void* addr);
 
+    void restrictPDFWeights(float maxRatio = 10.0) { restrictPDFWeights_ = true; maxPDFWeightRatio_ = maxRatio; }
+
     TFile * output_root_;
 
     std::shared_ptr<TTreeReaderTools> readerTools_;
@@ -902,6 +904,8 @@ class baseClass {
     TList systFormulas_;
     std::map<std::string, std::shared_ptr<cut>> systCutName_cut_;
     std::unique_ptr<TH2D> currentSystematicsHist_;
+    bool restrictPDFWeights_ = false;
+    float maxPDFWeightRatio_;
 };
 
 #endif
