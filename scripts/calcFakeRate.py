@@ -942,7 +942,9 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postMay2023/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 # filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/combinePlotsTest/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+#filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+#filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "/eos/user/e/eipearso/LQ/lqData/2018/qcdFakeRateCalc/calcFR_2018_Aug2023/newHEMHistos/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -962,15 +964,15 @@ elif "2018" in filename:
     analysisYear = 2018
     analysisYearStr = "2018"
 
-outputFileName = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/fakeRate_plots.root"
-pdf_folder = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/fakeRate_plots"
-fr2Dfilename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/fr2D_lte1Jet_postVFP.root"
+outputFileName = "/eos/user/e/eipearso/LQ/lqData/2018/qcdFakeRateCalc/calcFR_2018_Aug2023/newHEMHistos/fakeRate_plots.root"
+pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2018/qcdFakeRateCalc/calcFR_2018_Aug2023/newHEMHistos/fakeRate_plots"
+fr2Dfilename = "/eos/user/e/eipearso/LQ/lqData/2018/qcdFakeRateCalc/calcFR_2018_Aug2023/newHEMHistos/fr2D_2018.root"
 
 gROOT.SetBatch(True)
 writeOutput = True
 doMuz = False  # do Muzamil's plots
 plotZprimeFR = True
-doMCSubFR = True
+doMCSubFR = False
 doDataDrivenFR = True
 doFractionFit = False
 doHEEPBasedFR = True
@@ -1025,6 +1027,8 @@ else:
         "TrkIsoHEEP7vsHLTPt_post319077",
         "TrkIsoHEEP7vsHLTPt_noHEM_post319077",
         "TrkIsoHEEP7vsHLTPt_HEMonly_post319077",
+        "TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077",
+        "TrkIsoHEEP7vsHLTPt_HEMSameEtaAllPhi_pre319077",
     ]
 
 # ptBinsBarrel = [
@@ -1147,8 +1151,10 @@ ptBinsEndcapHEM1516Only = [
     350,
     400,
     500,
+    #600,
     1000,
 ]
+
 # use same barrel/endcap binning
 ptBinsBarrel = ptBinsEndcap
 ptBinsDict = {}
@@ -1167,7 +1173,12 @@ if analysisYear == 2018:
     ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMonly_post319077"][
         "End2"
     ] = ptBinsEndcapHEM1516Only
-
+    ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077"][
+        "End1"
+    ] = ptBinsEndcapHEM1516Only
+    ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077"][
+        "End2"
+    ] = ptBinsEndcapHEM1516Only
 allHistos = {}
 for varName in varNameList:
     allHistos[varName] = {}
