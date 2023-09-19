@@ -9,7 +9,7 @@ from pathlib import Path
 from optparse import OptionParser
 import re
 
-from combineCommon import SubtractTables, WriteTable
+from combineCommon import WriteTable
 
 from ROOT import TFile, gROOT, SetOwnership
 
@@ -77,33 +77,65 @@ def DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, dyjSingleFRHistos):
         assert(singleFRHisto.GetNbinsX() == doubleFRHisto.GetNbinsX())
         assert(singleFRHisto.GetNbinsY() == doubleFRHisto.GetNbinsY())
         assert(singleFRHisto.GetNbinsZ() == doubleFRHisto.GetNbinsZ())
+        # if "EventsPassingCuts" in singleFRHisto.GetName() and singleFRHisto.ClassName() == "TProfile":
+        #     print("\nINFO: doing verbose output for hist {} of type {}".format(singleFRHisto.GetName(), singleFRHisto.ClassName()))
+        #     verbose = True
+        #     binToUse = 65
+        if verbose:
+            content = singleFRHisto.GetBinContent(binToUse)
+            entries = singleFRHisto.GetBinEntries(binToUse)
+            print("INFO: {} histo bin {} has content {} and entries {} for a nominal yield = {}".format(singleFRHisto.GetName(),
+                binToUse, content, entries, content*entries))
+        if verbose:
+            content = dyjSingleFRHisto.GetBinContent(binToUse)
+            entries = dyjSingleFRHisto.GetBinEntries(binToUse)
+            print("INFO: {} histo bin {} has content {} and entries {} for a nominal yield = {}".format(dyjSingleFRHisto.GetName(),
+                binToUse, content, entries, content*entries))
         # first, subtract the DYJ from the singleFR
         result = singleFRHisto.Add(dyjSingleFRHisto, -1)
         if not result:
             raise RuntimeError("Something wrong happened while subtracting {} from {}.".format(dyjSingleFRHisto.GetName(), singleFRHisto.GetName()))
-        subHisto = SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose)
+        if verbose:
+            content = singleFRHisto.GetBinContent(binToUse)
+            entries = singleFRHisto.GetBinEntries(binToUse)
+            print("INFO: singleFR-DYJ histo bin {} has content {} and entries {} for a nominal yield = {}".format(
+                binToUse, content, entries, content*entries))
+        if verbose:
+            content = doubleFRHisto.GetBinContent(binToUse)
+            entries = doubleFRHisto.GetBinEntries(binToUse)
+            print("INFO: 2FR histo bin {} has content {} and entries {} for a nominal yield = {}".format(
+                binToUse, content, entries, content*entries))
+        SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose)
+        subHisto = singleFRHisto
+        if verbose:
+            content = subHisto.GetBinContent(binToUse)
+            entries = subHisto.GetBinEntries(binToUse)
+            print("INFO: singleFR-DYJ-2FR histo bin {} has content {} and entries {} for a nominal yield = {}".format(
+                binToUse, content, entries, content*entries))
         subHistos.append(subHisto)
     return subHistos
 
 
 def SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose = False):
     limit = 0.5
-    singleFRHistoNew = copy.deepcopy(singleFRHisto.Clone())
-    singleFRHistoNew.Reset()
+    doubleFRHistoNew = copy.deepcopy(doubleFRHisto.Clone())
     for globalBin in range(0, singleFRHisto.GetNcells()+1):
         singleBinContent = singleFRHisto.GetBinContent(globalBin)
         singleBinErrorSqr = pow(singleFRHisto.GetBinError(globalBin), 2)
         doubleBinContent = doubleFRHisto.GetBinContent(globalBin)
         doubleBinErrorSqr = pow(doubleFRHisto.GetBinError(globalBin), 2)
+        doubleBinError = doubleFRHisto.GetBinError(globalBin)
         if abs(doubleBinContent) > limit*abs(singleBinContent):
             # print("INFO: limited bin {} in histo {} to 50% of singleFR bin content = {:.2f}; singleFR orig content={:.2f}; doubleFR orig content={:.2f}".format(
             #     globalBin, singleFRHisto.GetName(), singleBinContent - limit*abs(singleBinContent), singleBinContent, doubleBinContent))
-            #FIXME ERROR? Probably still OK to take the double FR weights into the errors sums as usual.
-            doubleBinContent = limit*abs(singleBinContent)
-        binError = math.sqrt(singleBinErrorSqr + doubleBinErrorSqr)
-        singleFRHistoNew.SetBinContent(globalBin, singleBinContent - doubleBinContent)
-        singleFRHistoNew.SetBinError(globalBin, binError)
-    return singleFRHistoNew
+            if verbose:
+                print("INFO: for hist {}: limited bin {} from {} to {}".format(doubleFRHistoNew.GetName(), globalBin, doubleBinContent, limit*singleBinContent), flush=True)
+            doubleBinContent = limit*singleBinContent
+            doubleFRHistoNew.SetBinContent(globalBin, doubleBinContent)
+            # doubleFRHistoNew.SetBinError(globalBin, doubleBinError)
+    if not singleFRHisto.Add(doubleFRHistoNew, -1):
+        print("INFO: {} has {} xbins and {} has {} xbins".format(singleFRHisto.GetName(), singleFRHisto.GetNbinsX(), doubleFRHistoNew.GetName(), doubleFRHistoNew.GetNbinsX()))
+        raise RuntimeError("Add failed for histos {} and {}".format(singleFRHisto.GetName(), doubleFRHistoNew.GetName()))
 
 
 def ParseDatFile(datFilename, sampleName):
@@ -166,8 +198,8 @@ def SubtractTables(inputTable, tableToSubtractOrig, zeroNegatives=False, limitSu
                 #     tableToSubtract[j]["N"]= limit*float(outputTable[int(j)]["N"])
                 #     print("INFO: limited N to {}%".format(100%limit))
                 if abs(float(tableToSubtract[j]["Npass"])) > limit*abs(float(outputTable[int(j)]["Npass"])):
-                    print("INFO: limiting Npass to {:.2f}; originally {:.2f}, toSub {:.2f}".format(
-                        limit*abs(float(outputTable[int(j)]["Npass"])), float(outputTable[int(j)]["Npass"]), float(tableToSubtract[j]["Npass"])))
+                    print("INFO: table: limiting Npass for {} to {:.2f}; originally {:.2f}, toSub {:.2f} = {:.2f}*Npass".format(
+                        tableToSubtract[j]["variableName"], limit*abs(float(outputTable[int(j)]["Npass"])), float(outputTable[int(j)]["Npass"]), float(tableToSubtract[j]["Npass"]), float(tableToSubtract[j]["Npass"])/float(outputTable[j]["Npass"]) ))
                     tableToSubtract[j]["Npass"] = limit*abs(float(outputTable[int(j)]["Npass"]))
             # newN = float(outputTable[int(j)]["N"]) - float(tableToSubtract[j]["N"])
             newNpass = float(outputTable[int(j)]["Npass"]) - float(
@@ -239,7 +271,8 @@ def ScaleTable(inputTableOrig, scaleFactor, errScaleFactor):
 ####################################################################################################
 # RUN
 ####################################################################################################
-zjetMCSampleName = "ZJet_amcatnlo_ptBinned_IncStitch"
+# zjetMCSampleName = "ZJet_amcatnlo_ptBinned_IncStitch"
+zjetMCSampleName = "ZJet_powhegminnlo"
 qcdSampleName = "QCDFakes_DATA"
 # ---Option Parser
 usage = "usage: %prog [options] \nExample: \n./makeQCDYield.py -s /my/dir/with/plotsAndTablesFor1FREstimate -d /my/dir/with/plotsAndTablesFor2FREstimate -o /my/test//data/output"
@@ -315,15 +348,17 @@ doubleFRQCDTable = ParseDatFile(doubleFRTablesFile, qcdSampleName)
 print("INFO: Subtracting histograms...", flush=True, end='')
 subbedHistos = DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, singleFRDYJHistos)
 print("Done.")
-print("INFO: Subtracting tables...", flush=True, end='')
+
+print("INFO: Subtracting DYJ from 1FR tables...", flush=True, end='')
 singleFRQCDTableNoDYJ = SubtractTables(singleFRQCDTable, singleFRDYJTable)
+print("Done.")
+print("INFO: Subtracting 2FR from 1FR tables...", flush=True, end='')
 finalQCDYieldTable = SubtractTables(singleFRQCDTableNoDYJ, doubleFRQCDTable, False, True)
-# subbedTable = DoTableSubtraction(singleFRQCDTable, doubleFRQCDTable, singleFRDYJTable)
 subbedTable = finalQCDYieldTable
 print("Done.")
 
 tfilePath = options.outputDir+"/"+options.fileName
-print("INFO: Writing subtracted plots to {}...".format(tfilePath), flush=True)
+print("INFO: Writing subtracted plots to {} ...".format(tfilePath), flush=True)
 tfile = TFile.Open(tfilePath, "recreate", "", 207)
 tfile.cd()
 for histo in subbedHistos:
@@ -331,8 +366,8 @@ for histo in subbedHistos:
 tfile.Close()
 print("Done.")
 
-datFilePath = options.outputDir+"/"+options.fileName.replace(".root", ".dat")
-print("INFO: Writing subtracted tables to {}...".format(datFilePath), flush=True)
+datFilePath = options.outputDir+"/"+options.fileName.replace("_plots.root", "_tables.dat")
+print("INFO: Writing subtracted tables to {} ...".format(datFilePath), flush=True)
 WriteTable(singleFRQCDTable, "1FR", open(datFilePath, "w"))
 WriteTable(singleFRDYJTable, "DYJ1FR", open(datFilePath, "a"))
 WriteTable(singleFRQCDTableNoDYJ, "1FR-DYJ1FR", open(datFilePath, "a"))
