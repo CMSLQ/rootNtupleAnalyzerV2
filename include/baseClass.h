@@ -358,10 +358,14 @@ class baseClass {
     std::map<std::string, bool> combCutName_passed_;
 
     bool passJSON(int run, int ls, bool isData);
-    bool triggerExists   ( const char* name);
+    bool triggerExists   ( const char* name );
+    bool triggerExists   ( const std::string& name ) { return triggerExists(name.c_str()); }
     bool triggerFired    ( const char* name );
+    bool triggerFired    ( const std::string& name ) { return triggerFired(name.c_str()); }
     int  triggerPrescale ( const char* name );
+    int triggerPrescale  ( const std::string name ) { return triggerPrescale(name.c_str()); }
     void fillTriggerVariable ( const char * hlt_path, const char* variable_name, int extraPrescale=1 ) ;
+    void fillTriggerVariable ( const std::string& hlt_path, const std::string& variable_name, int extraPrescale=1 ) { return fillTriggerVariable(hlt_path.c_str(), variable_name.c_str(), extraPrescale); }
     void printTriggers();
     void printFiredTriggers();
     void getTriggers(Long64_t entry);
@@ -377,7 +381,7 @@ class baseClass {
       if( cc == cutName_cut_.end() )
       {
         STDOUT("ERROR: variableName = "<< s << " not found in cutName_cut_. Exiting.");
-        exit(-5);
+        throw std::runtime_error("ERROR: did not find variableName = "+s+" in cutNameToCut.");
       }
       else
       {
