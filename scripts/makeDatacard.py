@@ -474,6 +474,13 @@ def RoundToN(x, n):
         return x
 
 
+def GetSampleNameFromSubstring(substring, background_names):
+    sampleName = [sample for sample in background_names if substring in sample]
+    if len(sampleName) != 1:
+        raise RuntimeError("Could not find unique {} sample name in background_names with the given keys: {}".format(substring, background_names))
+    return sampleName[0]
+
+
 def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, latex=False):
     if evts == "-":
         return evts
@@ -645,8 +652,8 @@ def FillDicts(rootFilename, sampleNames, bkgType):
                 # print 'sampleName={}, sampleRate:',sampleRate,'sampleRateErr=',sampleRateErr,'sampleUnscaledRate=',sampleUnscaledRate
                 if selectionName == "preselection":
                     print("INFO: for sampleName={}, PRESELECTION ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
-                elif selectionName == "LQ1600":
-                    print("INFO: for sampleName={}, LQ1600 ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
+                elif selectionName == "LQ1700":
+                    print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
                 ratesDict[selectionName] = sampleRate
                 if ratesDict[selectionName] < 0:
                     print("WARN: for sample {}, selection {}: found negative rate: {}; set to zero. Had {} unscaled events.".format(sampleName, selectionName, sampleRate, sampleUnscaledRate))
@@ -681,7 +688,7 @@ def FillDicts(rootFilename, sampleNames, bkgType):
 
 blinded = True
 doSystematics = False
-doQCD = False
+doQCD = True
 doEEJJ = True
 doRPV = False  # to do RPV, set doEEJJ and doRPV to True
 forceGmNNormBkgStatUncert = False
@@ -689,32 +696,34 @@ forceGmNNormBkgStatUncert = False
 cc.finalSelectionName = "BDTOutput"
 # signalNameTemplate = "LQToUE_M-{}_BetaOne"
 signalNameTemplate = "LQToDEle_M-{}_pair"
-year = "2016preVFP"
-assumedBDTLQMass = 1100
+year = sys.argv[1]
 
 sampleListForMerging = "$LQANA/config/sampleListForMerging_13TeV_eejj_{}.yaml"
 #
 sampleListsForMergingQCD = "$LQANA/config/sampleListForMerging_13TeV_QCD_dataDriven_{}.yaml"
 #
 inputLists = {}
-inputLists["2016preVFP"] = "$LQANA/config/inputListsPSKEEJJ_UL16preVFP_1dec2022/inputListAllCurrent.txt"
+inputLists["2016preVFP"] = "$LQANA/config/inputListsAnalysisPreselSkim_UL16preVFP_4oct2023/inputListAllCurrent.txt"
+inputLists["2016postVFP"] = "$LQANA/config/inputListsAnalysisPreselSkim_UL16postVFP_4oct2023/inputListAllCurrent.txt"
 #
 qcdFilePaths = {}
-qcdFilePaths["2016preVFP"] = "$LQDATA/ultralegacy/analysis/2016preVFP/qcd_eejj_EGLooseFR_bdtParamFinalSels_7dec2022/output_cutTable_lq_eejj_BDT{}_QCD/".format(assumedBDTLQMass)
-#lqMass = 1700
-#qcdFilePaths[2016] = "$LQDATA/nanoV7/2016/analysis/qcd_eejj_finalSels_EGLooseFR_19jan2022/output_cutTable_lq_eejj_QCD/"
-#
-#dataDir = "$LQDATA/ultralegacy/analysis/2016preVFP/eejj_27oct2022_looserPresel_eleSFsTrigSFsLead_ele27AndPhoton175_fromPSK/output_cutTable_lq_eejj_looserPresel/"
-#analysisDir = "$LQANA/versionsOfAnalysis/2016/eejj/eejj_27oct2022_looserPresel_eleSFsTrigSFsLead_ele27AndPhoton175_fromPSK_2016preVFP/"
-#dataDir = "$LQDATA/ultralegacy/analysis/2016preVFP/eejj_19oct2022_tighterPresel_eleSFsTrigSFsLead_ele27AndPhoton175_fromPSK/output_cutTable_lq_eejj_preselOnly/"
-#analysisDir = "$LQANA/versionsOfAnalysis/2016/eejj/eejj_19oct2022_tighterPresel_eleSFsTrigSFsLead_ele27AndPhoton175_fromPSK_2016preVFP/"
-dataDir = "$LQDATA/ultralegacy/analysis/2016preVFP/eejj_7dec2022_bdtParamFinalSels_eleSFsTrigSFsLead_ele27AndPhoton175_fromPSK/output_cutTable_lq_eejj_BDT{}/".format(assumedBDTLQMass)
-analysisDir = "$LQANA/versionsOfAnalysis/2016/eejj/eejj_7dec2022_bdtParamFinalSels_eleSFsTrigSFsLead_ele27AndPhoton175_fromPSK_2016preVFP/"
+qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_10oct2023_heepFR_finalSels_paramBDT/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_10oct2023_heepFR_finalSels_paramBDT/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+# qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_10oct2023_heepFR_finalSels_dedicatedMassBDTs/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+# qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_10oct2023_heepFR_finalSels_dedicatedMassBDTs/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+
 filePaths = {}
-filePaths["2016preVFP"] = dataDir
+filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_10oct2023_heep_finalSels_paramBDT/output_cutTable_lq_eejj_BDT/"
+filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_10oct2023_heep_finalSels_paramBDT/output_cutTable_lq_eejj_BDT/"
+# filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_10oct2023_heep_finalSels_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT_dedicatedMasses/"
+# filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_10oct2023_heep_finalSels_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT_dedicatedMasses/"
 #
+xsecFileName = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
 xsecFiles = {}
-xsecFiles["2016preVFP"] = analysisDir+"xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
+xsecFiles["2016preVFP"] = "$LQANA/versionsOfAnalysis/2016preVFP/eejj/eejj_4oct2023_heep_preselOnly/"
+xsecFiles["2016postVFP"] = "$LQANA/versionsOfAnalysis/2016postVFP/eejj/eejj_4oct2023_heep_preselOnly/"
+for key in xsecFiles.keys():
+    xsecFiles[key] += xsecFileName
 
 if doEEJJ:
     sampleListForMerging = os.path.expandvars(sampleListForMerging.format(year))
@@ -786,12 +795,6 @@ dataMC_filepath = filePath + (
     if doEEJJ
     else "analysisClass_lq_enujj_MT_plots.root"
 )
-if doQCD:
-    qcd_data_filepath = qcdFilePath + (
-        "analysisClass_lq_eejj_QCD_plots.root"
-        if doEEJJ
-        else "analysisClass_lq_enujj_QCD_plots.root"
-    )
 if doEEJJ:
     # ttbar_data_filepath = ttbarFilePath + "analysisClass_lq_ttbarEst_plots.root"
     # SIC 6 Jul 2020 remove
@@ -807,6 +810,9 @@ do2018 = False
 if year == "2016preVFP":
     do2016preVFP = True
     cc.intLumi = 19501.601622000
+elif year == "2016postVFP":
+    do2016postVFP = True
+    cc.intLumi = 16812.151722000
 elif year == 2017:
     do2017 = True
     cc.intLumi = 41540.0
@@ -814,7 +820,7 @@ elif year == 2018:
     do2018 = True
     cc.intLumi = 59399.0
 else:
-    print("ERROR: could not find one of 2017/2017/2018 in inputfile path. cannot do year-specific customizations. quitting.")
+    print("ERROR: could not find one of 2016preVFP/2016postVFP/2017/2018 as year. Quitting.")
     exit(-1)
 do2016 = do2016preVFP or do2016postVFP
 if doRPV:
@@ -829,7 +835,7 @@ else:
     #]  # go from 300-3000 in 100 GeV steps
     ## mass_points.extend(["3500", "4000"])
     mass_points = [
-        str(i) for i in range(1100, 1800, 100)
+        str(i) for i in range(1000, 2100, 100)
     ]
 
 if doEEJJ:
@@ -868,18 +874,16 @@ if doEEJJ:
     ]
     # background_names =  [ "PhotonJets_Madgraph", "QCDFakes_DATA", "TTBarFromDATA", "ZJet_amcatnlo_ptBinned", "WJet_amcatnlo_ptBinned", "DIBOSON","SingleTop"  ]
     background_names = [
-        "ZJet_amcatnlo_ptBinned_IncStitch" if do2016 else "ZJet_jetAndPtBinned",
+        "ZJet_powhegminnlo",
+        # "ZJet_amcatnlo_ptBinned_IncStitch",
         # "TTBarFromDATA",
         "TTbar_powheg"] + (["QCDFakes_DATA"] if doQCD else []) + [
-        # "WJet_amcatnlo_ptBinned",
         "DIBOSON_nlo",
-        "TRIBOSON",
-        #"TTW",
-        #"TTZ",
-        "TTX",
+        # "TRIBOSON",
+        # "TTX",
         "SingleTop",
-        "WJet_amcatnlo_jetBinned",
-        "PhotonJets_Madgraph",
+        # "WJet_amcatnlo_jetBinned",
+        # "PhotonJets_Madgraph",
     ]
     background_fromMC_names = [bkg for bkg in background_names if "data" not in bkg.lower()]
     background_QCDfromData = [bkg for bkg in background_names if "data" in bkg.lower() and "qcd" in bkg.lower()]
@@ -903,12 +907,12 @@ if doEEJJ:
             "QCD_Norm": "QCD bkg. normalization",
     }
     otherBackgrounds = [
-        "PhotonJets_Madgraph",
-        "WJet_amcatnlo_jetBinned",
+        # "PhotonJets_Madgraph",
+        # "WJet_amcatnlo_jetBinned",
         "DIBOSON_nlo",
-        "TRIBOSON",
-        "TTW",
-        "TTZ",
+        # "TRIBOSON",
+        # "TTW",
+        # "TTZ",
         "SingleTop",
     ]
 else:
@@ -975,11 +979,14 @@ else:
         "SingleTop",
     ]
 
-backgroundTitlesDict = {"ZJet_amcatnlo_ptBinned_IncStitch": "Z+jets", "ZJet_amcatnlo_ptBinned": "Z+jets", "ZJet_jetAndPtBinned": "Z+jets", "TTbar_powheg": "TTbar", "QCDFakes_DATA": "QCD(data)", "WJet_amcatnlo_ptBinned": "W+jets", "WJet_amcatnlo_jetBinned": "W+jets",
-        "DIBOSON_nlo": "DIBOSON", "TRIBOSON": "TRIBOSON", "TTX": "TTX", "SingleTop": "SingleTop", "PhotonJets_Madgraph": "Gamma+jets"}
-backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 minLQselectionBkg = "LQ200"
+zjetsSampleName = GetSampleNameFromSubstring("ZJet", background_names)
+ttbarSampleName = GetSampleNameFromSubstring("TTbar", background_names)
+dibosonSampleName = GetSampleNameFromSubstring("DIBOSON", background_names)
 
+backgroundTitlesDict = {zjetsSampleName: "Z+jets", ttbarSampleName: "TTbar", "QCDFakes_DATA": "QCD(data)", "WJet_amcatnlo_ptBinned": "W+jets", "WJet_amcatnlo_jetBinned": "W+jets",
+        dibosonSampleName: "DIBOSON", "TRIBOSON": "TRIBOSON", "TTX": "TTX", "SingleTop": "SingleTop", "PhotonJets_Madgraph": "Gamma+jets"}
+backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 # SIC 6 Jul 2020 remove
 # if doEEJJ:
 #     ttBarNormDeltaXOverX = 0.01
@@ -1032,17 +1039,12 @@ signalNameList = [GetFullSignalName(signalNameTemplate, massPoint)[1] for massPo
 allBkgSysts = [syst for syst in systematicsNamesBackground if "norm" not in syst.lower() and "shape" not in syst.lower()]
 d_applicableSystematics = {bkg: list(allBkgSysts) for bkg in background_fromMC_names}
 d_applicableSystematics.update({bkg: "QCD_Norm" for bkg in background_QCDfromData})
-if do2016:
-    d_applicableSystematics["ZJet_amcatnlo_ptBinned_IncStitch"].append("DY_Norm")
-    d_applicableSystematics["ZJet_amcatnlo_ptBinned_IncStitch"].append("DY_Shape")
-    backgroundsToRenormSystAtPresel = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTbar_powheg"]
-else:
-    d_applicableSystematics["ZJet_jetAndPtBinned"].append("DY_Norm")
-    d_applicableSystematics["ZJet_jetAndPtBinned"].append("DY_Shape")
-    backgroundsToRenormSystAtPresel = ["ZJet_jetAndPtBinned", "TTbar_powheg"]
-d_applicableSystematics["TTbar_powheg"].append("TT_Norm")
-d_applicableSystematics["TTbar_powheg"].append("TT_Shape")
-d_applicableSystematics["DIBOSON_nlo"].append("Diboson_Shape")
+d_applicableSystematics[zjetsSampleName].append("DY_Norm")
+d_applicableSystematics[zjetsSampleName].append("DY_Shape")
+backgroundsToRenormSystAtPresel = [zjetsSampleName, ttbarSampleName]
+d_applicableSystematics[ttbarSampleName].append("TT_Norm")
+d_applicableSystematics[ttbarSampleName].append("TT_Shape")
+d_applicableSystematics[dibosonSampleName].append("Diboson_Shape")
 d_applicableSystematics.update({sig: systematicsNamesSignal for sig in signalNameList})
 datacard_filePath = "tmp_card_file.txt"
 plots_filePath = "plots.root"
@@ -1078,7 +1080,7 @@ for arg in sys.argv:
 print("Using tables:")
 print("\t Data/MC:", dataMC_filepath)
 if doQCD:
-    print("\t QCD(data):", qcd_data_filepath)
+    print("\t QCD(data):", qcdFilePath)
 else:
     print("\t No QCD used.")
 
@@ -1089,6 +1091,7 @@ dictSamples = cc.GetSamplesToCombineDict(sampleListForMerging)
 #dictSamples.update(dictSamplesQCD)
 # expand
 #dictSamples = cc.ExpandSampleDict(dictSamples)
+dictSamples = {k: v for k,v in dictSamples.items() if dictSamples[k]["save"]}
 
 d_systUpDeltas = {}
 d_systDownDeltas = {}
@@ -1129,7 +1132,7 @@ print("INFO: Filling background [MC] information...")
 d_background_rates, d_background_rateErrs, d_background_unscaledRates, d_background_totalEvents, d_background_systs = FillDicts(dataMC_filepath, list(dictSamples.keys()), "MC")
 if doQCD:
     print("INFO: Filling QCD[data] information...")
-    bgFromData_rates, bgFromData_rateErrs, bgFromData_unscaledRates, bgFromData_totalEvents, bgFromData_systs = FillDicts(qcd_data_filepath, background_QCDfromData, "DATA")
+    bgFromData_rates, bgFromData_rateErrs, bgFromData_unscaledRates, bgFromData_totalEvents, bgFromData_systs = FillDicts(qcdFilePath, background_QCDfromData, "DATA")
     d_background_rates.update(bgFromData_rates)
     d_background_rateErrs.update(bgFromData_rateErrs)
     d_background_unscaledRates.update(bgFromData_unscaledRates)
@@ -1339,9 +1342,10 @@ for i_signal_name, signal_name in enumerate(signal_names):
                 #         statErrorsPhotonJets, int(selectionName.replace("LQ", ""))
                 #     )
 
-            line_ln = "stat_" + background_name + " lnN -"
+            line_ln = "stat_" + year + "_" + background_name + " lnN -"
             line_gm = (
                 "stat_"
+                + year + "_"
                 + background_name
                 + " gmN "
                 + str(int(thisBkgUnscaledEvts))
@@ -1388,9 +1392,9 @@ for i_signal_name, signal_name in enumerate(signal_names):
                 raise RuntimeError(
                         "Found zero signal events or error [{} +/- {}] for the signal {} with selection {}".format(
                             thisSigEvts, thisSigEvtsErr, fullSignalName, selectionName))
-            line_ln = "stat_Signal lnN " + str(lnN_f)
+            line_ln = "stat_{}_Signal lnN ".format(year) + str(lnN_f)
             line_gm = (
-                "stat_Signal gmN " + str(int(thisSigUnscaledEvts)) + " " + str(gmN_weight)
+                "stat_{}_Signal gmN ".format(year) + str(int(thisSigUnscaledEvts)) + " " + str(gmN_weight)
             )
             for i_background_name, background_name in enumerate(background_names):
                 line_ln = line_ln + " -"
