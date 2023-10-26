@@ -22,6 +22,7 @@ def GetFileNamesAndNEvents(dataset):
         fileNameToEventsDict[lineSplit[0]] = lineSplit[1]
     if len(fileNameToEventsDict) <= 0:
         raise RuntimeError("Did not find any files for the dataset '{}' by running the command '{}'.  Please correct or remove this dataset from the inputlist file.".format(dataset, fullCommand))
+    fileNameToEventsDict = collections.OrderedDict(sorted(fileNameToEventsDict.items()))
     # sortedFileNameToSizes = sorted(fileNameToSizeDict.items(), key=lambda kv: int(kv[1]))
     # sortedFileNameToSizesDict = collections.OrderedDict(sortedFileNameToSizes)
     # # look at the sorted dict
