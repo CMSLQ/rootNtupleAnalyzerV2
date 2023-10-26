@@ -49,7 +49,7 @@ class SimpleCut {
     bool evaluatedPreviousCuts = false;
     bool passedPreviousCuts = false;
     ValueType value;
-    float weight = 1;
+    double weight = 1;
     float minValue1 = -999;
     float maxValue1 = -999;
     float minValue2 = -999;
@@ -57,6 +57,8 @@ class SimpleCut {
     char branchType = 'x';
     bool isStatic = false;
     bool computeSysts = false;
+    bool evaluatePreviousCuts = true;
+    std::string minimumSelectionToPass = "";
 
     std::string getValueTypeName() const {
       return std::visit( [](auto&&x)->decltype(auto){ return typeid(x).name(); }, value);
@@ -205,6 +207,7 @@ class TMVACut : public cut {
         if(!cut->filled) {
           cutsNotFilled+=cut->variableName+" ";
         }
+        //STDOUT("cut: " << cut->variableName << " value = " << cut->getValue<float>());
       }
       if(!cutsNotFilled.empty()) {
           STDOUT("ERROR: Cut(s) " << cutsNotFilled << " was not filled. Cannot evaluate TMVA model.");
@@ -214,6 +217,7 @@ class TMVACut : public cut {
       weight = (*(inputVariables.begin()))->weight; // FIXME: a bit of a gotcha here. to fix,
       // maybe we need to mark static variables as such so that we don't use them for the weight.
       value = static_cast<float>(reader->EvaluateMVA(modelName));
+      //STDOUT("BDT value = " << getValue<float>());
       filled = true;
       return cut::evaluateCut();
     }
@@ -245,7 +249,7 @@ class TMVACut : public cut {
     }
 
     TMVACut() = delete;
-    TMVACut(const std::string& modelName, const std::string& weightFileName) :
+    TMVACut(const std::string& modelName, const std::string& weightFileName, const std::string& minSelection) :
       modelName(modelName), weightFileName(weightFileName) {
         TMVA::Tools::Instance();
         //reader.reset(new TMVA::Experimental::RReader(weightFileName));
@@ -254,6 +258,8 @@ class TMVACut : public cut {
         xmlConfig = TMVA::Experimental::Internal::ParseXMLConfig(weightFileName);
         branchType = 'F';
         value = float(0.0);
+        evaluatePreviousCuts = false;
+        minimumSelectionToPass = minSelection;
       }
 
   private:
@@ -375,7 +381,7 @@ class baseClass {
     void resetCuts(const std::string& s = "newEvent");
     void fillSystVariableWithValue(const std::string&, const std::string&, const float&);
     void fillSystVariableWithValue(const std::string&, const float&);
-    template<typename T = float> void fillVariableWithValue(const std::string& s, const T& d, const float& w = 1.)
+    template<typename T = float> void fillVariableWithValue(const std::string& s, const T& d, const double& w = 1.)
     {
       auto&& cc = cutName_cut_.find(s);
       if( cc == cutName_cut_.end() )
@@ -391,11 +397,11 @@ class baseClass {
       }
       fillOptimizerWithValue(s, d);
     }
-    template<typename T = float> void fillVariableWithValue(const std::string& s, TTreeReaderValue<T>& reader, const float& w = 1.)
+    template<typename T = float> void fillVariableWithValue(const std::string& s, TTreeReaderValue<T>& reader, const double& w = 1.)
     {
       fillVariableWithValue(s, *reader, w);
     }
-    template<typename T = float> void fillArrayVariableWithValue(const std::string&, float*);
+    template<typename T = float> void fillArrayVariableWithValue(const std::string&, double*);
     template <typename T> void fillArrayVariableWithValue(const std::string& s, TTreeReaderArray<T>& reader);
     void evaluateCuts(bool verbose = false);
     template<typename T> void evaluateCuts(std::map<std::string, T>& cutNameToCut, std::map<std::string, bool>& combNameToPassFail, std::vector<std::string>& orderedCutNames, bool verbose = false);
@@ -429,6 +435,8 @@ class baseClass {
         STDOUT("ERROR: did not find variableName = "<<s<<" in cutNameToCut. Returning false.");
         return false;
       }
+      if(!cc->second->evaluatePreviousCuts) // only look at min selection level in this case
+        return passedAllPreviousCuts(cc->second->minimumSelectionToPass);
       if(!cc->second->evaluatedPreviousCuts) {
         for (auto& cutName : orderedCutNames) {
           auto& c = cutNameToCut.find(cutName)->second;
@@ -671,7 +679,7 @@ class baseClass {
           float selectionBin = 0.5+int(std::find(orderedSystCutNames_.begin(), orderedSystCutNames_.end(), selection)-orderedSystCutNames_.begin());
           float yBinCoord = 0.5;
           for(auto& syst : systematics_) {
-            float systWeight = currentSystematicsHist_->GetBinContent(selectionBin, yBinCoord);
+            double systWeight = currentSystematicsHist_->GetBinContent(selectionBin, yBinCoord);
             if(systWeight != 0)
               nh_h->second->Fill(value, yBinCoord, systWeight*weight);
             yBinCoord++;
@@ -682,7 +690,7 @@ class baseClass {
           float selectionBin = 0.5+int(std::find(orderedSystCutNames_.begin(), orderedSystCutNames_.end(), selection)-orderedSystCutNames_.begin());
           float yBinCoord = 0.5;
           for(auto& syst : systematics_) {
-            float systWeight = currentSystematicsHist_->GetBinContent(selectionBin, yBinCoord);
+            double systWeight = currentSystematicsHist_->GetBinContent(selectionBin, yBinCoord);
             if(systWeight != 0)
               nh_h->second->Fill(value, yBinCoord, systWeight*weight);
             yBinCoord++;
@@ -781,6 +789,15 @@ class baseClass {
     bool hasBranch(const std::string& branchName) { return readerTools_->GetTree()->GetBranch(branchName.c_str()); }
 
     void resetSkimTreeBranchAddress(const std::string& branchName, void* addr);
+    void addSkimTreeBranch(const std::string& branchName, void* addr, const std::string& formatStr)
+    {
+      if(skim_tree_->GetBranch(branchName.c_str())) {
+        throw std::runtime_error("addSkimTreeBranch() called with branchName = " + branchName + ", but this branch already exists in the tree. " +
+            "This function can only be called once (and with a variable address that is constant).");
+      }
+      STDOUT("Adding new branch to skim tree called " << branchName);
+      skim_tree_->Branch(branchName.c_str(), addr, formatStr.c_str());
+    }
 
     void restrictPDFWeights(float maxRatio = 10.0) { restrictPDFWeights_ = true; maxPDFWeightRatio_ = maxRatio; }
 

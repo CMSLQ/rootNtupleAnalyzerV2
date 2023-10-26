@@ -227,8 +227,7 @@ void baseClass::init()
   readInputList();
   Long64_t ret = tree_->LoadTree(0);
   if(ret < 0) {
-    STDOUT("baseClass::init(): Had an error of code " << ret << " when calling LoadTree(); entries = " << tree_->GetEntries() << ". exit");
-    exit(1);
+    STDOUT("baseClass::init(): Had an error of code " << ret << " when calling LoadTree(); entries = " << tree_->GetEntries());
   }
   if(tree_ == NULL){
     STDOUT("baseClass::init(): ERROR: tree_ = NULL ");
@@ -328,6 +327,8 @@ void baseClass::readInputList()
   int NBeforeSkim;
   sumGenWeights_ = 0;
   sumGenWeightSqrs_ = 0;
+  sumSignOnlyGenWeights_ = 0;
+  sumSignOnlyGenWeightSqrs_ = 0;
   sumTopPtWeights_ = 0;
   double tmpSumGenWeights = 0;
   double tmpSumGenWeightSqrs = 0;
@@ -563,26 +564,32 @@ void baseClass::readCutFile()
           //STDOUT("INFO: saving variable " << variableName << " using branchType=" << thisCut->branchType << "; its value _now_ has type " << varTypeName);
         }
         // TMVA cuts
-        // format: TMVACut:ModelName,preCutWeightFileName[,staticVar=value,staticVar2=value,...]
+        // format: TMVACut:ModelName,preCutWeightFileName,trainingSelectionCut[,staticVar=value,staticVar2=value,...]
         else if(flag.find("tmvacut:") != string::npos ) {
           string tmvaCutParams = flagOrig.substr(flag.find("tmvacut:")+8);
           vector<string> splitByCommas = ::split(tmvaCutParams, ',');
           if(splitByCommas.size() < 2) {
-            STDOUT("ERROR: TMVACut specifier must look like 'TMVACut:modelName,preCutNameForWeightFile[,stativVar=value,...]'. What was found looks like '" << flag << "' instead.");
+            STDOUT("ERROR: TMVACut specifier must look like 'TMVACut:modelName,preCutNameForWeightFile,trainingSelection[,stativVar=value,...]'. What was found looks like '" << flag << "' instead.");
             exit(-2);
           }
           string modelName = splitByCommas[0];
           if(!hasPreCut(splitByCommas[1]))
             throw runtime_error("baseClass::readCutFile: TMVACut was specified in cut file, but no weight file was found among the precuts.");
           string weightFile = getPreCutString1(splitByCommas[1]);
-          thisCut.reset(new TMVACut(modelName, weightFile));
+          string trainingSelection = splitByCommas[2];
+          if(cutName_cut_.find(trainingSelection) == cutName_cut_.end()) {
+            STDOUT("ERROR: For cut named " << variableName << ", did not find training selection cut " << trainingSelection << " in list of previously-defined cuts.");
+            STDOUT("TMVACut specifier must look like 'TMVACut:modelName,preCutNameForWeightFile,traningSelection[,stativVar=value,...]'. What was found looks like '" << flag << "' instead.");
+            exit(-2);
+          }
+          thisCut.reset(new TMVACut(modelName, weightFile, trainingSelection));
           isTMVACut = true;
-          if(splitByCommas.size() > 2) {
-            for(int index = 2; index < splitByCommas.size(); ++index) {
-              string param = splitByCommas[2];
+          if(splitByCommas.size() > 3) {
+            for(int index = 3; index < splitByCommas.size(); ++index) {
+              string param = splitByCommas[index];
               vector<string> splitByEquals = ::split(param, '=');
               if(splitByEquals.size() != 2) {
-                STDOUT("ERROR: Didn't understand TMVACut parameter '" << param << "'. TMVACut specifier must look like 'TMVACut:modelName,preCutNameForWeightFile[,stativVar=value,...]'. What was found looks like '" << flag << "' instead.");
+                STDOUT("ERROR: Didn't understand TMVACut parameter '" << param << "'. TMVACut specifier must look like 'TMVACut:modelName,preCutNameForWeightFile,traningSelection[,stativVar=value,...]'. What was found looks like '" << flag << "' instead.");
                 exit(-2);
               }
               staticParametersMap[splitByEquals[0]] = stof(splitByEquals[1]);
@@ -1622,7 +1629,8 @@ bool baseClass::updateCutEffic()
   for(const auto& cName : orderedCutNames_)
   {
     auto& c = cutName_cut_.at(cName);
-    if( passedAllPreviousCuts(cName) )
+    bool passedPreviousCuts = c->evaluatePreviousCuts ? passedAllPreviousCuts(cName) : passedAllPreviousCuts(c->minimumSelectionToPass);
+    if( passedPreviousCuts )
     {
       if( passedCut(cName) )
       {
@@ -1714,6 +1722,7 @@ bool baseClass::writeCutEfficFile()
   float minForFixed = 0.1;
   int precision = 4;
   int mainFieldWidth=20;
+  int nameFieldWidth=40;
   os.precision(precision);
   os << "################################## Cuts #########################################################################################################################################################################################################################\n"
      <<"#id                       variableName                min1                max1                min2                max2               level                   N               Npass              EffRel           errEffRel              EffAbs           errEffAbs"<<endl
@@ -1721,7 +1730,7 @@ bool baseClass::writeCutEfficFile()
   if(nPreviousSkimCuts_ < 1)
     os << fixed
       << setw(3) << cutIdPed
-      << setw(35) << "nocut"
+      << setw(nameFieldWidth) << "nocut"
       << setprecision(4)
       << setw(mainFieldWidth) << "-" //min1
       << setw(mainFieldWidth) << "-" //max1
@@ -1791,7 +1800,7 @@ bool baseClass::writeCutEfficFile()
       eventCutsEfficHist_->SetBinError(bincounter, effAbsErr);
       os << fixed
         << setw(3) << ++cutIdPed
-        << setw(35) << "skim"
+        << setw(nameFieldWidth) << "skim"
         << setprecision(4)
         << setw(mainFieldWidth) << "-"
         << setw(mainFieldWidth) << "-"
@@ -1828,7 +1837,7 @@ bool baseClass::writeCutEfficFile()
     effAbsErr = sqrt(p*q/N)*w;
     os << fixed
       << setw(3) << ++cutIdPed
-      << setw(35) << savedEventsPassingCuts->GetXaxis()->GetBinLabel(iBin)
+      << setw(nameFieldWidth) << savedEventsPassingCuts->GetXaxis()->GetBinLabel(iBin)
       << setprecision(4)
       << setw(mainFieldWidth) << "-"
       << setw(mainFieldWidth) << "-"
@@ -1914,25 +1923,44 @@ bool baseClass::writeCutEfficFile()
     {
       ssM2 << fixed << setprecision(4) << c->maxValue2;
     }
+    std::string variableNameStr = c->evaluatePreviousCuts ? c->variableName : "[" + c->minimumSelectionToPass + "]" + c->variableName;
     os << setw(3) << cutIdPed+c->id
-      << setw(35) << c->variableName
+      << setw(nameFieldWidth) << variableNameStr
       << setprecision(precision)
       << fixed
       << setw(mainFieldWidth) << ( ( c->minValue1 == std::numeric_limits<float>::lowest() ) ? "-inf" : ssm1.str() )
       << setw(mainFieldWidth) << ( ( c->maxValue1 == std::numeric_limits<float>::max() ) ? "+inf" : ssM1.str() )
       << setw(mainFieldWidth) << ( ( c->minValue2 > c->maxValue2 ) ? "-" : ssm2.str() )
       << setw(mainFieldWidth) << ( ( c->minValue2 > c->maxValue2 ) ? "-" : ssM2.str() )
-      << setw(mainFieldWidth) << c->level_int
-      << setw(mainFieldWidth) << ( (nEvtPassed_previousCut < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_previousCut
-      << setw(mainFieldWidth) << ( (c->nEvtPassed          < minForFixed) ? (scientific) : (fixed) ) << c->nEvtPassed
+      << setw(mainFieldWidth) << c->level_int;
+    if(c->evaluatePreviousCuts)
+      os << setw(mainFieldWidth) << ( (nEvtPassed_previousCut < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_previousCut;
+    else {
+      auto&& minSelCut = cutName_cut_.find(c->minimumSelectionToPass)->second;
+      double nEvtPassed_minSel = minSelCut->nEvtPassed;
+      double nEvtPassedBeforeWeight_minSel = minSelCut->nEvtPassedBeforeWeight;
+      os << setw(mainFieldWidth) << ( (nEvtPassed_minSel < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_minSel;
+      effRel = (double) c->nEvtPassed / nEvtPassed_minSel;
+      double N = nEvtPassedBeforeWeight_minSel;
+      double p = Np / N;
+      double q = 1-p;
+      double w = c->nEvtPassed / c->nEvtPassedBeforeWeight;
+      effRelErr = sqrt(p*q/N)*w;
+    }
+    os << setw(mainFieldWidth) << ( (c->nEvtPassed          < minForFixed) ? (scientific) : (fixed) ) << c->nEvtPassed
       << setw(mainFieldWidth) << ( (effRel                 < minForFixed) ? (scientific) : (fixed) ) << effRel
-      << setw(mainFieldWidth) << ( (effRelErr              < minForFixed) ? (scientific) : (fixed) ) << effRelErr
-      << setw(mainFieldWidth) << ( (effAbs                 < minForFixed) ? (scientific) : (fixed) ) << effAbs
-      << setw(mainFieldWidth) << ( (effAbsErr              < minForFixed) ? (scientific) : (fixed) ) << effAbsErr
-      << fixed << endl;
+      << setw(mainFieldWidth) << ( (effRelErr              < minForFixed) ? (scientific) : (fixed) ) << effRelErr;
+    if(c->evaluatePreviousCuts)
+      os << setw(mainFieldWidth) << ( (effAbs                 < minForFixed) ? (scientific) : (fixed) ) << effAbs
+        << setw(mainFieldWidth) << ( (effAbsErr              < minForFixed) ? (scientific) : (fixed) ) << effAbsErr;
+    else
+      os << setw(mainFieldWidth) << "-"
+        << setw(mainFieldWidth) << "-";
+    os << fixed << endl;
     nEvtPassedBeforeWeight_previousCut = c->nEvtPassedBeforeWeight;
     nEvtPassed_previousCut = c->nEvtPassed;
     ++allBinCounter;
+    //std::cout << "variable: " << c->variableName << ", value = " << setprecision(17) << c->nEvtPassed << std::endl;
   }
 
   // Write optimization histograms
@@ -2199,7 +2227,7 @@ double baseClass::getSumOfExpressionFromTree(const std::string& fName, const std
     if(events > 0)
         return htemp->Integral();
     else {
-        STDOUT("baseClass::getWeightSumFromEventsTree(): something went wrong drawing '" << exp << "' from " << treeName << " tree in file " << fName << " as requested.");
+        STDOUT("baseClass::getSumOfExpressionFromEventsTree(): something went wrong drawing '" << exp << "' from " << treeName << " tree in file " << fName << " as requested.");
         exit(-2);
     }
     return toReturn;
@@ -2284,7 +2312,7 @@ void baseClass::FillUserHist(const std::string& nameAndTitle, Double_t value, Do
       float selectionBinCoord = 0.5+int(selectionItr-orderedSystCutNames_.begin());
       unsigned int selectionBin = currentSystematicsHist_->GetXaxis()->FindFixBin(selectionBinCoord);
       for(unsigned int yBin = 1; yBin <= currentSystematicsHist_->GetNbinsY(); ++yBin) {
-        float systWeight = currentSystematicsHist_->GetBinContent(selectionBin, yBin);
+        double systWeight = currentSystematicsHist_->GetBinContent(selectionBin, yBin);
         float yBinCoord = currentSystematicsHist_->GetYaxis()->GetBinCenter(yBin);
         if(systWeight != 0)
           nh_h->second->Fill(value, yBinCoord, systWeight*weight);
