@@ -5,7 +5,7 @@ import sys
 import string
 from optparse import OptionParser
 import os
-from ROOT import TFile, gROOT, SetOwnership
+from ROOT import TFile, gROOT, SetOwnership, TObject
 import re
 import multiprocessing
 import traceback
@@ -22,10 +22,11 @@ import combineCommon
 
 
 def SavePrunedSystHistos(inputRootFileName, outputRootFileName):
-    classesToKeep = ["TH1", "TProfile"]
+    classesToKeep = ["TH1", "TProfile", "TMap"]
     myFile = TFile.Open(inputRootFileName)
     myOutputFile = TFile.Open(outputRootFileName, "recreate", "", 207)
     for key in myFile.GetListOfKeys():
+        nBytes = 0
         histoName = key.GetName()
         htemp = key.ReadObj()
         if not htemp or htemp is None:
@@ -34,9 +35,14 @@ def SavePrunedSystHistos(inputRootFileName, outputRootFileName):
             continue
         SetOwnership(htemp, True)
         myOutputFile.cd()
-        if "systematics" not in histoName.lower():
+        if "systematics" not in histoName.lower() or htemp.InheritsFrom("TMap"):
             myOutputFile.cd()
-            htemp.Write()
+            if htemp.InheritsFrom("TMap"):
+                nBytes = htemp.Write(htemp.GetName(), TObject.kSingleKey)
+            else:
+                nBytes = htemp.Write()
+            if nBytes <= 0:
+                raise RuntimeError("Error writing into the output file '{}': wrote {} bytes to file when writing object '{}' of class '{}'.".format(myOutputFile.GetName(), nbytes, histoName, htemp.ClassName()))
             continue
         pdfWeightLabels = [label.GetString().Data() for label in htemp.GetYaxis().GetLabels() if "LHEPdfWeight" in label.GetString().Data()]
         shapeSystLabels = [htemp.GetYaxis().GetBinLabel(yBin) for yBin in range(0, htemp.GetNbinsY()+1) if "LHEScaleWeight_" in htemp.GetYaxis().GetBinLabel(yBin)][1:]  # remove all but first and use that one for the comb.
@@ -44,7 +50,9 @@ def SavePrunedSystHistos(inputRootFileName, outputRootFileName):
         myOutputFile.cd()
         htemp = combineCommon.RemoveHistoBins(htemp, "y", binsToRemove)
         myOutputFile.cd()
-        htemp.Write()
+        nBytes = htemp.Write()
+        if nBytes <= 0:
+            raise RuntimeError("Error writing into the output file '{}': wrote {} bytes to file when writing object '{}' of class '{}'.".format(myOutputFile.GetName(), nbytes, histoName, htemp.ClassName()))
     myOutputFile.Close()
     myFile.Close()
 
@@ -173,7 +181,6 @@ def MakeCombinedSample(args):
                 if not options.tablesOnly:
                     #print("INFO: updating histo dict for sample={}, corrLHESysts={}".format(sample, corrLHESysts), flush=True)
                     histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC)
-                    #print("INFO: tmap looks like", {value.GetName() for value in histoDictThisSample.values() if "tmap" in value.GetName()})
                 piecesAdded.append(matchingPiece)
 
             # validation of combining pieces
