@@ -117,7 +117,7 @@ endif()
 #)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/analysisClassQCD.C AND NOT IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/analysisClassQCD.C)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/analysisClassQCD.C AND NOT IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/analysisClassQCD.C AND NOT REDUCED_SKIM)
   set(HAS_QCD TRUE)
       message("
       Found analysisClassQCD.C, so building mainQCD binary using it.
