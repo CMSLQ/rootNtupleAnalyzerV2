@@ -62,23 +62,18 @@ def PrepareJobScript(outputname):
         outputfile.write('  echo "./'+execName+' return error code=$retVal; quitting here."\n')
         outputfile.write('  exit $retVal\n')
         outputfile.write('fi\n')
-        # for lxbatch
-        if options.queue is not None:
-            outputfile.write("mv -v "+outputPrefix+"_"+str(ijob)+".root"+" "+outputmain+"/output/"+"\n")
-            outputfile.write("mv -v "+outputPrefix+"_"+str(ijob)+".dat"+" "+outputmain+"/output/"+"\n")
-        else:
-            # try this to get xrd stuff available on cms connect
-            #outputfile.write("source /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/current/el7-x86_64/setup.sh\n")
-            pass
+        outputfile.write("xrdfs "+options.eosHost+" mkdir -p \""+outputcondoreosdir+"\"\n")
+        outputfile.write("xrdcp -fs "+"\""+outputPrefix+"_"+str(ijob)+".root\" \""+options.eosHost+outputcondoreosdir+"/"+dataset+"_"+str(ijob)+".root\"\n")
+        outputfile.write("xrdcp -fs "+"\""+outputPrefix+"_"+str(ijob)+".dat\" \""+options.eosHost+outputcondoreosdir+"/"+dataset+"_"+str(ijob)+".dat\"\n")
         if options.reducedSkim:
             outputfile.write("if [ -f "+outputPrefix+"_"+str(ijob)+"_reduced_skim.root ]; then\n")
-            outputfile.write("    xrdfs "+options.eosHost+" mkdir \""+outputeosdir+"\"\n")
-            outputfile.write("    xrdcp -fs "+"\""+outputPrefix+"_"+str(ijob)+"_reduced_skim.root\" \""+options.eosHost+outputeosdir+"/"+dataset+"_"+str(ijob)+"_rsk.root\"\n")
+            outputfile.write("    xrdfs "+options.eosHost+" mkdir -p \""+outputskimeosdir+"\"\n")
+            outputfile.write("    xrdcp -fs "+"\""+outputPrefix+"_"+str(ijob)+"_reduced_skim.root\" \""+options.eosHost+outputskimeosdir+"/"+dataset+"_"+str(ijob)+"_rsk.root\"\n")
         else:
             # flat skim
             outputfile.write("if [ -f "+outputPrefix+"_"+str(ijob)+"_skim.root ]; then\n")
-            outputfile.write("    xrdfs "+options.eosHost+" mkdir \""+outputeosdir+"\"\n")
-            outputfile.write("    xrdcp -fs "+"\""+outputPrefix+"_"+str(ijob)+"_skim.root\" \""+options.eosHost+outputeosdir+"/"+dataset+"_"+str(ijob)+"_sk.root\"\n")
+            outputfile.write("    xrdfs "+options.eosHost+" mkdir -p \""+outputskimeosdir+"\"\n")
+            outputfile.write("    xrdcp -fs "+"\""+outputPrefix+"_"+str(ijob)+"_skim.root\" \""+options.eosHost+outputskimeosdir+"/"+dataset+"_"+str(ijob)+"_sk.root\"\n")
         outputfile.write("fi\n")
 
 
@@ -222,8 +217,9 @@ dataset = outputPrefix.split("___")[-1]
 ################################################
 # create eos dir
 ################################################
-outputeosdir = options.eosDir
-outputeosdir = outputeosdir.rstrip('/') + '/' + dataset
+outputeosdir = options.eosDir.rstrip('/') + '/' + dataset
+outputcondoreosdir = options.eosDir.rstrip('/') + '/condor/' + dataset
+outputskimeosdir = options.eosDir.rstrip('/') + '/skim/' + dataset
 ################################################
 with open(inputlist, "r") as inputFile:
     allInputFiles = inputFile.readlines()
