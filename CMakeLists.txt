@@ -117,6 +117,15 @@ endif()
 #)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/analysisClassQCD.C AND NOT IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/analysisClassQCD.C)
+  set(HAS_QCD TRUE)
+      message("
+      Found analysisClassQCD.C, so building mainQCD binary using it.
+")
+else()
+  set(HAS_QCD FALSE)
+endif()
+
 if(REDUCED_SKIM)
   add_executable(main
     src/TTreeReaderTools.C
@@ -153,15 +162,21 @@ else()
     src/main.C
     src/analysisClass.C
     src/baseClass.C
-    src/Collection.C
-    src/Electron.C
-    src/ElectronIDs.C
-    src/LooseElectron.C
     src/HistoReader.C
-    src/Object.C
     src/jsonParser.C
     src/QCDFakeRate.C
     )
+  if(HAS_QCD)
+    add_executable(mainQCD
+      src/TTreeReaderTools.C
+      src/main.C
+      src/analysisClassQCD.C
+      src/baseClass.C
+      src/HistoReader.C
+      src/jsonParser.C
+      src/QCDFakeRate.C
+      )
+  endif()
 endif()
 
 if(REDUCED_SKIM)
@@ -188,4 +203,16 @@ else()
     ROOT::Physics
     ROOT::TMVA
     )
+  if(HAS_QCD)
+    target_link_libraries(mainQCD
+      PUBLIC
+      Boost::iostreams
+      Boost::regex
+      ROOT::Hist
+      ROOT::Tree
+      ROOT::TreePlayer
+      ROOT::Physics
+      ROOT::TMVA
+      )
+  endif()
 endif()
