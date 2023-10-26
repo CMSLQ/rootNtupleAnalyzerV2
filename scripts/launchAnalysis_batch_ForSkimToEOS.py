@@ -427,14 +427,16 @@ if options.reducedSkim or options.nanoSkim:
 # --------------------------------------------------------------------------------
 # Check if path is a link
 # --------------------------------------------------------------------------------
+nameToCheck = "analysisClass"
+if "qcd" in options.executable.lower():
+    nameToCheck = "analysisClassQCD"
+print("Checking the link to {}...".format(nameToCheck), end=' ')
 
-print("Checking the link to analysisClass.C...", end=' ')
-
-if not os.path.islink("src/analysisClass.C"):
+if not os.path.islink("src/{}.C".format(nameToCheck)):
     print()
-    print("Error: src/analysisClass.C is not a symbolic link")
+    print("Error: src/{}.C is not a symbolic link".format(nameToCheck))
     sys.exit()
-code_name = os.readlink("./src/analysisClass.C").split("/")[-1].split(".C")[0]
+code_name = os.readlink("./src/{}.C".format(nameToCheck)).split("/")[-1].split(".C")[0]
 
 print("... done")
 
@@ -521,8 +523,11 @@ for cmd in cmdsToRun:
     except sp.CalledProcessError as ex:
         print("stdout = ", ex.stdout)
         print("stderr = ", ex.stderr)
-        raise ex
-    output = proc.stdout
+        print("Failed submitting jobs for this dataset; add to failedCommands list")
+        failedCommands.append(cmd)
+        # raise ex
+        continue
+    output = proc.stdout.strip()
     print(output)
     jobsThisDataset = int(re.search("(\d+)\sjob\(s\)\ssubmitted", output).group(1))  # parse from condor_submit output
     submitted_jobs += jobsThisDataset
