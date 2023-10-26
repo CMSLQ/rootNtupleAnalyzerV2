@@ -108,6 +108,10 @@ def SanitizeDatasetNameFromInputList(dataset_fromInputList):
     # it was causing problems for me that the v9-v* was being left on here but removed in SanitizeDatasetNameFromFullDataset - Emma
     if dataset_fromInputList.find("_NanoAODv")>0:
         dataset_fromInputList = dataset_fromInputList[:dataset_fromInputList.find("_NanoAODv")+8]
+    # remove extN trailers
+    extNMatch = re.search("ext\d+", dataset_fromInputList)
+    if extNMatch is not None and extNMatch.endpos == len(dataset_fromInputList):
+        dataset_fromInputList = dataset_fromInputList[:-5]
     dataset_fromInputList = dataset_fromInputList.rstrip("_")
     return dataset_fromInputList
 
@@ -1475,6 +1479,7 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
         histName = histo.GetName()
         nbytes = 0
         if histo.ClassName() == "TMap":
+            # print("INFO: Write TMap with name: {}".format(histo.GetName()), flush=True)
             nbytes = histo.Write(histo.GetName(), r.TObject.kSingleKey)
         elif "TH2" in histo.ClassName() and "systematics" in histo.GetName().lower():
             pdfWeightLabels = [label.GetString().Data() for label in histo.GetYaxis().GetLabels() if "LHEPdfWeight" in label.GetString().Data() and "comb" not in label.GetString().Data().lower()]
@@ -1929,7 +1934,7 @@ def DeleteTmpFiles(allTmpFilesByMass):
 def WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath="/tmp"):
     tmpCardFileNameBasePath = "{}/tmpDatacard_m{}_card{}_{}"
     tmpCardFileName = tmpCardFileNameBasePath.format(dirPath, mass, cardIndex, os.path.basename(txtFilePath))
-    print("INFO: writing tmp datacard to {}".format(tmpCardFileName), flush=True)
+    # print("INFO: writing tmp datacard to {}".format(tmpCardFileName), flush=True)
     with open(tmpCardFileName, "w") as tmpCardFile:
         for lineToWrite in cardContent:
             tmpCardFile.write(lineToWrite+"\n")
@@ -1954,4 +1959,5 @@ def SeparateDatacards(txtFilePath, cardIndex, dirPath):
     if len(cardContent) > 0:
         tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
         tmpFileByMass[mass] = tmpFile
+    print("INFO: Wrote tmp datacards obtained from {} for masses {} to {}".format(txtFilePath, massList, dirPath), flush=True)
     return massList, tmpFileByMass
