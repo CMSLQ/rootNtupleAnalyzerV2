@@ -258,7 +258,8 @@ if len(cmdsToRun) > 0:
         procs = [subprocess.Popen(shlex.split(i), stdout=subprocess.PIPE) for i in cmds]
         for idx, p in enumerate(procs):
             output = p.communicate()[0]
-            numOutputFiles = len(output.split())
+            rootFiles = [thisFile for thisFile in output.decode().split() if ".root" in thisFile]
+            numOutputFiles = len(rootFiles)
             datasetInfoDict[datasets[idx]]["numOutputFiles"] = numOutputFiles
             if numOutputFiles != datasetInfoDict[datasets[idx]]["numExpectedOutputFiles"]:
                 datasetInfoDict[datasets[idx]]["OK"] = False
