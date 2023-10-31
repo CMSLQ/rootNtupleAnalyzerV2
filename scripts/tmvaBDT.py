@@ -18,7 +18,7 @@ from optparse import OptionParser
 from combineCommon import ParseXSectionFile, lookupXSection
 
 import ROOT
-from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph
+from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad
 
 class Sample:
     def __init__(self, name, subSampleList, subSampleWeights):
@@ -56,6 +56,14 @@ def CheckRootFiles(fileList, treeName):
         tfile.Close()
 
 
+def GetSumWeightsInChain(tchain, cut, weight):
+    df = RDataFrame(tchain)
+    df = df.Filter(cut.GetTitle())
+    df = df.Define('eventWeight', eventWeightExpression)
+    sumWeights =  df.Sum("eventWeight").GetValue()
+    return sumWeights*weight
+
+
 def LoadChainFromTxtFile(txtFile, console=None):
     txtFile = os.path.expandvars(txtFile)
     if not os.path.isfile(txtFile):
@@ -86,36 +94,40 @@ def LoadChainFromTxtFile(txtFile, console=None):
 
 def LoadDatasets(datasetDict, neededBranches, signal=False, loader=None, year=None, lqMass=None, nLQPoints=1):
     nTotEvents = 0
+    nTotSumWeights = 0
+    cut = mycuts if signal else mycutb
     if loader is None:
         totalTChain = TChain("rootTupleTree/tree")
     for key, value in datasetDict.items():
         print("Loading tree for dataset={}; signal={}".format(key, signal))
         if isinstance(value, list):
-            # print(value)
             nSampleTotEvents = 0
+            nSampleSumWeights = 0
             for count, txtFile in enumerate(value):
                 txtFile = txtFile.format(year, lqMass)
                 ch = LoadChainFromTxtFile(txtFile)
                 if ch is None:
                     continue
-                nSampleTotEvents+=ch.GetEntries()
+                nSampleTotEvents += ch.GetEntries()
                 datasetName = os.path.basename(txtFile).replace(".txt", "")
                 if "data" not in key.lower():
                     sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
                     weight = CalcWeight(datasetName, intLumi, sumWeights)
                 else:
                     weight = 1.0
+                nSampleSumWeights = GetSumWeightsInChain(ch, cut, weight)
                 print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
                 if loader is not None:
                     if signal:
                         loader.AddSignalTree    ( ch, weight )
                     else:
                         loader.AddBackgroundTree( ch, weight/nLQPoints )
-                    print("Loaded tree from file {} with {} events.".format(txtFile, ch.GetEntries()))
+                    print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
                 else:
                     totalTChain.Add(ch)
-            print("Loaded tree for sample {} with {} entries.".format(key, nSampleTotEvents))
-            nTotEvents+=nSampleTotEvents
+            print("Loaded tree for sample {} with {} entries; sumWeights={}.".format(key, nSampleTotEvents, nSampleSumWeights))
+            nTotEvents += nSampleTotEvents
+            nTotSumWeights += nSampleSumWeights
         else:
             txtFile = value
             txtFile = txtFile.format(lqMass)
@@ -129,17 +141,20 @@ def LoadDatasets(datasetDict, neededBranches, signal=False, loader=None, year=No
                 weight = CalcWeight(datasetName, intLumi, sumWeights)
             else:
                 weight = 1.0
+            nSampleSumWeights = GetSumWeightsInChain(ch, cut, weight)
             print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
             if loader is not None:
                 if signal:
                     loader.AddSignalTree    ( ch, weight )
                 else:
                     loader.AddBackgroundTree( ch, weight/nLQPoints )
+                print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
             else:
                 totalTChain.Add(ch)
-            print("Loaded tree for sample {} with {} entries.".format(key, nSampleTotEvents))
-            nTotEvents+=nSampleTotEvents
-    print("Total: loaded tree with {} entries.".format(nTotEvents))
+            print("Loaded tree for sample {} with {} entries; sumWeights={}".format(key, nSampleTotEvents, nSampleSumWeights))
+            nTotEvents += nSampleTotEvents
+            nTotSumWeights += nSampleSumWeights
+    print("Total: loaded tree with {} entries; sumWeights={}".format(nTotEvents, nTotSumWeights))
     sys.stdout.flush()
     if loader is None:
         return totalTChain
@@ -399,16 +414,18 @@ def OptimizeBDTCut(args):
         sys.stdout.flush()
         sys.stderr.flush()
         # backgrounds
-        histTitle = "Classifier Output on background for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
-        histName = "BDTOutputTotalBackgroundLQM" + str(lqMassToUse)
-        bkgTotal = TH1D(histName, histTitle, binsToUse, -1, 1)
-        bkgTotalUnweighted = TH1D(histName+"Unweighted", histTitle+" (unweighted)", binsToUse, -1, 1)
-        bkgHists = []
+        histTitle = "Classifier Output on {} background for " + name + ", M_{{LQ}} = " + str(lqMassToUse) + " GeV"
+        histName = "BDTOutput{}LQM" + str(lqMassToUse)
+        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1, 1)
+        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1, 1)
+        bkgHists = dict()
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
         for sample in backgroundDatasetsDict.keys():
             bkgSampleIntegralOverCut = 0
             bkgSampleIntegral = 0
+            bkgSampleIntegralHist = 0
+            bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
                 #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
@@ -446,28 +463,45 @@ def OptimizeBDTCut(args):
                     bkgWeight = CalcWeight(datasetName, intLumi, sumWeights)
                 else:
                     bkgWeight = 1.0
+                histBkg = histBkg.GetValue()
                 histBkg.Scale(bkgWeight)
-                bkgTotal.Add(histBkg.GetPtr())
+                bkgHists[sample].Add(histBkg)
+                bkgTotal.Add(histBkg)
                 bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
                 #h = df.Histo1D(hbkg, "BDT", "eventWeight")
                 #h.Draw()
                 bkgIntegral = df.Sum("eventWeight").GetValue()*bkgWeight
-                bkgIntegralOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Sum("eventWeight").GetValue()*bkgWeight
-                bkgEntriesOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Count().GetValue()
+                # bkgIntegralOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Sum("eventWeight").GetValue()*bkgWeight
+                # bkgEntriesOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Count().GetValue()
                 print("subsample={}, bkgWeight={}".format(txtFile, bkgWeight), flush=True)
-                print("subsample={}, entries = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, histBkg.GetPtr().GetEntries(), histBkg.GetPtr().Integral()/bkgWeight, histBkg.GetPtr().Integral()), flush=True)
+                print("subsample={}, entries = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, histBkg.GetEntries(), histBkg.Integral()/bkgWeight, histBkg.Integral()), flush=True)
                 print("subsample={}, df entries = {}, df integral unweighted = {}, df integral weighted = {}".format(txtFile, df.Count().GetValue(), df.Sum("eventWeight").GetValue(), df.Sum("eventWeight").GetValue()*bkgWeight), flush=True)
-                print("subsample={}, entries with BDT > {} = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, cutValForIntegral, bkgEntriesOverCut, bkgIntegralOverCut/bkgWeight, bkgIntegralOverCut))
+                # print("subsample={}, entries with BDT > {} = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, cutValForIntegral, bkgEntriesOverCut, bkgIntegralOverCut/bkgWeight, bkgIntegralOverCut))
                 sys.stdout.flush()
                 # print some entries
-                #cols = ROOT.vector('string')()
-                #cols.push_back("run")
-                #cols.push_back("event")
-                #cols.push_back("ls")
-                #cols.push_back("eventWeight")
-                #cols.push_back("BDT")
-                #d2 = df.Display(cols)
-                #d2.Print()
+                # if sample == "QCDFakes_DATA":
+                #     cols = ROOT.vector('string')()
+                #     cols.push_back("run")
+                #     cols.push_back("event")
+                #     cols.push_back("ls")
+                #     # cols.push_back("eventWeight")
+                #     cols.push_back("sT_eejj")
+                #     cols.push_back("PFMET_Type1_Pt")
+                #     cols.push_back("M_e1e2")
+                #     cols.push_back("M_e1j1")
+                #     cols.push_back("M_e1j2")
+                #     cols.push_back("M_e2j1")
+                #     cols.push_back("M_e2j2")
+                #     cols.push_back("Ele1_Pt")
+                #     cols.push_back("Ele2_Pt")
+                #     cols.push_back("MejMin")
+                #     cols.push_back("MejMax")
+                #     cols.push_back("Meejj")
+                #     cols.push_back("BDT")
+                #     df2 = df.Filter("run==276831 && event==2249978927 && ls==1240")
+                #     display = df2.Display(cols, 5, 20)
+                #     # display.Print()
+                #     print(display.AsString(), flush=True)
                 #
                 # if "photon" in txtFile.lower() and bkgIntegralOverCut > 0:
                 #     cols = ROOT.vector('string')()
@@ -482,7 +516,8 @@ def OptimizeBDTCut(args):
                 #bkgTotIntegralOverCut += bkgIntegralOverCut
                 #bkgSampleIntegralOverCut += bkgIntegralOverCut
                 bkgSampleIntegral += bkgIntegral
-            print("sample={}, events = {}".format(sample, bkgSampleIntegral), flush=True)
+                bkgSampleIntegralHist += histBkg.Integral()
+            print("sample={}, events = {} [df], from hist = {}".format(sample, bkgSampleIntegral, bkgSampleIntegralHist), flush=True)
             #print("sample={}, events over BDT cut = {}".format(sample, bkgSampleIntegralOverCut))
         # print("bkgIntegralOverCut={}".format(bkgIntegralOverCut), flush=True)
 
@@ -556,7 +591,7 @@ def OptimizeBDTCut(args):
             # require at least one background event expected
             if nB > 1:
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
-                #fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
+                # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 #fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
             else:
                 fom = 0.0
@@ -606,6 +641,21 @@ def OptimizeBDTCut(args):
         nBErr = ctypes.c_double()
         sharedFOMInfoDict[lqMassToUse]["nBUnweightedNoBDTCut"] = bkgTotalUnweighted.IntegralAndError(1, bkgTotal.GetNbinsX(), nBErr)
         sharedFOMInfoDict[lqMassToUse]["nBErrUnweightedNoBDTCut"] = nBErr.value
+        cutVal = maxVal[1][1]
+        print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
+        for sample, hist in bkgHists.items():
+            cutBin = hist.FindFixBin(cutVal)
+            nBErr = ctypes.c_double()
+            nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
+            nBErr = nBErr.value
+            bkgIntegral = hist.Integral()
+            print(f"Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f}, fullYield={bkgIntegral:4.6f}", flush=True)
+        cutBin = bkgTotal.FindFixBin(cutVal)
+        nBErr = ctypes.c_double()
+        nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
+        nBErr = nBErr.value
+        bkgIntegral = bkgTotal.Integral()
+        print(f"Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f}, fullYield={bkgIntegral:4.6f}", flush=True)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -755,7 +805,8 @@ def GetMassFloat(mass):
 
 def PrintBDTCuts(optValsDict, parametrized):
     for mass, valList in optValsDict.items():
-        print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valList))
+        valListFormatted = ["{:0.4f}".format(i) for i in valList]
+        print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
     sortedDict = OrderedDict(sorted(optValsDict.items(), key=lambda t: float(t[1][2])))
     for mass, valList in sortedDict.items():
         print("#"+114*"-")
@@ -1134,13 +1185,14 @@ if __name__ == "__main__":
     variableHistInfo["MejMax"] = [200, 0, 2000]
     variableHistInfo["Meejj"] = [200, 0, 2000]
     variableHistInfo["BDT"] = [200, -1, 1]
-    eventWeightExpression = "Weight*PrefireWeight*puWeight*Ele1_RecoSF*Ele2_RecoSF*EventTriggerScaleFactor*ZVtxSF"
-    # EGM Loose ID
-    #eventWeightExpression += "*Ele1_EGMLooseIDSF*Ele2_EGMLooseIDSF"
-    # HEEP
-    eventWeightExpression += "*Ele1_HEEPSF*Ele2_HEEPSF"
+    eventWeightExpression = "EventWeight"
+    #eventWeightExpression = "Weight*PrefireWeight*puWeight*FakeRateEffective*MinPrescale*Ele1_RecoSF*Ele2_RecoSF*EventTriggerScaleFactor*ZVtxSF"
+    ## EGM Loose ID
+    ##eventWeightExpression += "*Ele1_EGMLooseIDSF*Ele2_EGMLooseIDSF"
+    ## HEEP
+    #eventWeightExpression += "*Ele1_HEEPSF*Ele2_HEEPSF"
     #
-    neededBranches = ["Weight", "PrefireWeight", "puWeight", "Ele1_RecoSF", "Ele2_RecoSF", "EventTriggerScaleFactor", "ZVtxSF"]
+    neededBranches = ["Weight", "PrefireWeight", "puWeight", "FakeRateEffective", "MinPrescale", "Ele1_RecoSF", "Ele2_RecoSF", "EventTriggerScaleFactor", "ZVtxSF"]
     neededBranches.extend(["run", "ls", "event"])
     # loose
     #neededBranches.extend(["Ele1_EGMLooseIDSF", "Ele2_EGMLooseIDSF"])
@@ -1205,14 +1257,15 @@ if __name__ == "__main__":
     year = args[0]
 
     gROOT.SetBatch()
-    inputListBkgBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_8sep2023_mee220st400_allLQ/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_8sep2023_mee220st400_allLQ/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_8sep2023_mee220st400_allLQ/{}/QCDFakes_DATA_2FR/"
+    dateStr = "9oct2023"
+    inputListBkgBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/QCDFakes_DATA_2FR/"
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
     xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
-    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016/eejj/eejj_28aug2023_heep_preselectionOnly_2016preVFP/" + xsectionTxt
-    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016/eejj/eejj_28aug2023_heep_preselectionOnly_2016postVFP/" + xsectionTxt
+    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016preVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
+    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016postVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
     train = options.train
     optimize = options.optimize
     roc = options.roc
@@ -1221,10 +1274,11 @@ if __name__ == "__main__":
     includeQCD = True
     normalizeVars = False
     # normTo = "Meejj"
-    # lqMassesToUse = [300]
-    # lqMassesToUse = [1500]
-    lqMassesToUse = list(range(1000, 2100, 100))
+    # lqMassesToUse = [1000]
+    # lqMassesToUse = list(range(1000, 2100, 100))
     # lqMassesToUse = list(range(300, 2100, 100))
+    # lqMassesToUse = list(range(1000, 3100, 100))
+    lqMassesToUse = list(range(300, 3100, 100))
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
