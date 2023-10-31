@@ -51,7 +51,7 @@ def make_filenamelist_eos(inputDir):
     # this gives the full path though
     output = proc.communicate()[0]
     if proc.returncode != 0:
-        print(output)
+        print("eos find command for dir {} failed with output=".format(inputDir), output)
         sys.exit(1)
     output = output.decode(sys.stdout.encoding)
     for line in output.splitlines():
@@ -62,7 +62,7 @@ def make_filenamelist_eos(inputDir):
         # if it's not a root file, forget about it
         if re.search(".root$", filename) is None:
             continue
-        # print 'line=',line
+        # print('line=', line)
         filenamelist.append(line)
         # filenamelist.append(filename)
         ##print 'added:',filenamelist[-1]
@@ -266,7 +266,7 @@ def combineExtDatasets(filelist):
 
 def main():
     parser = optparse.OptionParser(
-        usage="Usage: %prog [-m MATCH] -i INPUTDIR(S) -o OUTPUTDIR [-f]",
+        usage="Usage: %prog [-m MATCH] -i INPUTDIR(S) -o OUTPUTDIR [-f] [-c] [-e]",
         description="Example: createList.py -i /castor/cern.ch/user/f/ferencek/LQ/RootNtuple/RootNtuple-V00-00-08-MC-LQ-eejj_20100518_231412 -o /home/santanas/Workspace/Leptoquarks/rootNtupleAnalyzer/config",
     )
     parser.add_option(
@@ -332,7 +332,7 @@ def main():
     if "eos/user" in options.inputDirs[0]:
         options.eosHost = "root://eosuser.cern.ch/"
     # set eos mgm url
-    print("INFO: Using", options.eosHost, "as eosHost")
+    # print("INFO: Using", options.eosHost, "as eosHost")
     os.environ["EOS_MGM_URL"] = options.eosHost
 
     filelist = {}
@@ -349,7 +349,7 @@ def main():
 
     write_inputlists(filelist, options.outputDir)
 
-    print("Output files successfully created")
+    # print("Output files successfully created")
     sys.exit()
 
 
