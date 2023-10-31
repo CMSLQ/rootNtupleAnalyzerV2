@@ -80,7 +80,7 @@ def DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, dyjSingleFRHistos):
         # if "EventsPassingCuts" in singleFRHisto.GetName() and singleFRHisto.ClassName() == "TProfile":
         #     print("\nINFO: doing verbose output for hist {} of type {}".format(singleFRHisto.GetName(), singleFRHisto.ClassName()))
         #     verbose = True
-        #     binToUse = 65
+        #     binToUse = 67
         if verbose:
             content = singleFRHisto.GetBinContent(binToUse)
             entries = singleFRHisto.GetBinEntries(binToUse)
@@ -118,21 +118,32 @@ def DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, dyjSingleFRHistos):
 
 def SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose = False):
     limit = 0.5
+    isProfile = False
+    if singleFRHisto.ClassName() == "TProfile":
+        isProfile = True
     doubleFRHistoNew = copy.deepcopy(doubleFRHisto.Clone())
     for globalBin in range(0, singleFRHisto.GetNcells()+1):
         singleBinContent = singleFRHisto.GetBinContent(globalBin)
-        singleBinErrorSqr = pow(singleFRHisto.GetBinError(globalBin), 2)
+        if isProfile:
+            singleBinContent *= singleFRHisto.GetBinEntries(globalBin)
+        # singleBinErrorSqr = pow(singleFRHisto.GetBinError(globalBin), 2)
         doubleBinContent = doubleFRHisto.GetBinContent(globalBin)
-        doubleBinErrorSqr = pow(doubleFRHisto.GetBinError(globalBin), 2)
-        doubleBinError = doubleFRHisto.GetBinError(globalBin)
+        if isProfile:
+            doubleBinContent *= doubleFRHisto.GetBinEntries(globalBin)
+        # doubleBinErrorSqr = pow(doubleFRHisto.GetBinError(globalBin), 2)
+        # doubleBinError = doubleFRHisto.GetBinError(globalBin)
         if abs(doubleBinContent) > limit*abs(singleBinContent):
-            # print("INFO: limited bin {} in histo {} to 50% of singleFR bin content = {:.2f}; singleFR orig content={:.2f}; doubleFR orig content={:.2f}".format(
-            #     globalBin, singleFRHisto.GetName(), singleBinContent - limit*abs(singleBinContent), singleBinContent, doubleBinContent))
-            if verbose:
-                print("INFO: for hist {}: limited bin {} from {} to {}".format(doubleFRHistoNew.GetName(), globalBin, doubleBinContent, limit*singleBinContent), flush=True)
-            doubleBinContent = limit*singleBinContent
-            doubleFRHistoNew.SetBinContent(globalBin, doubleBinContent)
+            doubleBinContentNew = limit*singleBinContent
+            if isProfile:
+                doubleBinContentNew = limit*singleFRHisto.GetBinContent(globalBin)
+            doubleFRHistoNew.SetBinContent(globalBin, doubleBinContentNew)
             # doubleFRHistoNew.SetBinError(globalBin, doubleBinError)
+            if verbose:
+                if isProfile:
+                    doubleBinContentNew *= doubleFRHistoNew.GetBinEntries(globalBin)
+                print("INFO: limited bin {} in histo {} to 50% of singleFR bin content = {:.2f}; singleFR orig content={:.2f}; doubleFR orig content={:.2f}".format(
+                    globalBin, singleFRHisto.GetName(), limit*singleBinContent, singleBinContent, doubleBinContent))
+                print("INFO: for hist {}: limited bin {} from {} to {}".format(doubleFRHistoNew.GetName(), globalBin, doubleBinContent, doubleBinContentNew), flush=True)
     if not singleFRHisto.Add(doubleFRHistoNew, -1):
         print("INFO: {} has {} xbins and {} has {} xbins".format(singleFRHisto.GetName(), singleFRHisto.GetNbinsX(), doubleFRHistoNew.GetName(), doubleFRHistoNew.GetNbinsX()))
         raise RuntimeError("Add failed for histos {} and {}".format(singleFRHisto.GetName(), doubleFRHistoNew.GetName()))
@@ -154,7 +165,7 @@ def ParseDatFile(datFilename, sampleName):
                 continue
             line = line.strip("\n")
             if line.strip().startswith("#id"):
-                if not foundFirstLine and sampleName in prevLine.strip():
+                if not foundFirstLine and prevLine.split()[-1].strip() == sampleName:
                     foundFirstLine = True
                     print("INFO: found table for sample {} in file {}".format(sampleName, datFilename))
                 elif foundFirstLine:
@@ -176,7 +187,7 @@ def ParseDatFile(datFilename, sampleName):
                             data[row][column[i]] = piece
                         else:
                             data[row][column[i]] = float(piece)
-                            # print data[row][ column[i] ]
+                            # print("INFO: data[{}][{}]={}".format(row, column[i], data[row][column[i]]))
 
                 lineCounter = lineCounter + 1
             line = prevLine
@@ -338,6 +349,7 @@ singleFRQCDHistos = GetSampleHistosFromTFile(singleFRPlotsFile, qcdSampleName)
 singleFRQCDTable = ParseDatFile(singleFRTablesFile, qcdSampleName)
 singleFRDYJHistos = GetSampleHistosFromTFile(singleFRPlotsFile, zjetMCSampleName)
 singleFRDYJTable = ScaleTable(ParseDatFile(singleFRTablesFile, zjetMCSampleName), 1/1000., 0)
+origSingleFRDYJTable = ParseDatFile(singleFRTablesFile, zjetMCSampleName)
 # Try to find the 2FR plots and tables
 doubleFRPlotsFile = FindFile(options.doubleFakeRateEstimateDir, "*_plots.root")
 doubleFRTablesFile = FindFile(options.doubleFakeRateEstimateDir, "*_tables.dat")
@@ -369,7 +381,8 @@ print("Done.")
 datFilePath = options.outputDir+"/"+options.fileName.replace("_plots.root", "_tables.dat")
 print("INFO: Writing subtracted tables to {} ...".format(datFilePath), flush=True)
 WriteTable(singleFRQCDTable, "1FR", open(datFilePath, "w"))
-WriteTable(singleFRDYJTable, "DYJ1FR", open(datFilePath, "a"))
+# WriteTable(singleFRDYJTable, "DYJ1FR", open(datFilePath, "a"))
+WriteTable(origSingleFRDYJTable, "DYJ1FR", open(datFilePath, "a"))
 WriteTable(singleFRQCDTableNoDYJ, "1FR-DYJ1FR", open(datFilePath, "a"))
 WriteTable(doubleFRQCDTable, "2FR", open(datFilePath, "a"))
 WriteTable(subbedTable, qcdSampleName, open(datFilePath, "a"))
