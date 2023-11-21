@@ -1,2 +1,5 @@
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL16NanoAODAPVv9/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2550000/76A7251D-FBDC-CD41-BAA3-90D99F36D040.root
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL16NanoAODAPVv9/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/30000/7BCE0AE8-980C-EB45-B03C-1F55624491AC.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016preVFP/mc/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016preVFP_LQToBEleM400_single/231109_155327/0000/NANO_NANO_1.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016preVFP/mc/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016preVFP_LQToBEleM400_single/231109_155327/0000/NANO_NANO_2.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016preVFP/mc/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016preVFP_LQToBEleM400_single/231109_155327/0000/NANO_NANO_3.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016preVFP/mc/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016preVFP_LQToBEleM400_single/231109_155327/0000/NANO_NANO_4.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016preVFP/mc/LQToBEle_M-400_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016preVFP_LQToBEleM400_single/231109_155327/0000/NANO_NANO_5.root

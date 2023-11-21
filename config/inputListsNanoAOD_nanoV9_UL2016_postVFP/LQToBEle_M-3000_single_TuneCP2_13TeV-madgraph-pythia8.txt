@@ -1,3 +1,2 @@
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL16NanoAODv9/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/40000/B46D65F4-7036-3D43-833E-0EC5DC6FB91A.root
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL16NanoAODv9/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/40000/B85C41F9-C3FF-B04B-BF22-47381475C91C.root
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL16NanoAODv9/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/40000/EEE5D578-6309-884F-AFDC-5D22A65427E1.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016postVFP/mc/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016postVFP_LQToBEleM3000_single/231109_194541/0000/NANO_NANO_1.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016postVFP/mc/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016postVFP_LQToBEleM3000_single/231109_194541/0000/NANO_NANO_2.root

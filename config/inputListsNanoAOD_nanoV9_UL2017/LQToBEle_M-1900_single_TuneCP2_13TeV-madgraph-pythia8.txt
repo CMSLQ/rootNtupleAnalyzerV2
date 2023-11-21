@@ -1,3 +1,6 @@
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/2560000/23C1FF9C-74E8-1A43-9DA8-6C97C75591D7.root
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/2560000/FDBF0A32-8F6B-E84D-9A53-9000762079D3.root
-root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/40000/6061669D-6572-2A45-974F-4C408C078387.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/UL2017/mc/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/crab_UL2017_LQToBEleM1900_single/231109_211547/0000/NANO_NANO_1.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/UL2017/mc/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/crab_UL2017_LQToBEleM1900_single/231109_211547/0000/NANO_NANO_2.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/UL2017/mc/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/crab_UL2017_LQToBEleM1900_single/231109_211547/0000/NANO_NANO_3.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/UL2017/mc/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/crab_UL2017_LQToBEleM1900_single/231109_211547/0000/NANO_NANO_4.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/UL2017/mc/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/crab_UL2017_LQToBEleM1900_single/231109_211547/0000/NANO_NANO_5.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/UL2017/mc/LQToBEle_M-1900_single_TuneCP2_13TeV-madgraph-pythia8/crab_UL2017_LQToBEleM1900_single/231109_211547/0000/NANO_NANO_6.root
