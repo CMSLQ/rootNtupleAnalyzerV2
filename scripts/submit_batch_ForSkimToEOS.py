@@ -97,7 +97,7 @@ def WriteSubmitFile(condorFileName):
         else:
             condorFile.write('+JobFlavour = "'+options.queue+'"\n')
             # require CentOS7
-            condorFile.write('requirements = (OpSysAndVer =?= "CentOS7")\n')
+            condorFile.write('MY.WantOS = "el7"\n')
             condorFile.write('transfer_output_files = ""\n')
         # make sure the job finishes with exit code 0
         # condorFile.write('on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)\n')
