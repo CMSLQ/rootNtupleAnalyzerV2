@@ -21,7 +21,21 @@ def GetFileNamesAndNEvents(dataset):
         lineSplit = line.split()
         fileNameToEventsDict[lineSplit[0]] = lineSplit[1]
     if len(fileNameToEventsDict) <= 0:
-        raise RuntimeError("Did not find any files for the dataset '{}' by running the command '{}'.  Please correct or remove this dataset from the inputlist file.".format(dataset, fullCommand))
+        firstCommand = fullCommand
+        # if no files found in 'prod' instance, try phys03 instance
+        query="\"file dataset={} instance=prod/phys03 | grep file.name, file.nevents\"".format(dataset)
+        fullCommand = "dasgoclient --query="+query
+        fullCommand += " --limit=0"
+        rawOut = subprocess.run(shlex.split(fullCommand), check=True, stdout=subprocess.PIPE).stdout
+        out = rawOut.decode(sys.stdout.encoding).split("\n")
+        fileNameToEventsDict = dict()
+        for line in out:
+            if len(line) <= 0:
+                continue
+            lineSplit = line.split()
+            fileNameToEventsDict[lineSplit[0]] = lineSplit[1]
+        if len(fileNameToEventsDict) <= 0:
+            raise RuntimeError("Did not find any files for the dataset '{}' by running the command '{}', nor the command '{}'.  Please correct or remove this dataset from the inputlist file.".format(dataset, firstCommand, fullCommand))
     fileNameToEventsDict = collections.OrderedDict(sorted(fileNameToEventsDict.items()))
     # sortedFileNameToSizes = sorted(fileNameToSizeDict.items(), key=lambda kv: int(kv[1]))
     # sortedFileNameToSizesDict = collections.OrderedDict(sortedFileNameToSizes)
@@ -58,6 +72,8 @@ def GetTxtFileNameFromDataset(dataset):
     datasetParts = dataset.split("/")
     fileName = datasetParts[1]
     if "APV" in dataset:
+      fileName += "_APV"
+    elif "2016preVFP" in dataset:
       fileName += "_APV"
     elif "Run20" in dataset:
       fileName += "_"+datasetParts[2]
