@@ -219,9 +219,9 @@ ALLBKG_powhegTTBar_ZJetPtWJetAMCJetBinned_NLODIBOSON_triboson:
   - TTW
   - TTZ
   - PhotonJets_Madgraph
-QCDFakes_SinglePhoton_2016B_v1:
-  pieces:
-  - /SinglePhoton/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+#QCDFakes_SinglePhoton_2016B_v1:
+ # pieces:
+ # - /SinglePhoton/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
 QCDFakes_SinglePhoton_2016B_v2:
   pieces:
   - /SinglePhoton/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
@@ -239,7 +239,7 @@ QCDFakes_SinglePhoton_2016F:
   - /SinglePhoton/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
 QCDFakes_DATA:
   pieces:
-  - QCDFakes_SinglePhoton_2016B_v1
+  #- QCDFakes_SinglePhoton_2016B_v1
   - QCDFakes_SinglePhoton_2016B_v2
   - QCDFakes_SinglePhoton_2016C
   - QCDFakes_SinglePhoton_2016D

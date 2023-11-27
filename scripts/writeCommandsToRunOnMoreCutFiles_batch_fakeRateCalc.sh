@@ -20,51 +20,56 @@ YEAR=$1
 
 #### INPUTS HERE ####
 #------------
-ANANAME=calcFR_2016pre_June2023
+ANANAME=fakeRateCalcFinal
 #------------
-files="/afs/cern.ch/user/e/eipearso/leptoquark_analysis/rootNtupleMacrosV2/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
+files2016pre="$LQMACRO/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation_preVFP.txt"
+files2016post="$LQMACRO/config2016/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation_postVFP.txt"
+files2017="$LQMACRO/config2017/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
+files2018="$LQMACRO/config2018/QCDFakeRate/cutTable_lq_QCD_FakeRateCalculation.txt"
 #------------
 QUEUE=workday
 #------------
-OUTDIRPATH=$LQDATA  # a subdir will be created for each cut file 
-#EOSDIR=/eos/cms/store/user/eipearso/LQ/nanoV7/2016/qcdFakeRateCalc/$ANANAME
+OUTDIRPATH=$LQDATAAFS  # a subdir will be created for each cut file 
 excludeCombining=""
-
+#I found it useful to define two separate $LQDATA paths, one for afs and one for eos. - Emma
 # output sub-directory (i.e. output will be in OUTDIRPATH/SUBDIR)
 # it is suggested to specify the luminosity in the name of the directory
 #------------
-ilumi2016=19501601.622000 #TODO
+ilumi2016pre=19501.601622
+ilumi2016post=16812.151722
 ilumi2017=41540 #FIXME: this number is just from the Egamma twiki
-ilumi2018=59399
+ilumi2018=59830
 CODENAME=analysisClass_lq_QCD_FakeRateCalculation
-#CODENAME=analysisClass_lq_eejj_noJets
 #------------
-#INPUTLIST=config/nanoV6_2016_rskQCD_18may2020_comb/inputListAllCurrent.txt
-#INPUTLIST=config/nanoV6_2016_rskQCD_14jul2020_comb/inputListAllCurrent.txt
-#INPUTLIST=config/nanoV6_2016_rskQCD_15jul2020_comb/inputListAllCurrent.txt
-#INPUTLIST=config/nanoV6_2016_rskQCD_17jul2020_comb/inputListAllCurrent.txt
-#inputlist2016=config/nanoV7_2016_rskQCD_23nov2021_comb/inputListAllCurrent.txt
-#inputlist2016=config/nanoV7_2016_rskQCD_26nov2021_comb/inputListAllCurrent.txt
-#inputlist2016=config/nanoV7_2016_rskQCD_looseEGM_18mar2022_comb/inputListAllCurrent.txt
-#inputlist2016=config/myDatasets/inputListAllCurrent.txt
-inputlist2016=config/myDatasets/2016HEEPpreVFP/inputListAllCurrent.txt
+inputlist2016pre=config/myDatasets/2016HEEPpreVFP/inputListAllCurrent.txt
+inputlist2016post=config/myDatasets/2016HEEPpostVFP/inputListAllCurrent.txt
+inputlist2017=config/myDatasets/2017HEEP/inputListAllCurrent.txt
+inputlist2018=config/myDatasets/2018HEEP/inputListAllCurrent.txt
 #------------
-if [ "$YEAR" = "2016" ]; then
-  echo "Doing 2016!"
-  ILUM=$ilumi2016
-  INPUTLIST=$inputlist2016
+if [ "$YEAR" = "2016preVFP" ]; then
+  echo "Doing 2016preVFP!"
+  ILUM=$ilumi2016pre
+  INPUTLIST=$inputlist2016pre
+  files=$files2016pre
+elif [ "$YEAR" = "2016postVFP" ]; then
+  echo "Doing 2016postVFP!"
+  ILUM=$ilumi2016post
+  INPUTLIST=$inputlist2016post
+  files=$files2016post
 elif [ "$YEAR" = "2017" ]; then
   ILUM=$ilumi2017
   INPUTLIST=$inputlist2017
+  files=$files2017
   excludeCombining="-e LQToBEle*"
 elif [ "$YEAR" = "2018" ]; then
   ILUM=$ilumi2018
   INPUTLIST=$inputlist2018
+  files=$files2018
 fi
-SUBDIR=${YEAR}/qcdFakeRateCalc/$ANANAME
-EOSDIR=/eos/user/e/eipearso/LQ/${YEAR}/qcdFakeRateCalc/$ANANAME
-COMMANDFILE=commandsToRunOnMoreCutFiles_fakeRateCalc_${YEAR}PostVFP_batch_`hostname -s`.txt
-SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_QCD_calc_${YEAR}PostVFP.yaml
+SUBDIR=qcdFakeRateCalc/${YEAR}
+EOSDIR=$LQDATAEOS/$ANANAME/${YEAR}
+COMMANDFILE=commandsToRunOnMoreCutFiles_fakeRateCalc_${YEAR}_batch_`hostname -s`.txt
+SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_QCD_calc_${YEAR}.yaml
 #------------
 FACTOR=1000 # numbers in final tables (but *not* in plots) will be multiplied by this scale factor (to see well the decimal digits)
 #------------
@@ -89,23 +94,15 @@ python scripts/launchAnalysis_batch_ForSkimToEOS.py -i $INPUTLIST -o $OUTDIRPATH
 
 ./scripts/checkJobs.sh $OUTDIRPATH/$SUBDIR/condor $OUTDIRPATH/$SUBDIR/condor
 
-# mkdir -p $OUTDIRPATH/$SUBDIR/output_$suffix \
-# && time  ./scripts/combineOutputJobs.py \
-#     -i $INPUTLIST \
-#     -c $CODENAME \
-#     -d $OUTDIRPATH/$SUBDIR/condor \
-#     -o $OUTDIRPATH/$SUBDIR/output_$suffix \
-#     $excludeCombining
-
 time  ./scripts/combinePlots.py \
     -i $INPUTLIST \
     -c $CODENAME \
-    -d $OUTDIRPATH/$SUBDIR/output_$suffix \
+    -d $EOSDIR/condor \
     -l  `echo "$ILUM*$FACTOR" | bc` \
     -x $XSECTION  \
-    -o $OUTDIRPATH/$SUBDIR/output_$suffix \
+    -o $EOSDIR/output_$suffix \
     -s $SAMPLELISTFORMERGING \
-    | tee $OUTDIRPATH/$SUBDIR/output_$suffix/combineTablesAndPlots_${suffix}.log
+    | tee $EOSDIR/output_$suffix/combineTablesAndPlots_${suffix}.log
 EOF
 done
 
