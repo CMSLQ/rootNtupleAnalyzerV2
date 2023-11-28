@@ -1305,13 +1305,13 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    inputListBkgBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/QCDFakes_DATA_2FR/"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/{}/QCDFakes_DATA_2FR/"
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
-    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
-    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016preVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
+    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_2016preVFP.txt"
+    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/config/" + xsectionTxt
     xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016postVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
     train = options.train
     optimize = options.optimize
@@ -1321,7 +1321,7 @@ if __name__ == "__main__":
     includeQCD = True
     normalizeVars = False
     # normTo = "Meejj"
-    # lqMassesToUse = [1000]
+    #lqMassesToUse = [1000,1100,1200]
     # lqMassesToUse = list(range(1000, 2100, 100))
     # lqMassesToUse = list(range(300, 2100, 100))
     #lqMassesToUse = list(range(1000, 3100, 100))
