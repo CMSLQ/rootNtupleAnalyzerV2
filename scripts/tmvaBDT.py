@@ -419,6 +419,7 @@ def OptimizeBDTCut(args):
         bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1, 1)
         bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1, 1)
         bkgHists = dict()
+        bkgHistsUnweightedUnscaled = dict()
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
         for sample in backgroundDatasetsDict.keys():
@@ -426,6 +427,7 @@ def OptimizeBDTCut(args):
             bkgSampleIntegral = 0
             bkgSampleIntegralHist = 0
             bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
+            bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
                 #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
@@ -466,8 +468,10 @@ def OptimizeBDTCut(args):
                 histBkg = histBkg.GetValue()
                 histBkg.Scale(bkgWeight)
                 bkgHists[sample].Add(histBkg)
+                bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted.GetValue())
                 bkgTotal.Add(histBkg)
-                bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
+                #bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
+                bkgTotalUnweighted.Add(histBkgUnweighted.GetValue())
                 #h = df.Histo1D(hbkg, "BDT", "eventWeight")
                 #h.Draw()
                 bkgIntegral = df.Sum("eventWeight").GetValue()*bkgWeight
@@ -570,13 +574,47 @@ def OptimizeBDTCut(args):
         nBErrList = []
         effErrList = []
         for iBin in range(1, hbkg.GetNbinsX()+1):
+            skipFOMCalc = False
             nSErr = ctypes.c_double()
             nS = histSig.IntegralAndError(iBin, hsig.GetNbinsX(), nSErr)
             efficiency = nS/(signalWeight*sumWeights)
             effErr = nSErr.value/(signalWeight*sumWeights)  # assuming sumWeights and signalWeight have zero error
-            nBErr = ctypes.c_double()
-            nB = bkgTotal.IntegralAndError(iBin, hbkg.GetNbinsX(), nBErr)
+            # nBErr = ctypes.c_double()
+            # nB = bkgTotal.IntegralAndError(iBin, hbkg.GetNbinsX(), nBErr)
+            nB = 0
+            nBErr = 0
             cutVal = histSig.GetBinLowEdge(iBin)
+            for sample, hist in bkgHists.items():
+                if "qcd" in sample.lower():
+                    continue
+                nBThisProcessErr = ctypes.c_double()
+                nBThisProcess = hist.IntegralAndError(iBin, hist.GetNbinsX(), nBThisProcessErr)
+                nBThisProcessErr = nBThisProcessErr.value
+                if nBThisProcess < 0:
+                    skipFOMCalc = True
+                    break
+                nB += nBThisProcess
+                nBErr += nBThisProcessErr*nBThisProcessErr
+            qcd1FRDataErr = ctypes.c_double()
+            qcd1FRDataYield = bkgHists["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
+            # print("INFO: Fot cutVal={}, Got qcd1FRDataYield={} from hist with integral={} and entries={}".format(cutVal, qcd1FRDataYield, bkgHists["QCDFakes_DATA"].Integral(), bkgHists["QCDFakes_DATA"].GetEntries()))
+            qcd1FRDYJErr = ctypes.c_double()
+            qcd1FRDYJYield = bkgHists["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
+            qcd2FRDataErr = ctypes.c_double()
+            qcd2FRDataYield = bkgHists["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
+            qcd1FRYield = qcd1FRDataYield+qcd1FRDYJYield
+            if qcd1FRYield < 0:
+                # print("INFO: Limiting 1 FR QCD yield for cutVal {} to zero; old qcd1FRYield = 1FRData-DYJ = {} + {} = {}".format(
+                #     cutVal, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield))
+                qcd1FRYield = 0
+            limit = 0.5
+            if abs(qcd2FRDataYield) > limit*qcd1FRYield:
+                # print("INFO: Limiting 2 FR QCD yield for cutVal {} to {} from {}; qcd1FRYield = 1FRData-DYJ = {} + {} = {}; qcdYield = qcd2FRYield + qcd1FRYield = {} + {} = {}".format(
+                #     cutVal, -1*limit*qcd1FRYield, qcd2FRDataYield, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield, -1*limit*qcd1FRYield, qcd1FRYield, -1*limit*qcd1FRYield+qcd1FRYield))
+                qcd2FRDataYield = -1*limit*qcd1FRYield
+            nB += qcd2FRDataYield+qcd1FRYield
+            nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
+            nBErr = math.sqrt(nBErr)
             # if nB < 3:
             # if nS < 5:
             #      fomValueToCutInfoDict[iBin] = [-1.0, cutVal, nS, efficiency, nB]
@@ -589,7 +627,7 @@ def OptimizeBDTCut(args):
             #     print("Evaluate figure of merit for nS={}, nB={}, unweightedNs={}, unweightedNb={}".format(nS, nB, unweightedNs, unweightedNb), flush=True)
             #     exit(0)
             # require at least one background event expected
-            if nB > 1:
+            if nB > 1 and not skipFOMCalc:
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 #fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
@@ -602,7 +640,7 @@ def OptimizeBDTCut(args):
             nBList.append(nB)
             cutValList.append(cutVal)
             nSErrList.append(nSErr.value)
-            nBErrList.append(nBErr.value)
+            nBErrList.append(nBErr)
             effErrList.append(effErr)
         # sort by FOM
         sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
@@ -649,13 +687,21 @@ def OptimizeBDTCut(args):
             nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
             nBErr = nBErr.value
             bkgIntegral = hist.Integral()
-            print(f"Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f}, fullYield={bkgIntegral:4.6f}", flush=True)
+            rawEventsHist = bkgHistsUnweightedUnscaled[sample]
+            nBEventsErr = ctypes.c_double()
+            nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
+            nBEventsErr = nBEventsErr.value
+            print(f"Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
         cutBin = bkgTotal.FindFixBin(cutVal)
         nBErr = ctypes.c_double()
         nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
         nBErr = nBErr.value
         bkgIntegral = bkgTotal.Integral()
-        print(f"Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f}, fullYield={bkgIntegral:4.6f}", flush=True)
+        rawEventsHist = bkgTotalUnweighted
+        nBEventsErr = ctypes.c_double()
+        nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
+        nBEventsErr = nBEventsErr.value
+        print(f"Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -1192,12 +1238,13 @@ if __name__ == "__main__":
     ## HEEP
     #eventWeightExpression += "*Ele1_HEEPSF*Ele2_HEEPSF"
     #
-    neededBranches = ["Weight", "PrefireWeight", "puWeight", "FakeRateEffective", "MinPrescale", "Ele1_RecoSF", "Ele2_RecoSF", "EventTriggerScaleFactor", "ZVtxSF"]
+    # neededBranches = ["Weight", "PrefireWeight", "puWeight", "FakeRateEffective", "MinPrescale", "Ele1_RecoSF", "Ele2_RecoSF", "EventTriggerScaleFactor", "ZVtxSF"]
+    neededBranches = ["EventWeight"]
     neededBranches.extend(["run", "ls", "event"])
     # loose
     #neededBranches.extend(["Ele1_EGMLooseIDSF", "Ele2_EGMLooseIDSF"])
     # HEEP
-    neededBranches.extend(["Ele1_HEEPSF", "Ele2_HEEPSF"])
+    #neededBranches.extend(["Ele1_HEEPSF", "Ele2_HEEPSF"])
     neededBranches.extend(variableList)
     # Apply additional cuts on the signal and background samples (can be different)
     mycuts = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1")
@@ -1277,8 +1324,10 @@ if __name__ == "__main__":
     # lqMassesToUse = [1000]
     # lqMassesToUse = list(range(1000, 2100, 100))
     # lqMassesToUse = list(range(300, 2100, 100))
-    # lqMassesToUse = list(range(1000, 3100, 100))
-    lqMassesToUse = list(range(300, 3100, 100))
+    #lqMassesToUse = list(range(1000, 3100, 100))
+    #lqMassesToUse = list(range(300, 1100, 100))
+    #lqMassesToUse = list(range(800, 3100, 100))
+    lqMassesToUse = list(range(300, 800, 100))
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
