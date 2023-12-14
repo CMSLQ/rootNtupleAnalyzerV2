@@ -29,6 +29,7 @@ int    GenParticle::StatusFlags() { return m_collection->ReadArrayBranch<Int_t>(
 bool GenParticle::IsHardProcess(){ return (m_collection->ReadArrayBranch<Int_t>("GenPart_statusFlags",m_raw_index) >> 7) & 0x1; }
 bool GenParticle::IsFromHardProcess(){ return (m_collection->ReadArrayBranch<Int_t>("GenPart_statusFlags",m_raw_index) >> 8) & 0x1; }
 bool GenParticle::IsFromHardProcessFinalState(){ return IsFromHardProcess() && (Status()==1); }
+bool GenParticle::IsLastCopy(){ return (m_collection->ReadArrayBranch<Int_t>("GenPart_statusFlags",m_raw_index) >> 13) & 0x1; }
 
 std::ostream& operator<<(std::ostream& stream, GenParticle& object) {
   stream << object.Name() << " " << ": "
@@ -37,7 +38,8 @@ std::ostream& operator<<(std::ostream& stream, GenParticle& object) {
 	 << "MotherIndex = "    << object.MotherIndex () << ", "
 	 //<< "Num. daughters = " << object.NumDaughters () << ", "
 	 << "Status = " << object.Status () << ", "
-   << "StatusFlags = " << std::bitset<8*sizeof(object.StatusFlags())>(object.StatusFlags()) << ", "
+   //<< "StatusFlags = " << std::bitset<8*sizeof(object.StatusFlags())>(object.StatusFlags()) << ", "
+   << "StatusFlags = " << std::bitset<16>(object.StatusFlags()) << ", "
    << "IsHardProcess = " << object.IsHardProcess() << ", "
    << "IsFromHardProcess = " << object.IsFromHardProcess() << ", "
    << "IsFromHardProcessFinalState = " << object.IsFromHardProcessFinalState() << ", "

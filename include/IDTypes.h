@@ -26,7 +26,7 @@ enum ID {
   GEN_ELE_FIDUCIAL         = 18,
   GEN_MUON_FIDUCIAL        = 19,
   GEN_ELE_HARD_SCATTER     = 20,
-  //GEN_ZGAMMA_HARD_SCATTER  = 21,
+  GEN_Z_FROMHARDPROCESS_LASTCOPY = 21,
   //GEN_W_HARD_SCATTER       = 22,
   GEN_NU_FROM_W  	         = 23,
   //GEN_ELE_FROM_W  	       = 24,

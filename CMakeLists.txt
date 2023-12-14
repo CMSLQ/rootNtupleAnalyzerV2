@@ -155,6 +155,7 @@ if(REDUCED_SKIM)
     src/eventListHelper.C
     src/jsonParser.C
     src/JMEUncertainties.C
+    src/EWKCorrections.C
     )
 else()
   add_executable(main

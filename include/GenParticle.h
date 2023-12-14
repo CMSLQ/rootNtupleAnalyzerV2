@@ -35,6 +35,7 @@ class GenParticle : public Object {
   bool IsHardProcess();
   bool IsFromHardProcess();
   bool IsFromHardProcessFinalState();
+  bool IsLastCopy();
 
  private:
   
@@ -54,8 +55,8 @@ class GenParticle : public Object {
   bool PassUserID_GenQuarkHardScatter (bool verbose);
   bool PassUserID_GenQuarkHardProcess (bool verbose);
 
-  bool PassUserID_GenZGammaHardScatter(bool verbose);
-  bool PassUserID_GenWHardScatter     (bool verbose);
+  //bool PassUserID_GenWHardScatter     (bool verbose);
+  bool PassUserID_GenZFromHardProcessLastCopy(bool verbose);
   bool PassUserID_GenNuFromW          (bool verbose);
   bool PassUserID_GenEleFromW         (bool verbose);
   bool PassUserID_GenEleFromDY        (bool verbose);

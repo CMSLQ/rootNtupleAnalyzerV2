@@ -15,7 +15,7 @@ bool GenParticle::PassUserID (ID id, bool verbose){
   else if ( id == GEN_MU_HARD_SCATTER     ) { return PassUserID_GenMuHardScatter    (verbose); }
   else if ( id == GEN_QUARK_HARD_SCATTER  ) { return PassUserID_GenQuarkHardScatter (verbose); }
   else if ( id == GEN_QUARK_HARD_PROCESS  ) { return PassUserID_GenQuarkHardProcess (verbose); }
-  //else if ( id == GEN_ZGAMMA_HARD_SCATTER ) { return PassUserID_GenZGammaHardScatter(verbose); }
+  else if ( id == GEN_Z_FROMHARDPROCESS_LASTCOPY ) { return PassUserID_GenZFromHardProcessLastCopy(verbose); }
   //else if ( id == GEN_W_HARD_SCATTER      ) { return PassUserID_GenWHardScatter     (verbose); }
   else if ( id == GEN_NU_FROM_W  	        ) { return PassUserID_GenNuFromW          (verbose); }
   //else if ( id == GEN_ELE_FROM_W  	      ) { return PassUserID_GenEleFromW         (verbose); }
@@ -142,39 +142,57 @@ bool GenParticle::PassUserID_GenTauFromLQ (bool verbose){
   return true;
 }
 
-bool GenParticle::PassUserID_GenZGammaHardScatter(bool verbose){
-  if ( abs(PdgId()) != 22 && 
-       abs(PdgId()) != 23 ) return false;
+//bool GenParticle::PassUserID_GenZGammaHardScatter(bool verbose){
+//  if ( abs(PdgId()) != 22 && 
+//       abs(PdgId()) != 23 ) return false;
+//  if(verbose) {
+//    std::cout << "GenParticle::PassUserID_GenZGammaHardScatter" << Name() << " " << ": "
+//      << "PDG = "    << PdgId () << ", "
+//      << "Status = " << Status () << ", "
+//      << "Pt = "     << Pt ()    << ", "
+//      << "Eta = "    << Eta()    << ", "
+//      << "Phi = "    << Phi() << std::endl;
+//  }
+//  if ( IsHardProcess() || Status() == 3) return true;
+//  
+//  //if ( Status()>20 && Status()<30) return true; //pythia8
+//  //if (Status() == 62) return true;  
+//  return false;
+//}
+
+ 
+//bool GenParticle::PassUserID_GenWHardScatter     (bool verbose){
+//  if ( abs(PdgId()) != 24 ) return false;
+//  if(verbose) {
+//    std::cout << "GenParticle::PassUserID_GenWHardScatter" << Name() << " " << ": "
+//      << "PDG = "    << PdgId () << ", "
+//      << "Status = " << Status () << ", "
+//      << "Pt = "     << Pt ()    << ", "
+//      << "Eta = "    << Eta()    << ", "
+//      << "Phi = "    << Phi() << std::endl;
+//  }
+//  // now that we have a W
+//  if ( IsHardProcess() || Status() == 3) return true;
+//  return false;
+//} 
+
+bool GenParticle::PassUserID_GenZFromHardProcessLastCopy(bool verbose){
+  if ( abs(PdgId()) != 23 ) return false;
   if(verbose) {
-    std::cout << "GenParticle::PassUserID_GenZGammaHardScatter" << Name() << " " << ": "
+    std::cout << "GenParticle::PassUserID_GenZFromHardProcessLastCopy" << Name() << " " << ": "
       << "PDG = "    << PdgId () << ", "
       << "Status = " << Status () << ", "
       << "Pt = "     << Pt ()    << ", "
       << "Eta = "    << Eta()    << ", "
-      << "Phi = "    << Phi() << std::endl;
+      << "Phi = "    << Phi()    << ", "
+      << "Mass = "   << Mass()    << ", "
+      << "IsFromHardProcess = " << IsFromHardProcess() << ", "
+      << "IsLastCopy = " << IsLastCopy() << std::endl;
   }
-  if ( IsHardProcess() || Status() == 3) return true;
-  
-  //if ( Status()>20 && Status()<30) return true; //pythia8
-  //if (Status() == 62) return true;  
+  if (IsFromHardProcess() && IsLastCopy()) return true;
   return false;
 }
 
- 
-bool GenParticle::PassUserID_GenWHardScatter     (bool verbose){
-  if ( abs(PdgId()) != 24 ) return false;
-  if(verbose) {
-    std::cout << "GenParticle::PassUserID_GenWHardScatter" << Name() << " " << ": "
-      << "PDG = "    << PdgId () << ", "
-      << "Status = " << Status () << ", "
-      << "Pt = "     << Pt ()    << ", "
-      << "Eta = "    << Eta()    << ", "
-      << "Phi = "    << Phi() << std::endl;
-  }
-  // now that we have a W
-  if ( IsHardProcess() || Status() == 3) return true;
-  return false;
-} 
 
 bool GenParticle::PassUserID_GenNuFromW          (bool verbose){
   if ( abs(PdgId()) != 12         ) return false;
