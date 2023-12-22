@@ -1,0 +1,1 @@
+/LQToDEle_M-2900_single_bMassZero_TuneCP2_13TeV-madgraph-pythia8/scooper-crab_UL2017_LQToDEleM2900_single-fc8169e3d6405c9039fee3d8abc964ef/USER

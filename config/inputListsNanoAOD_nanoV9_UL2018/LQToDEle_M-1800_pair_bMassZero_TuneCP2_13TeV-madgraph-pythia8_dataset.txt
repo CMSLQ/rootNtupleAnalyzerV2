@@ -1,0 +1,1 @@
+/LQToDEle_M-1800_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8/scooper-crab_UL2018_LQToDEleM1800_pair-df90b6001b4103aa237899bca123d84d/USER

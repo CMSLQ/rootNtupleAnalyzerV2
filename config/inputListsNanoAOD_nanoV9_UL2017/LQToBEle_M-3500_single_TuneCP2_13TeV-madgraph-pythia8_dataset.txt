@@ -1,0 +1,1 @@
+/LQToBEle_M-3500_single_TuneCP2_13TeV-madgraph-pythia8/scooper-crab_UL2017_LQToBEleM3500_single-fc8169e3d6405c9039fee3d8abc964ef/USER
