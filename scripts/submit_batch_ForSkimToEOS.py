@@ -7,12 +7,11 @@ import re
 from optparse import OptionParser
 import subprocess
 import shlex
+from pathlib import Path
 
 
 def GetSiteListFromDAS(fileNameList, dataset):
     # the best we can easily do is to just submit to all sites which host at least part of the dataset
-    # to do better, we'd have to submit to only those sites with 100% of the dataset hosted
-    #   not clear how to determine that with DAS queries
     firstName = fileNameList[0]
     query = "dataset file=/"+firstName.split("//")[-1].strip()
     cmd = 'dasgoclient --query="{}"'.format(query)
@@ -26,17 +25,33 @@ def GetSiteListFromDAS(fileNameList, dataset):
     return siteList
 
 
-def GetDefaultCondorSites():
-    cmd = 'get_condor_sites --default'
+def GetSitesHostingAllFiles(dataset):
+    query = "site dataset={} | grep site.name, site.block_completion".format(dataset)
+    cmd = 'dasgoclient --query="{}"'.format(query)
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
     output = proc.communicate()[0].decode().strip()
-    siteList = list(output.split())
+    siteList = list(output.replace("_Disk", "").split("\n"))
+    sitesHostingAllFiles = [line.split()[0].strip() for line in siteList if "100.00%" in line]
+    return sitesHostingAllFiles
+
+
+def GetDefaultCondorSites():
+    # cmd = 'get_condor_sites --default'
+    # proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
+    # output = proc.communicate()[0].decode().strip()
+    # siteList = list(output.split())
+    siteList = ""
+    with open("/etc/ciconnect/config.ini", "r") as siteConfFile:
+        for line in siteConfFile:
+            if "DefaultSites" in line:
+                siteList = line.split("=")[-1].strip().split(",")
     return siteList
     
 
 def PrepareJobScript(outputname):
     with open(outputname, "w") as outputfile:
         outputfile.write("#!/bin/bash\n")
+        outputfile.write("echo \"Running at site: $GLIDEIN_CMSSite\"\n")
         # hardcoded root is a bit nasty FIXME
         outputfile.write('source /cvmfs/sft.cern.ch/lcg/views/LCG_102/x86_64-centos7-gcc11-opt/setup.sh\n')
         # ROOT likes HOME set
@@ -237,9 +252,8 @@ else:
         ijobmax = int(numfiles/filesperjob)
         if numfiles % filesperjob != 0:
             ijobmax = ijobmax+1
-#################################################
+fullDatasetName = Path(inputlist.replace(".txt", "_dataset.txt")).read_text()
 input = open(inputlist)
-#################################################
 for ijob in range(ijobmax):
     # prepare the list file
     inputfilename = outputmain+"/input/input_"+str(ijob)+".list"
@@ -271,9 +285,11 @@ WriteSubmitFile(condorFileName)
 
 if options.reducedSkim or options.nanoSkim:
     # siteList = GetSiteListFromDAS(allInputFiles, dataset)
-    siteList = GetDefaultCondorSites()
+    siteList = GetSitesHostingAllFiles(fullDatasetName)
+    if len(siteList) < 1:
+        siteList = GetDefaultCondorSites()
     # apply exclusions
-    sitesToExclude = ["T2_TR_METU", "T2_UA_KIPT"]
+    sitesToExclude = ["T2_TR_METU", "T2_UA_KIPT", "T1_ES_PIC", "T2_TW_NCHC", "T2_US_MIT", "T2_UA_KIPT", "T2_ES_IFCA", "T2_EE_Estonia"]
     for site in sitesToExclude:
         if site in siteList:
             siteList.remove(site)
@@ -281,15 +297,18 @@ else:
     siteList = []
 
 failedToSub = False
-print('submit jobs for', options.output.rstrip("/"))
 # FIXME don't cd and use absolute paths in the condor submission instead
 oldDir = os.getcwd()
 os.chdir(outputmain)
+print('submit jobs for', options.output.rstrip("/"), end="")
 condorCmd = 'condor_submit '+condorFileName
 if len(siteList):
     condorSites = 'CONDOR_DEFAULT_DESIRED_SITES="'+",".join(siteList)
     condorSites = condorSites.strip(",")+'"'
     condorCmd = condorSites + " " + condorCmd
+    print(" with", condorSites)
+else:
+    print()
 exitCode = os.WEXITSTATUS(os.system(condorCmd))
 # print 'from condor_submit '+condorFileName+',got exit code='+str(exitCode)
 if exitCode != 0:

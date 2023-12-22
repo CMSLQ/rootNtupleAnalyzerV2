@@ -3,6 +3,10 @@ import ROOT
 import numpy
 import sys
 import time
+import os
+import shlex
+import subprocess
+
 
 if len(sys.argv) < 3 :
         print("Syntax: haddnano.py out.root input1.root input2.root ...")
@@ -28,9 +32,45 @@ def zeroFill(tree,brName,brObj,allowNonBool=False) :
 fileHandles=[]
 goFast=True
 start = time.time()
-for fn in files :
-    print("Adding file",fn)
-    fileHandles.append(ROOT.TFile.Open(fn))
+lfnPrefixDefault = "root://cms-xrd-global.cern.ch/"
+lfnPrefixToUse = ""
+for idx, fn in enumerate(files):
+    # if os.getenv("GLIDEIN_CMSSite").split("_")[1] == "US":
+    #     fnToTry = fn.replace("cms-xrd-global.cern.ch", "cmsxrootd.fnal.gov")
+    # else:
+    #     fnToTry = fn.replace("cms-xrd-global.cern.ch", "xrootd-cms.infn.it")
+    lfn = fn.replace("root://cms-xrd-global.cern.ch/", "")
+    if idx == 0:  # just check the first file, since the xrdfs takes a while and if we find one, likely all the others will be there
+        cmsSite = os.getenv("GLIDEIN_CMSSite")
+        print("Checking to see if this file is available at {}...".format(cmsSite), end="")
+        if cmsSite is not None:
+            lfnTestPrefix = "/store/test/xrootd/"+cmsSite
+        cmd = 'xrdfs cms-xrd-global.cern.ch locate {}'.format(lfnTestPrefix+lfn)
+        print(cmd)
+        proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+        output = out.decode()
+        error = err.decode()
+        returnCode = proc.returncode
+        if returnCode != 0:
+            print()
+            print("output:", output)
+            print("error:", error)
+            print("xrdfs locate returned nonzero with output/error above; using default redirector URL")
+            lfnPrefixToUse = lfnPrefixDefault
+        else:
+            print("OK")
+            lfnPrefixToUse = lfnPrefixDefault+lfnTestPrefix
+    fn = lfnPrefixToUse+lfn
+    print("Try opening file", fn)
+    try:
+        handle = ROOT.TFile.Open(fn)
+    except OSError as ex:
+        print("\tCaught exception:", ex)
+        defaultFN = lfnPrefixDefault+lfn
+        print("\tTry to reopen the file as {}".format(defaultFN))
+        handle = ROOT.TFile.Open(defaultFN)
+    fileHandles.append(handle)
     if fileHandles[-1].GetCompressionSettings() != fileHandles[0].GetCompressionSettings() :
         goFast=False
         print("Disabling fast merging as inputs have different compressions")

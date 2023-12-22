@@ -142,6 +142,9 @@ with open(outputFileName, "w") as mainInputList:
                 for fName, nEvents in fileNamesToNEventsDict.items():
                     outFile.write(prefix+fName+"\n")
                     eventsFile.write(nEvents+"\n")
+        datasetFilename = fileName.replace(".txt", "_dataset.txt")
+        with open(datasetFilename, "w") as datasetFile:
+            datasetFile.write(dataset)
         mainInputList.write(fileName + "\n")
         print("\b.", end=" ")
         sys.stdout.flush()

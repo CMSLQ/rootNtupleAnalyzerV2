@@ -466,7 +466,8 @@ with open(options.inputlist, "r") as inputlist_file:
         if len(eventsFileList) == 1:
             # approx splitting by max events per job
             totalNumEvents, totalNumFiles = GetTotalsFromEventsFile(eventsFileList[0])
-            maxEventsDesiredPerJob = 2.5e6
+            # maxEventsDesiredPerJob = 2.5e6
+            maxEventsDesiredPerJob = 2e6
             suggestedJobs = math.ceil(totalNumEvents/maxEventsDesiredPerJob)
             jobs_to_submit = min ( suggestedJobs, int(options.ijobmax))
     
