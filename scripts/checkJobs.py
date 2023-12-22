@@ -282,3 +282,8 @@ print("{}/{} datasets were checked and are OK.".format(numOKdatasets, numDataset
 if numBadDatasets > 0:
     print("{}/{} datasets have problems:".format(numBadDatasets, numDatasets))
     print(tabulate(table, headers=columnNames, tablefmt="github"))
+    print("Resubmission commands:")
+    for entry in table:
+        dataset = entry[0]
+        subFile = localDir+"/analysisClass_lq1_skim___"+dataset+"/condorSubmit.sub"
+        print("condor_submit "+subFile)
