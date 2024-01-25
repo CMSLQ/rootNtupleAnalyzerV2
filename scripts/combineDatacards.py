@@ -79,7 +79,6 @@ with open(combinedOutputCardName, "w") as combCardFile:
     out, err = process.communicate()
     errcode = process.returncode
     if errcode != 0:
-        DeleteTmpFiles(allTmpFilesByMass)
         raise RuntimeError("Command {} failed with return code {}.\nStderr: {}\n Exiting here.".format("/bin/bash -l -c "+cmd, errcode, err.decode().strip()))
     #with open("combCardFile_m{}.txt".format(mass), "w") as combCardFile:
     #    combCardFile.write(out.decode())
@@ -92,5 +91,5 @@ with open(combinedOutputCardName, "w") as combCardFile:
     # combCardFile.write(out.decode())
     # print("Wrote combination for mass {}".format(mass))
     
-#DeleteTmpFiles(allTmpFilesByMass)
+DeleteTmpFiles(allTmpFilesByMass)
 print("Wrote combined file {}".format(combinedOutputCardName))
