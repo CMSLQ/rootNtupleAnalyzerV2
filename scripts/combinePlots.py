@@ -21,9 +21,20 @@ from termcolor import colored
 import combineCommon
 
 
+def RenameLHECombBins(histo):
+    binsToRename = ["LHEPdf_UpComb", "LHEPdf_DownComb", "LHEScale_UpComb", "LHEScale_DownComb"]
+    renamedBins = ["LHEPdfCombUp", "LHEPdfCombDown", "LHEScaleCombUp", "LHEScaleCombDown"]
+    for idx, binName in enumerate(binsToRename):
+        binNum = histo.GetYaxis().FindBin(binName)
+        if binNum > 0:
+            histo.GetYaxis().SetBinLabel(binNum, renamedBins[idx])
+
+
 def SavePrunedSystHistos(inputRootFileName, outputRootFileName):
     classesToKeep = ["TH1", "TProfile", "TMap"]
     myFile = TFile.Open(inputRootFileName)
+    if not myFile:
+        raise RuntimeError("Could not open file '{}'.".format(inputRootFileName))
     myOutputFile = TFile.Open(outputRootFileName, "recreate", "", 207)
     for key in myFile.GetListOfKeys():
         nBytes = 0
@@ -49,6 +60,7 @@ def SavePrunedSystHistos(inputRootFileName, outputRootFileName):
         binsToRemove = pdfWeightLabels+shapeSystLabels
         myOutputFile.cd()
         htemp = combineCommon.RemoveHistoBins(htemp, "y", binsToRemove)
+        RenameLHECombBins(htemp)
         myOutputFile.cd()
         nBytes = htemp.Write()
         if nBytes <= 0:
@@ -205,6 +217,15 @@ def MakeCombinedSample(args):
             # write histos
             if not options.tablesOnly:
                 combineCommon.WriteHistos(outputTfile, histoDictThisSample, sample, corrLHESysts, isMC, True)
+                # always keep tmap, eventspassingcuts, and 2-D syst hists in final root file
+                if not sampleInfo["save"]:
+                    objectNamesToKeep = ["eventspassingcuts", "systematicnametobranchesmap"]
+                    histsToKeep = {k:v for k, v in histoDictThisSample.items() if any(objectName in v.GetName().lower() for objectName in objectNamesToKeep) or (v.InheritsFrom("TH2") and "systematics" in v.GetName().lower())}
+                    tfileKeepName = tfileNameTemplate.format(sample).replace("_plots.root", "_keep_plots.root")
+                    outputTfileKeep = TFile.Open(tfileKeepName, "RECREATE", "", 207)
+                    combineCommon.WriteHistos(outputTfileKeep, histsToKeep, sample, corrLHESysts, isMC, True)
+                    outputTfileKeep.Close()
+                    SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
                 if sample in samplesToSave:
                     dictFinalHisto[sample] = histoDictThisSample
             outputTfile.Close()
@@ -347,7 +368,7 @@ parser.add_option(
     "-n",
     "--nCores",
     dest="nCores",
-    default=8,
+    default=4,
     help="number of cores/processes to use",
     metavar="NCORES",
 )
@@ -378,6 +399,7 @@ if doPDFReweight2016LQSignals:
     print("Doing PDF reweighting for 2016 LQ B/D signal samples")
 
 ncores = int(options.nCores)
+print("Using {} cores".format(ncores))
 result_list = []
 logString = "INFO: running {} parallel jobs for {} separate samples found in samplesToCombineFile..."
 jobCount = 0
@@ -504,7 +526,11 @@ while ts.is_active():
     # print("", flush=True)
     dictDatasetsFileNames[sample] = sampleTFileNameTemplate.format(sample)
     if dictSamples[sample]["save"]:
+        # save all the individual objects in the file
         sampleFiles.append(dictDatasetsFileNames[sample])
+    else:
+        # save just the minimal set of objects to keep
+        sampleFiles.append(dictDatasetsFileNames[sample].replace("_plots.root", "_keep_plots.root"))
     ts.done(sample)
     finalizedTasksQueue.task_done()
 
@@ -535,7 +561,12 @@ if not options.tablesOnly:
     stdout, stderr = proc.communicate()
     timeDelta = time.time() - timeStarted
     if proc.returncode != 0:
-        raise RuntimeError("ERROR: hadd command '{}' finished with error: '{}'; output looks like '{}'".format(" ".join(args), stderr, stdout))
+        # raise RuntimeError("ERROR: hadd command '{}' finished with error: '{}'; output looks like '{}'".format(" ".join(args), stderr.decode(), stdout.decode()))
+        print(colored("hadd failed.".format(" ".join(args)), "red"))
+        print(colored("stdout = ", ex.stdout, "green"))
+        print(colored("stderr = ", ex.stderr, "red"))
+        print("cmd={}".format(" ".join(args)))
+        raise RuntimeError("hadd failed")
     else:
         print("INFO: Finished hadd in "+str(round(timeDelta/60.0, 2))+" mins.", flush=True)
     if not options.keepInputFiles:
@@ -543,6 +574,9 @@ if not options.tablesOnly:
             fileName = sampleTFileNameTemplate.format(sample).replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
             os.remove(fileName)
             os.remove(fileName.replace("_plots.root", "_plots_pruned.root"))
+            if not dictSamples[sample]["save"]:
+                os.remove(fileName.replace("_plots.root", "_keep_plots_pruned.root"))
+                os.remove(fileName.replace("_plots.root", "_keep_plots.root"))
             tableFile = fileName.replace(".root", ".dat").replace("plots", "tables")
             os.remove(tableFile)
     # now prune the hists and write in a new TFile
