@@ -110,7 +110,7 @@ def WriteSubmitFile(condorFileName):
             condorFile.write('transfer_output_files = '+outputRootFile+','+outputDatFile+'\n')
             condorFile.write('transfer_output_remaps = "'+outputRootFile+' = '+outputPath+outputRootFile+'; '+outputDatFile+' = '+outputPath+outputDatFile+'"\n')
         else:
-            condorFile.write('+JobFlavour = "'+options.queue+'"\n')
+            condorFile.write('+JobFlavour = "'+queue+'"\n')
             # require CentOS7
             condorFile.write('MY.WantOS = "el7"\n')
             condorFile.write('transfer_output_files = ""\n')
@@ -229,6 +229,12 @@ outputPrefix = outputmain.split("/")[-1]
 #################################################
 # dataset
 dataset = outputPrefix.split("___")[-1]
+#################################################
+# queue
+queue = options.queue
+# special override
+if queue is not None and "DYJetsToEE_M-50_massWgtFix" in dataset:
+    queue = "testmatch"
 ################################################
 # create eos dir
 ################################################
@@ -252,7 +258,6 @@ else:
         ijobmax = int(numfiles/filesperjob)
         if numfiles % filesperjob != 0:
             ijobmax = ijobmax+1
-fullDatasetName = Path(inputlist.replace(".txt", "_dataset.txt")).read_text()
 input = open(inputlist)
 for ijob in range(ijobmax):
     # prepare the list file
@@ -284,6 +289,7 @@ condorFileName = outputmain+'/condorSubmit.sub'
 WriteSubmitFile(condorFileName)
 
 if options.reducedSkim or options.nanoSkim:
+    fullDatasetName = Path(inputlist.replace(".txt", "_dataset.txt")).read_text()
     # siteList = GetSiteListFromDAS(allInputFiles, dataset)
     siteList = GetSitesHostingAllFiles(fullDatasetName)
     if len(siteList) < 1:
