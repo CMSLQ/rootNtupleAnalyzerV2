@@ -207,7 +207,7 @@ class TMVACut : public cut {
         if(!cut->filled) {
           cutsNotFilled+=cut->variableName+" ";
         }
-        //STDOUT("cut: " << cut->variableName << " value = " << cut->getValue<float>());
+        //STDOUT("\tcut: " << cut->variableName << " value = " << cut->getValue<float>());
       }
       if(!cutsNotFilled.empty()) {
           STDOUT("ERROR: Cut(s) " << cutsNotFilled << " was not filled. Cannot evaluate TMVA model.");
@@ -705,7 +705,7 @@ class baseClass {
           h->Sumw2();
           h->SetDirectory(0);
           userTH1s_[std::string(nameAndTitle)] = std::move(h);
-          h->Fill(value);
+          h->Fill(value, weight);
         }
         else {
           nh_h->second->Fill(value, weight);
@@ -749,11 +749,58 @@ class baseClass {
         STDOUT("ERROR: trying to define already existing histogram "<<nameAndTitle);
       }
     }
+
+    template <typename T = TH2F> void CreateAndFillUserHist2D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup,  Double_t value_x,  Double_t value_y, Double_t weight=1)
+    {
+      std::map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
+      if( nh_h == userTH2s_.end() ) {
+        std::unique_ptr<TH2> h = std::make_unique<T>(nameAndTitle.c_str(), nameAndTitle.c_str(), nbinsx, xlow, xup, nbinsy, ylow, yup);
+        h->Sumw2();
+        h->SetDirectory(0);
+        userTH2s_[std::string(nameAndTitle)] = std::move(h);
+        h->Fill(value_x, value_y, weight);
+      }
+      else {
+        nh_h->second->Fill(value_x, value_y, weight);
+      }
+    }
+    template <typename T = TH2F> void CreateUserHist2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup)
+    {
+      std::map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(nameAndTitle);
+      if( nh_h == userTH2s_.end() )
+      {
+        std::unique_ptr<TH2> h = std::make_unique<T>(nameAndTitle.c_str(), nameAndTitle.c_str(), nbinsx, xlow, xup, nbinsy, ylow, yup);
+        h->Sumw2();
+        h->SetDirectory(0);
+        userTH2s_[std::string(nameAndTitle)] = std::move(h);
+      }
+      else
+      {
+        STDOUT("ERROR: trying to define already existing histogram "<<nameAndTitle);
+      }
+    }
+    template <typename T = TH2F> void  FillUserHist2D(const std::string& nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight)
+    {
+      std::map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(nameAndTitle);
+      if( nh_h == userTH2s_.end() )
+      {
+        STDOUT("ERROR: trying to fill histogram "<<nameAndTitle<<" that was not defined.");
+        exit(-4);
+      }
+      else
+      {
+        nh_h->second->Fill(value_x, value_y, weight);
+      }
+    }
+    template <typename T = TH2F> void FillUserHist2D(const std::string& nameAndTitle, TTreeReaderValue<double>& xReader, TTreeReaderValue<double>& yReader, Double_t weight)
+    {
+      FillUserHist2D<T>(nameAndTitle, *xReader, *yReader, weight);
+    }
+
     template <typename T = TH1F> void CreateUserHistWithSysts(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, bool systematics=false)
     { CreateUserHist<T>(nameAndTitle, nbinsx, xlow, xup, true); }
     void FillUserHist(const std::string&  nameAndTitle, Double_t value, Double_t weight=1, std::string selection="");
     void FillUserHist(const std::string&  nameAndTitle, TTreeReaderValue<double>& reader, Double_t weight=1, std::string selection="");
-
     void CreateAndFillUserTH1D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Double_t value, Double_t weight=1, bool systematics=true, std::string selection="")
     { CreateAndFillUserHist<TH1D>(nameAndTitle, nbinsx, xlow, xup, value, weight, systematics, selection); }
     void CreateUserTH1D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, bool systematics=false)
@@ -763,12 +810,16 @@ class baseClass {
     { FillUserHist(nameAndTitle, value, weight, selection); }
     void FillUserTH1D(const std::string&  nameAndTitle, TTreeReaderValue<double>& reader, Double_t weight=1, std::string selection="")
     { FillUserHist(nameAndTitle, reader, weight, selection); }
-    void CreateAndFillUserTH2D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup,  Double_t value_x,  Double_t value_y, Double_t weight=1);
-    void CreateUserTH2D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup);
-    void CreateUserTH2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t * x, Int_t nbinsy, Double_t * y );
-    void FillUserTH2D(const std::string&   nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight=1);
-    void FillUserTH2D(const std::string&  nameAndTitle, TTreeReaderValue<double>& xReader, TTreeReaderValue<double>& yReader, Double_t weight=1);
-    void FillUserTH2DLower(const std::string&   nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight=1);
+    void CreateAndFillUserTH2D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup, Double_t value_x, Double_t value_y, Double_t weight=1)
+    { CreateAndFillUserHist2D<TH2D>(nameAndTitle, nbinsx, xlow, xup, nbinsy, ylow, yup, value_x, value_y, weight=1); }
+    void CreateUserTH2D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup)
+    { CreateUserHist2D<TH2D>(nameAndTitle, nbinsx, xlow, xup, nbinsy, ylow, yup); }
+    //void CreateUserTH2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t * x, Int_t nbinsy, Double_t * y );
+    void FillUserTH2D(const std::string& nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight=1) 
+    { FillUserHist2D<TH2D>(nameAndTitle, value_x,  value_y, weight); }
+    void FillUserTH2D(const std::string& nameAndTitle, TTreeReaderValue<double>& xReader, TTreeReaderValue<double>& yReader, Double_t weight=1)
+    { FillUserHist2D<TH2D>(nameAndTitle, xReader, yReader, weight); }
+    //void FillUserTH2DLower(const std::string&   nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight=1);
     void CreateUserTH2DForSysts(const std::string& nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup)
     { CreateUserHistForSysts<TH2D>(nameAndTitle, nbinsx, xlow, xup, nbinsy, ylow, yup); }
     void CreateAndFillUserTH3D(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup,  Int_t binsz, Double_t zlow, Double_t zup, Double_t value_x,  Double_t value_y, Double_t z, Double_t weight=1);
@@ -857,7 +908,8 @@ class baseClass {
     void saveLHEPdfSumw(const std::string& fileName);
     void saveEventsPassingCuts(const std::string& fileName);
     std::shared_ptr<TProfile> makeNewEventsPassingSkimCutsProfile(const std::shared_ptr<TProfile> prevProfFromFile = 0);
-    bool isData_;
+    bool isData_ = false;
+    bool isDataSet_ = false;
 
     Long64_t NBeforeSkim_;
     double sumGenWeights_;

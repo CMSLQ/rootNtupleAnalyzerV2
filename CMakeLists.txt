@@ -12,7 +12,7 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 
 ### compile_commands.json DB
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # for warnings
 #message(STATUS "Enabling more warnings")
@@ -166,6 +166,7 @@ else()
     src/HistoReader.C
     src/jsonParser.C
     src/QCDFakeRate.C
+    src/DYJNJetCorrections.C
     )
   if(HAS_QCD)
     add_executable(mainQCD

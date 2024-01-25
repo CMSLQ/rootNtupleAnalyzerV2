@@ -1349,12 +1349,16 @@ void baseClass::runSystematics()
             systHist->Fill(xbinCoord, ybinCoord, systCutName_cut_[cutName]->weight*systVal);
             systHistUnweighted->Fill(xbinCoord, ybinCoord, systVal);
             currentSystematicsHist_->Fill(xbinCoord, ybinCoord, systVal);
-            //int bin = currentSystematicsHist_->FindFixBin(xbinCoord, ybinCoord);
-            ////if(syst.name == "nominal")
+            int bin = currentSystematicsHist_->FindFixBin(xbinCoord, ybinCoord);
+            //if(syst.name == "nominal")
             //if(syst.name=="LHEPdfWeight" && cutName == "preselection" && i > 40 && i < 45)
-            //  STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", index=" << i << ", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
-            //      << ", syst. weight=weight*systVal="<<systCutName_cut_[cutName]->weight << "*"
-            //      << systVal << "=" << systCutName_cut_[cutName]->weight*systVal << "; binContent=" << systHist->GetBinContent(bin));
+            if(syst.name=="nominal" || syst.name.find("EleTrig") != std::string::npos || syst.name.find("EleReco") != std::string::npos) {
+              if(cutName.find("BDTOutput") != std::string::npos) {
+                STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", index=" << i << ", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
+                    << ", syst. weight=weight*systVal="<<systCutName_cut_[cutName]->weight << "*"
+                    << systVal << "=" << systCutName_cut_[cutName]->weight*systVal << "; binContent=" << systHist->GetBinContent(bin) << "; nominal binContent=" << systHist->GetBinContent(systHist->FindBin(xbinCoord, 1)))
+              }
+            }
           }
         }
         xbinCoord+=1;
@@ -2342,111 +2346,59 @@ void baseClass::FillUserHist(const std::string& nameAndTitle, TTreeReaderValue<d
   FillUserHist(nameAndTitle, *reader, weight);
 }
 
-void baseClass::CreateAndFillUserTH2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup,  Double_t value_x,  Double_t value_y, Double_t weight)
-{
-  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
-  if( nh_h == userTH2s_.end() )
-    {
-      std::unique_ptr<TH2D> h(new TH2D(nameAndTitle.c_str(), nameAndTitle.c_str(), nbinsx, xlow, xup, nbinsy, ylow, yup));
-      h->Sumw2();
-      h->SetDirectory(0);
-      userTH2s_[std::string(nameAndTitle)] = std::move(h);
-      h->Fill(value_x, value_y, weight);
-    }
-  else
-    {
-      nh_h->second->Fill(value_x, value_y, weight);
-    }
-}
+//void baseClass::CreateUserTH2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t * x, Int_t nbinsy, Double_t * y )
+//{
+//  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
+//  if( nh_h == userTH2s_.end() )
+//    {
+//      std::unique_ptr<TH2D> h(new TH2D(nameAndTitle.c_str(), nameAndTitle.c_str(), nbinsx, x, nbinsy, y ));
+//      h->Sumw2();
+//      h->SetDirectory(0);
+//      userTH2s_[std::string(nameAndTitle)] = std::move(h);
+//    }
+//  else
+//    {
+//      STDOUT("ERROR: trying to define already existing histogram "<<nameAndTitle);
+//    }
+//}
 
-void baseClass::CreateUserTH2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup)
-{
-  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
-  if( nh_h == userTH2s_.end() )
-    {
-      std::unique_ptr<TH2D> h(new TH2D(nameAndTitle.c_str(), nameAndTitle.c_str(), nbinsx, xlow, xup, nbinsy, ylow, yup));
-      h->Sumw2();
-      h->SetDirectory(0);
-      userTH2s_[std::string(nameAndTitle)] = std::move(h);
-    }
-  else
-    {
-      STDOUT("ERROR: trying to define already existing histogram "<<nameAndTitle);
-    }
-}
-
-void baseClass::CreateUserTH2D(const std::string& nameAndTitle, Int_t nbinsx, Double_t * x, Int_t nbinsy, Double_t * y )
-{
-  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
-  if( nh_h == userTH2s_.end() )
-    {
-      std::unique_ptr<TH2D> h(new TH2D(nameAndTitle.c_str(), nameAndTitle.c_str(), nbinsx, x, nbinsy, y ));
-      h->Sumw2();
-      h->SetDirectory(0);
-      userTH2s_[std::string(nameAndTitle)] = std::move(h);
-    }
-  else
-    {
-      STDOUT("ERROR: trying to define already existing histogram "<<nameAndTitle);
-    }
-}
-
-void baseClass::FillUserTH2D(const std::string& nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight)
-{
-  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
-  if( nh_h == userTH2s_.end() )
-    {
-      STDOUT("ERROR: trying to fill histogram "<<nameAndTitle<<" that was not defined.");
-      exit(-4);
-    }
-  else
-    {
-      nh_h->second->Fill(value_x, value_y, weight);
-    }
-}
-void baseClass::FillUserTH2D(const std::string& nameAndTitle, TTreeReaderValue<double>& xReader, TTreeReaderValue<double>& yReader, Double_t weight)
-{
-  FillUserTH2D(nameAndTitle, *xReader, *yReader, weight);
-}
-
-
-void baseClass::FillUserTH2DLower(const std::string& nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight)
-{
-  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
-  if( nh_h == userTH2s_.end() )
-    {
-      STDOUT("ERROR: trying to fill histogram "<<nameAndTitle<<" that was not defined.");
-      exit(-4);
-    }
-  else
-  {
-    TH2 * hist = nh_h->second.get();
-    TAxis * x_axis   = hist -> GetXaxis();
-    TAxis * y_axis   = hist -> GetYaxis();
-    int     n_bins_x = hist -> GetNbinsX();
-    int     n_bins_y = hist -> GetNbinsY();
-
-    for ( int i_bin_x = 1; i_bin_x <= n_bins_x; ++i_bin_x ){
-
-      float x_min  = x_axis -> GetBinLowEdge( i_bin_x );
-      float x_max  = x_axis -> GetBinUpEdge ( i_bin_x );
-      float x_mean = x_axis -> GetBinCenter ( i_bin_x );
-
-      if ( value_x <= x_min ) continue;
-
-      for ( int i_bin_y = 1; i_bin_y <= n_bins_y; ++i_bin_y ){
-
-        float y_min  = y_axis -> GetBinLowEdge( i_bin_y );
-        float y_mean = y_axis -> GetBinCenter ( i_bin_y );
-
-        if ( value_y <= y_min ) continue;
-
-        hist -> Fill (x_mean,y_mean, weight);
-
-      }
-    }
-  }
-}
+//void baseClass::FillUserTH2DLower(const std::string& nameAndTitle, Double_t value_x,  Double_t value_y, Double_t weight)
+//{
+//  map<std::string , std::unique_ptr<TH2> >::iterator nh_h = userTH2s_.find(std::string(nameAndTitle));
+//  if( nh_h == userTH2s_.end() )
+//    {
+//      STDOUT("ERROR: trying to fill histogram "<<nameAndTitle<<" that was not defined.");
+//      exit(-4);
+//    }
+//  else
+//  {
+//    TH2 * hist = nh_h->second.get();
+//    TAxis * x_axis   = hist -> GetXaxis();
+//    TAxis * y_axis   = hist -> GetYaxis();
+//    int     n_bins_x = hist -> GetNbinsX();
+//    int     n_bins_y = hist -> GetNbinsY();
+//
+//    for ( int i_bin_x = 1; i_bin_x <= n_bins_x; ++i_bin_x ){
+//
+//      float x_min  = x_axis -> GetBinLowEdge( i_bin_x );
+//      float x_max  = x_axis -> GetBinUpEdge ( i_bin_x );
+//      float x_mean = x_axis -> GetBinCenter ( i_bin_x );
+//
+//      if ( value_x <= x_min ) continue;
+//
+//      for ( int i_bin_y = 1; i_bin_y <= n_bins_y; ++i_bin_y ){
+//
+//        float y_min  = y_axis -> GetBinLowEdge( i_bin_y );
+//        float y_mean = y_axis -> GetBinCenter ( i_bin_y );
+//
+//        if ( value_y <= y_min ) continue;
+//
+//        hist -> Fill (x_mean,y_mean, weight);
+//
+//      }
+//    }
+//  }
+//}
 
 
 void baseClass::CreateAndFillUserTH3D(const std::string& nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup, Int_t nbinsy, Double_t ylow, Double_t yup, Int_t nbinsz, Double_t zlow, Double_t zup,  Double_t value_x,  Double_t value_y, Double_t z, Double_t weight)
@@ -2830,7 +2782,7 @@ void baseClass::createOptCutFile() {
 }
 
 bool baseClass::isData() {
-  if(GetCurrentEntry() > 0)
+  if(isDataSet_)
     return isData_;
 
   isData_ = true;
@@ -2841,6 +2793,7 @@ bool baseClass::isData() {
   // if no isData branch (like in nanoAOD output), check for Weight or genWeight branches
   else if(tree_->GetBranch("Weight") || tree_->GetBranch("genWeight"))
     isData_ = false;
+  isDataSet_ = true;
   return isData_;
 }
 

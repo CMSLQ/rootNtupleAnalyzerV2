@@ -1,5 +1,6 @@
 #include "EWKCorrections.h"
 #include <vector>
+#include <stdexcept>
 #include <TH1D.h>
 
 namespace EWKCorrections {
@@ -14,7 +15,10 @@ namespace EWKCorrections {
      double LookupEWKCorrection(const double GenZPt) {
       if(ewkHist==nullptr)
         initHist();
-      return ewkHist->GetBinContent(ewkHist->FindBin(GenZPt));
+      int ptBin = ewkHist->FindBin(GenZPt);
+      if(ptBin > ewkHist->GetNbinsX())
+        throw std::runtime_error("Found overflow bin while getting EWKCorrection for GenZPt=" + std::to_string(GenZPt));
+      return ewkHist->GetBinContent(ptBin);
     }
 
 }
