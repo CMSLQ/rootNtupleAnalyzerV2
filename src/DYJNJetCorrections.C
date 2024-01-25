@@ -11,6 +11,14 @@ namespace DYJNJetCorrections {
       for(int xbin=1; xbin <= dyjnjetHist->GetNbinsX(); ++xbin) {
        if(year == "2016pre")
         dyjnjetHist->SetBinContent(xbin, dyjnjetBinContent2016pre[xbin-1]);
+       else if(year == "2016post")
+        dyjnjetHist->SetBinContent(xbin, dyjnjetBinContent2016post[xbin-1]);
+       else if(year == "2017")
+        dyjnjetHist->SetBinContent(xbin, dyjnjetBinContent2017[xbin-1]);
+       else if(year == "2018")
+        dyjnjetHist->SetBinContent(xbin, dyjnjetBinContent2018[xbin-1]);
+       else
+         throw std::runtime_error("Could not initHist for year = " + year);
       }
     }
 
