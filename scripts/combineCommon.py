@@ -1082,6 +1082,9 @@ def GetPDFVariationType(branchTitle):
     elif "325500" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nnlo_as_0118_nf_4_mc_hessian"
+    elif "315200" in branchTitle:
+        pdfType = "mc"
+        pdfName = "NNPDF31_lo_as_0130"
     else:
         raise RuntimeError("Can't determine whether branch title '{}' is a Hessian or MC set".format(branchTitle))
     return pdfType, pdfName
@@ -1903,18 +1906,34 @@ def MakeSystDiffsPlot(systHist):
 
 def SetDistinctiveTColorPalette():
     # 12 distinctive colors
-    myColors = ["#76be79",
-                "#8049c5",
-                "#86d54b",
-                "#d056a2",
-                "#cab244",
-                "#443058",
-                "#d15739",
-                "#7dc2c1",
-                "#893e44",
-                "#9090c5",
-                "#4d5635",
-                "#cca58a"]
+    # myColors = ["#76be79",
+    #             "#8049c5",
+    #             "#86d54b",
+    #             "#d056a2",
+    #             "#cab244",
+    #             "#443058",
+    #             "#d15739",
+    #             "#7dc2c1",
+    #             "#893e44",
+    #             "#9090c5",
+    #             "#4d5635",
+    #             "#cca58a"]
+    # 14 distinctive colors
+    # https://mokole.com/palette.html
+    myColors = ["#2f4f4f",
+                "#800000",
+                "#191970",
+                "#006400",
+                "#ff8c00",
+                "#ffff00",
+                "#0000cd",
+                "#deb887",
+                "#00ff00",
+                "#00bfff",
+                "#ff00ff",
+                "#dda0dd",
+                "#ff1493",
+                "#98fb98"]
     SetTColorPalette(myColors)
 
 
