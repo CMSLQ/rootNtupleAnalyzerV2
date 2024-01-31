@@ -74,12 +74,18 @@ def GetFileEventsMapFromDAS(datasetList):
     return fileNameToNEventsDict
 
 
-def CheckEventsProcessedPerJob(fileNameEventsDict):
+def CheckEventsProcessedPerJob(datasetFileNameEventsDict):
     fileList = glob.glob(localDir+"**/submit_*.sh", recursive=True)
     if len(fileList) < 0:
         raise RuntimeError("Could not find any submit files in localDir {}".format(localDir))
     for srcFile in fileList:
         index = srcFile.split("_")[-1].split(".")[0]
+        path = Path(srcFile)
+        datasetDir = str(path.parent.absolute().parent)+"/"
+        dataset = datasetDir.split("___")[1].strip("/")
+        if dataset not in datasetFileNameEventsDict.keys():
+            # print("INFO: skipping dataset {} which is not in datasetFileNameEventsDict.keys(): {}".format(dataset, datasetFileNameEventsDict.keys()), flush=True)
+            continue
         filesProcessed = []
         with open(srcFile, 'r') as thisFile:
             for line in thisFile:
@@ -93,14 +99,12 @@ def CheckEventsProcessedPerJob(fileNameEventsDict):
         for rootFile in filesProcessed:
             fileName = "/"+rootFile.split("//")[-1]
             try:
-                eventsExpected += fileNameEventsDict[fileName]
+                eventsExpected += datasetFileNameEventsDict[dataset][fileName]
             except KeyError:
-                print("WARN: could not find key {} in fileNameEventsDict. Getting events expected manually (very slow).".format(fileName))
+                print("WARN: could not find key {} in datasetFileNameEventsDict[{}]. Getting events expected manually (very slow).".format(fileName, dataset))
                 filesToReadFrom.append(rootFile)
         if len(filesToReadFrom) > 0:
             eventsExpected += GetNEventsFromFiles(filesToReadFrom)
-        path = Path(srcFile)
-        datasetDir = str(path.parent.absolute().parent)+"/"
         datFiles = glob.glob(datasetDir+"output/*_{}.dat".format(index), recursive=True)
         if len(datFiles) > 1:
             raise RuntimeError("Didn't get exactly 1 dat file matching pattern '{}': {}. There should only be one.".format(datasetDir+"output/*_{}.dat".format(index), datFiles))
@@ -151,7 +155,7 @@ harmlessErrorMessages.append("security protocol 'ztn' disallowed for non-TLS con
 harmlessErrorMessages.append("tac: write error: Broken pipe")  # no idea what this is about, but apparently harmless
 harmlessErrorMessages.append("Info in <TCanvas::MakeDefCanvas>:  created default TCanvas with name c1")
 
-print("Checking that all events expected were processed...", flush = True)
+print("Checking that all events expected were processed from datasets in given inputList...", flush = True)
 fileToEventsDict = {}
 with open(inputListFile, "r") as inputList:
     for line in inputList:
@@ -159,7 +163,8 @@ with open(inputListFile, "r") as inputList:
             continue
         if line.strip().startswith("#"):
             continue
-        # dataset = line.strip().split("/")[-1].split(".txt")[0]
+        dataset = line.strip().split("/")[-1].split(".txt")[0]
+        fileToEventsDict[dataset] = {}
         fileListFile = line.strip()
         eventsFilename = fileListFile.replace(".txt", "_nevents.txt")
         eventsFileList = glob.glob(eventsFilename)
@@ -173,14 +178,19 @@ with open(inputListFile, "r") as inputList:
                     continue
                 fileURL = fileLine.strip()
                 fileURL = re.sub("root://.*/store", "/store", fileURL)  # need to remove prefix
-                fileToEventsDict[fileURL] = int(eventsLine)
+                fileToEventsDict[dataset][fileURL] = int(eventsLine)
 CheckEventsProcessedPerJob(fileToEventsDict)
 print ("Done.", flush = True)
 
-print("Grepping error files...")
+print("Grepping error files for datasets in given inputList...")
 fileList = glob.glob(localDir+"**/*.err", recursive=True)
 filesAndErrorOutput = {}
 for errFile in fileList:
+    path = Path(errFile)
+    datasetDir = str(path.parent.absolute().parent)+"/"
+    dataset = datasetDir.split("___")[1].strip("/")
+    if dataset not in fileToEventsDict.keys():
+        continue
     errorOutputThisFile = []
     with open(errFile, 'r') as thisFile:
         lines = thisFile.readlines()
@@ -206,6 +216,11 @@ print("Grepping .out files...")
 fileList = glob.glob(localDir+"**/*.out", recursive=True)
 filesAndOutput = {}
 for outFile in fileList:
+    path = Path(outFile)
+    datasetDir = str(path.parent.absolute().parent)+"/"
+    dataset = datasetDir.split("___")[1].strip("/")
+    if dataset not in fileToEventsDict.keys():
+        continue
     outputThisFile = []
     with open(outFile, 'r') as thisFile:
         lines = thisFile.readlines()
@@ -231,6 +246,8 @@ cmdsToRun = []
 for dirName in subdirs:
     if "analysisClass" in dirName:
         dataset = dirName.split("___")[1].strip("/")
+        if dataset not in fileToEventsDict.keys():
+            continue
         datasetInfoDict[dataset] = {}
         numExpectedOutputFiles = len(glob.glob(localDir+dirName+"/src/submit*.sh"))
         datasetInfoDict[dataset]["numExpectedOutputFiles"] = numExpectedOutputFiles
