@@ -51,9 +51,9 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT_powheg/3rdJet/withElePt/dedicated_mass/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_powheg/3rdJet/withElePt/dedicated_mass"
-        bdtPlotFile = "$LQDATAEOS/BDT_powheg/3rdJet/withElePt/dedicated_mass/bdtPlots.root"
+        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/optimizationPlots.root"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/dedicated_mass"
+        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/dedicated_mass/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
         optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"

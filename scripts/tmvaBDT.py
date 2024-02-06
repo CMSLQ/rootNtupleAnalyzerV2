@@ -1347,7 +1347,7 @@ if __name__ == "__main__":
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_DATA_2FR/"
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
-    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_2016preVFP.txt"
+    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_2016preVFP_22jan2024.txt"
     xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/config/" + xsectionTxt
     xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016postVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
     train = options.train
@@ -1358,14 +1358,14 @@ if __name__ == "__main__":
     includeQCD = True
     normalizeVars = False
     # normTo = "Meejj"
-    #lqMassesToUse = [1000]#,1100,1200]
-    #lqMassesToUse = list(range(2000, 3100, 100))
+    lqMassesToUse = [2700]#,1100,1200]
+    #lqMassesToUse = list(range(2500, 3100, 100))
     #lqMassesToUse = list(range(600, 1100, 100))
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
     #lqMassesToUse = list(range(700, 1100, 100))
     #lqMassesToUse = list(range(300, 1100, 100))
-    lqMassesToUse = list(range(300,3100,100))
+    #lqMassesToUse = list(range(300,3100,100))
     #lqMassesToUse = [300]#,400,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
