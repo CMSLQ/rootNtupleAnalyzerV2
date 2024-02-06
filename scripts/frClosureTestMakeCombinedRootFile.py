@@ -18,10 +18,10 @@ import os
 import math
 
 #runs on the output of combinePlots for 1P1F and 2F. Copies the histos you need for the closure test into a single ROOT file. Also adds all the MC together to make an MC total histo, and puts that in the output file too.
-input_file2F = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/2F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
+input_file2F = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/2F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
 #input_file1P1F = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_Aug23/MCfix/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-input_file1P1F = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-output_name = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/FRCTCombined.root"
+input_file1P1F = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/1P1F_SF/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
+output_name = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
 
 #run
 gROOT.SetBatch(True)
@@ -63,7 +63,8 @@ etaRegions = ["_BB","_BE","_EE",""]
 fileList = [input_file2F, input_file1P1F]
 
 mcSamples = [
-    "ZJet_NNLO_IncStitch",
+    #"ZJet_NNLO_IncStitch",
+    "ZJet_amcatnlo_ptBinned_IncStitch",
     "WJet_sherpa", 
     "WJet_amcatnlo_jetBinned",
     "WJet_HTBinned",
@@ -88,16 +89,18 @@ for filename in fileList:
             histoData = tfile.Get(histoNameData+variableName+region)
             if not histoData:
                 print("ERROR: could not find histo ",histoNameData+variableName+region)
+                exit()
             output_file.cd()
             if "1P1F" in filename:
                 histoData.SetName("histo1D__QCDFakes_DATA1P1F__"+variableName+region)
                 histoMCTotal = 0
+                histoData.Write()
                 isFirstMCHist = True
                 for name in histoNamesMC:
                     histo = tfile.Get(name + variableName+region)
                     if not histo:
                         print("ERROR: could not find histo ", name + variableName+region)
-                    print("writing histo "+histo.GetName())
+                    #print("writing histo "+histo.GetName())
                     histo.Write()
                     if isFirstMCHist:
                         histoMCTotal_WHT = copy.deepcopy(histo)
@@ -126,7 +129,7 @@ for filename in fileList:
                                 histoMCTotal_WHTincStitch.Add(histo)
                             else:
                                 print("cannot determine WJet sample from MC name ", name)
-                print("writing histo "+histoMCTotal_WHT.GetName())
+                #print("writing histo "+histoMCTotal_WHT.GetName())
                 if "control" in variableName.lower():
                     histoAllBkgContReg = copy.deepcopy(histoMCTotal_WHTincStitch)
                 histoMCTotal_WHT.Write()
@@ -163,19 +166,19 @@ for filename in fileList:
                 else:
                     histoData2FWErr = copy.deepcopy(histoData2F)
                     histoData2FWErr.SetName("histo1D__QCDFakes_DATA2F_WError__"+variableName+region)
-                print("writing histo "+histoData2F.GetName())
+                #print("writing histo "+histoData2F.GetName())
                 if "control" in variableName.lower():
                     histoFRContReg = copy.deepcopy(histoData2F)
                 histoData2F.Write()
-                print("writing histo "+histoData2FWErr.GetName())
+                #print("writing histo "+histoData2FWErr.GetName())
                 histoData2FWErr.Write()
-                print("writing histo "+histoErrSQ2F.GetName())
+                #print("writing histo "+histoErrSQ2F.GetName())
                 histoErrSQ2F.Write()
             else:
                 print("cannot determine region (2F or 1P1F) from filename")
                 break
 histoAllBkgContReg.SetName("histo1D__AllBkgIncFR__MeeControlReg")
 histoAllBkgContReg.Add(histoFRContReg)
-print("writing histo "+histoAllBkgContReg.GetName())
+#print("writing histo "+histoAllBkgContReg.GetName())
 histoAllBkgContReg.Write()
 print("histos written to "+output_name)

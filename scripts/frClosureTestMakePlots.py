@@ -58,9 +58,13 @@ def MakeStackAndRatioPlot(histDict,histoKeysForStack):
 #input_file = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_Aug23/MCfix/FRCTCombined.root"
 #input_file = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_sept2023/withSF/FRCTCombined.root"
 #input_file = "$LQDATA/2017/qcdFRClosureTest/frClosureTest_2017_sept2023/gte1Jet/noSF/FRCTCombined.root"
-input_file = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/FRCTCombined.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/plots"
-fit_results = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/fitResults.txt"
+#input_file = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
+#pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/plots_SF"
+#fit_results = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/fitResults_SF.txt"
+input_file = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_powheg/closureTestFinal/frClosureTest_2017_nov2023-c/FRCTCombined.root"
+pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_powheg/closureTestFinal/frClosureTest_2017_nov2023-c/scratch"
+fit_results = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_powheg/closureTestFinal/frClosureTest_2017_nov2023-c/scratch/fit_results.txt"
+
 if not os.path.isdir(pdf_folder) and pdf_folder != "":
     print("Making directory ", pdf_folder)
     os.mkdir(pdf_folder)
@@ -118,6 +122,8 @@ for region in etaRegs:
         histDict[region][var]["bkg"]["MCOnly"] = tfile.Get("histo1D__MCTotal-WHTBinnedIncStitch__"+var+region)
 
 mcSamples = ["ZJet_NNLO_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
+
+#mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
 
 mcShortNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson"]
 allBkgNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson","fakeRate"]
@@ -216,11 +222,12 @@ for variable in variable_names:
     line.SetLineColor(kGray+2)
     line.Draw("Same")
     ratio.Draw("same")
-    c.Print("/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/WJetComparisons/"+variable+".pdf")
+    #c.Print("/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/WJetComparisons/"+variable+".pdf")
 
 #set colors and style
 for region in etaRegs:
     for var in variable_names:
+        print("set style for: ", var, " ", region)
         histDict[region][var]["data"].SetLineWidth(2)
         for index, name in enumerate(allBkgNames):
             print("set color and style for "+name+" "+var+" "+region)
@@ -454,7 +461,7 @@ for reg in etaRegs:
             title+=" preselection"
         if "tight" in var:
             title = title.replace("_tight", "")
-            title+=" BDT selection"
+            #title+=" BDT selection"
         stackAllBkg[reg][var].SetTitle(title)
         stackAllBkg[reg][var].Draw("hist")
         histDictRebinned[reg][var]["data"].Draw("same")
@@ -527,12 +534,13 @@ for reg in etaRegs:
             title+=" preselection"
         if "tight" in var:
             title = title.replace("_tight", "")
-            title+=" BDT selection"
+            #title+=" BDT selection"
         histoMCSub.SetTitle(title)
         if "gte" in pdf_folder.lower(): #gte 1Jet has more stats so I need a bigger range here since I don't do this one log scale
             histoMCSub.GetYaxis().SetRangeUser(-4000,4000)
         else:
             histoMCSub.GetYaxis().SetRangeUser(0.1,1e4)
+        tpad1.cd()
         l = TLegend(0.6,0.7,0.9,0.9)
         l.AddEntry(histoMCSub,"data - MC 1P1F region","lp")
         l.AddEntry(histoFR,"prediction by fake rate","lp")
@@ -576,7 +584,7 @@ with open(fit_results, "w") as resultsFile:
         if "PAS" in var:
             varToWrite = var.replace("PAS", "preselection")
         elif "tight" in var:
-            varToWrite = var.replace("tight", "BDT")
+            varToWrite = var.replace("tight", "")
         else:
             varToWrite = var
         line = str(fitResults["MCSub"][""][var]["value"]) + " +/- " + str(fitResults["MCSub"][""][var]["error"])
@@ -608,17 +616,28 @@ print("fit of the fit results: ")
 c = TCanvas()
 c.SetGridy()
 fitResultsHistBDT.SetStats(0)
-fitResultsHistBDT.GetYaxis().SetRangeUser(0.5,1.0)
+fitResultsHistBDT.GetYaxis().SetRangeUser(0.8,1.3)
 fitResultsHistBDT.SetNdivisions(25,"X")
 f1 = TF1("fitResultsFit", "pol0", 0,7)
-fitResultsHistBDT.Fit(f1,"","",0,7)
+BDTFit = fitResultsHistBDT.Fit(f1,"S","",0,7)
 fitResultsHistBDT.Draw()
+BDTFitResult = BDTFit.Parameter(0)
+BDTFitErr = BDTFit.ParError(0)
+BDTChi2 = BDTFit.Chi2()
+BDTNDF = BDTFit.Ndf()
+BDTChi2OverNdf = BDTChi2 / BDTNDF
 #fitResultsHistPresel.Draw("same")
 l = TLegend(0.6,0.8,0.9,0.9)
 l.AddEntry(fitResultsHistBDT, "BDT fit results", "lp")
 l.AddEntry(fitResultsHistPresel, "preselection fit results", "lp")
 #l.Draw("same")
 c.Print(pdf_folder+"/fitResults.pdf")
+with open(fit_results, "a") as resultsFile:
+    resultsFile.write("fit of the fits\n")
+    resultsFile.write("    Chi2: "+str(BDTChi2)+"\n")
+    resultsFile.write("    NDF: "+str(BDTNDF)+"\n")
+    resultsFile.write("    Chi2 / NDF: "+str(BDTChi2OverNdf)+"\n")
+    resultsFile.write("    fit: "+str(BDTFitResult)+" +/- "+str(BDTFitErr)+"\n\n")
 
 #make plot of just FR prediction by itself for comparison w the AN
 c = TCanvas()
@@ -663,54 +682,29 @@ histoHEEPEle.Draw("same")
 leg.Draw("same")
 c.Print(pdf_folder+"/elePtComparison.pdf")
 '''
-#do MC subtraction and get yeild
-frError = ctypes.c_double()
-integralFR = histDict[""]["Mee_tight"]["bkg"]["fakeRate"].IntegralAndError(histDict[""]["Mee_tight"]["bkg"]["fakeRate"].GetXaxis().FindBin(110),histDict[""]["Mee_tight"]["bkg"]["fakeRate"].GetXaxis().GetLast(),frError)
-#integralFR = histDict[""]["Mee_PAS"]["bkg"]["fakeRate"].Integral()
-#histoFRErrSQ = tfile.Get("histo1D__QCDFakes_DATA2F__errFRsq_Mee")
-#integralFRErrSQ = histoFRErrSQ.Integral()
-#frError = math.sqrt(integralFRErrSQ)
-data1P1FError = ctypes.c_double()
-integral1P1F = histDict[""]["Mee_tight"]["data"].IntegralAndError(histDict[""]["Mee_tight"]["data"].GetXaxis().FindBin(110),histDict[""]["Mee_tight"]["data"].GetXaxis().GetLast(),data1P1FError)
-MCError = ctypes.c_double()
-integralMC = histDict[""]["Mee_tight"]["bkg"]["MCOnly"].IntegralAndError(histDict[""]["Mee_tight"]["bkg"]["MCOnly"].GetXaxis().FindBin(110),histDict[""]["Mee_tight"]["bkg"]["MCOnly"].GetXaxis().GetLast(),MCError)
-MCSubError = math.sqrt(MCError.value**2 + data1P1FError.value**2)
-integralMCSub = integral1P1F - integralMC
-print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-print("yield predicted by fake rate: ",integralFR," +/- ",frError.value)
-print("data 1P1F region: ",integral1P1F," +/- ",data1P1FError.value)
-print("MC 1P1F region: ",integralMC," +/- ",MCError.value)
-print("actual yield (1P1F data - MC): ",integralMCSub," +/- ",MCSubError)
-print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
-#print error histo
-'''
-histoFRErr = copy.deepcopy(histoFRErrSQ)
-for i in range(histoFRErr.GetNbinsX()+1):
-    errSQ = histoFRErr.GetBinContent(i)
-    err = math.sqrt(errSQ)
-    histoFRErr.SetBinContent(i,err)
-c = TCanvas()
-histoFRErr.Draw("hist")
-c.Print(pdf_folder+"/test.pdf")
-'''
 
 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-print("yield and uncertainty, first three bins, Mee BDT")
+print("total yield and uncertainty")
 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-print("sample    :    value +/- uncertainty")
-for i in range(1,4):
-    print("bin ", i)
-    for name in allBkgNames:
-        value = histDictRebinned[""]["Mee_tight"]["bkg"][name].GetBinContent(i)
-        uncertainty = histDictRebinned[""]["Mee_tight"]["bkg"][name].GetBinError(i)
-        print(name,"    :    ",value," +/- ",uncertainty)
-    totBkg = histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].GetBinContent(i)
-    totBkgErr = histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].GetBinError(i)
-    print("total MC    :    ",totBkg," +/- ",totBkgErr)
-    data = histDictRebinned[""]["Mee_tight"]["data"].GetBinContent(i)
-    dataErr = histDictRebinned[""]["Mee_tight"]["data"].GetBinError(i)
-    print("1P1F data    :    ",data," +/- ",dataErr)
-    print("1P1F data - MC : ",data - totBkg, " +/- ", math.sqrt(totBkgErr**2 + dataErr**2))
-    print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+totBkgErr = ctypes.c_double()
+totBkg = histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].IntegralAndError(histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].GetXaxis().GetFirst(), histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].GetXaxis().GetLast(), totBkgErr)
+print("total MC    :    ",totBkg," +/- ",totBkgErr.value)
+for name in allBkgNames:
+    if "fake" in name.lower():
+        continue
+    uncertainty = ctypes.c_double()
+    value = histDictRebinned[""]["Mee_tight"]["bkg"][name].IntegralAndError(histDictRebinned[""]["Mee_tight"]["bkg"][name].GetXaxis().GetFirst(), histDictRebinned[""]["Mee_tight"]["bkg"][name].GetXaxis().GetLast(), uncertainty)
+    percentage = value / totBkg
+    print("    ",name,"    :    ",value," +/- ",uncertainty.value, ", % of tot. MC: ", percentage)
 
+dataErr = ctypes.c_double()
+data = histDictRebinned[""]["Mee_tight"]["data"].IntegralAndError(histDictRebinned[""]["Mee_tight"]["data"].GetXaxis().GetFirst(), histDictRebinned[""]["Mee_tight"]["data"].GetXaxis().GetLast(), dataErr)
+print("1P1F data    :    ",data," +/- ",dataErr.value)
+print("1P1F data - MC : ",data - totBkg, " +/- ", math.sqrt(totBkgErr.value**2 + dataErr.value**2))
+uncertainty = ctypes.c_double()
+FRPred = histDictRebinned[""]["Mee_tight"]["bkg"]["fakeRate"].IntegralAndError(histDictRebinned[""]["Mee_tight"]["bkg"]["fakeRate"].GetXaxis().GetFirst(),histDictRebinned[""]["Mee_tight"]["bkg"]["fakeRate"].GetXaxis().GetLast(), uncertainty)
+print("fake rate    :    ",FRPred," +/- ",uncertainty.value)
+
+ratio = FRPred / (data - totBkg)
+ratioErr = math.sqrt(((1/ (data-totBkg) )*uncertainty.value)**2 + ((FRPred/(data-totBkg)**2)*math.sqrt(totBkgErr.value**2 + dataErr.value**2))**2)
+print("fake rate prediction / MC sub observed = ", ratio, " +/- ", ratioErr)
