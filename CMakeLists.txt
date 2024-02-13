@@ -166,7 +166,6 @@ else()
     src/HistoReader.C
     src/jsonParser.C
     src/QCDFakeRate.C
-    src/DYJNJetCorrections.C
     )
   if(HAS_QCD)
     add_executable(mainQCD
