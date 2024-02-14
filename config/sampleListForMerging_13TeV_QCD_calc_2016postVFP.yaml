@@ -23,9 +23,6 @@ DYJetsToLL_amcatnlo_Inc:
 DYJetsToLL_madgraph:
   pieces:
   - /DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
-DYJetsToLL_powheg:
-  pieces:
-  - /DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
 ZJet_amcatnlo_ptBinned:
   pieces:
   - DYJetsToLL_0To50
@@ -37,8 +34,55 @@ ZJet_amcatnlo_ptBinned:
   save: true
 ZJet_amcatnlo_ptBinned_IncStitch:
   pieces:
-  - ZJet_amcatnlo_Inc
   - ZJet_amcatnlo_ptBinned
+  - DYJetsToLL_amcatnlo_Inc
+  save: true
+ZJetNNLO_10to50:
+  pieces:
+  - /DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9_ext1-v1/NANOAODSIM
+ZJetNNLO_100to200:
+  pieces:
+  - /DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_200to400:
+  pieces:
+  - /DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_400to500:
+  pieces:
+  - /DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_500to700:
+  pieces:
+  - /DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_700to800:
+  pieces:
+  - /DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_800to1000:
+  pieces:
+  - /DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_1000to1500:
+  pieces:
+  - /DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_1500to2000:
+  pieces:
+  - /DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_2000toInf:
+  pieces:
+  - /DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+ZJetNNLO_Inc:
+  pieces:
+  - /DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
+ZJetNNLO_IncStitch:
+  pieces:
+  - ZJetNNLO_10to50
+  - ZJetNNLO_100to200
+  - ZJetNNLO_200to400
+  - ZJetNNLO_400to500
+  - ZJetNNLO_500to700
+  - ZJetNNLO_700to800
+  - ZJetNNLO_800to1000
+  - ZJetNNLO_1000to1500
+  - ZJetNNLO_1500to2000
+  - ZJetNNLO_2000toInf
+  - ZJetNNLO_Inc
   save: true
 WWTo4Q_4f:
   pieces:
@@ -53,6 +97,7 @@ WW_amcatnlo:
   pieces:
   - WWTo4Q_4f
   - WWTo1L1Nu2Q_4f
+  save: true
 ZZTo2Nu2Q2L:
   pieces:
   - /ZZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
@@ -95,11 +140,13 @@ WZ_amcatnlo:
   - WZTo1L3Nu_4f
   - WZTo2Q2L_mllmin4p0
   - WZTo3LNu
+  save: true
 DIBOSON_amcatnlo:
   pieces:
   - WW_amcatnlo
   - ZZ_amcatnlo
   - WZ_amcatnlo
+  save: true
 DIBOSON_nlo:
   pieces:
   - WWTo2L2Nu
@@ -155,6 +202,7 @@ WJetsToLNu_2J:
 WJet_amcatnlo_Inc:
   pieces:
   - /WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
+  save: true
 WJet_amcatnlo_jetBinned:
   pieces:
   - WJetsToLNu_0J
@@ -179,6 +227,7 @@ TRIBOSON:
   - WWZ_4F
   - WZZ
   - ZZZ
+  save: true
 TTWJetsToLNu:
   pieces:
   - /TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
@@ -220,7 +269,6 @@ OTHERBKG_WJetAMCJetBinned_dibosonNLO_triboson:
   - TTW
   - TTZ
   - PhotonJets_Madgraph
-  save: true
 ALLBKG_powhegTTBar_ZJetPtWJetAMCJetBinned_NLODIBOSON_triboson:
   pieces:
   - ZJet_amcatnlo_ptBinned
@@ -232,16 +280,15 @@ ALLBKG_powhegTTBar_ZJetPtWJetAMCJetBinned_NLODIBOSON_triboson:
   - TTW
   - TTZ
   - PhotonJets_Madgraph
-  save: true
 QCDFakes_SinglePhoton_2016F:
   pieces:
-  - /SinglePhoton/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
+  - /SinglePhoton/Run2016F-UL2016_MiniAODv2_NanoAOD/NANOAOD
 QCDFakes_SinglePhoton_2016G:
   pieces:
-  - /SinglePhoton/Run2016G-UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+  - /SinglePhoton/Run2016G-UL2016_MiniAODv2_NanoAOD/NANOAOD
 QCDFakes_SinglePhoton_2016H:
   pieces:
-  - /SinglePhoton/Run2016H-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
+  - /SinglePhoton/Run2016H-UL2016_MiniAODv2_NanoAOD/NANOAOD
 QCDFakes_DATA:
   pieces:
   - QCDFakes_SinglePhoton_2016F
