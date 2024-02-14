@@ -1,0 +1,54 @@
+SinglePhotonB:
+  pieces:
+  - /SinglePhoton/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SinglePhotonC:
+  pieces:
+  - /SinglePhoton/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SinglePhotonD:
+  pieces:
+  - /SinglePhoton/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SinglePhotonE:
+  pieces:
+  - /SinglePhoton/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SinglePhotonF:
+  pieces:
+  - /SinglePhoton/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SingleElectronB:
+  pieces:
+  - /SingleElectron/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SingleElectronC:
+  pieces:
+  - /SingleElectron/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SingleElectronD:
+  pieces:
+  - /SingleElectron/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SingleElectronE:
+  pieces:
+  - /SingleElectron/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SingleElectronF:
+  pieces:
+  - /SingleElectron/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+SinglePhoton_DATA:
+  pieces:
+  - SinglePhotonB
+  - SinglePhotonC
+  - SinglePhotonD
+  - SinglePhotonE
+  - SinglePhotonF
+  isMC: false
+  save: true
+SingleElectron_DATA:
+  pieces:
+  - SingleElectronB
+  - SingleElectronC
+  - SingleElectronD
+  - SingleElectronE
+  - SingleElectronF
+  isMC: false
+  save: true
+QCDFakes_DATA:
+  pieces:
+  - SinglePhoton_DATA
+  - SingleElectron_DATA
+  isMC: false
+  save: true

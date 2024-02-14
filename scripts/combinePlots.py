@@ -147,7 +147,10 @@ def MakeCombinedSample(args):
                     xsectionFound = False
 
                 # print("INFO: TFilenameTemplate = {}".format(tfileNameTemplate.format(sample)))
-                sampleHistos = combineCommon.GetSampleHistosFromTFile(rootFilename, sample, xsectionFound)
+                if useInclusionList ==True:
+                    sampleHistos = GetHistosFromInclusionList(rootFilename, sample, histoNamesToUse, xsectionFound)
+                else:
+                    sampleHistos = combineCommon.GetSampleHistosFromTFile(rootFilename, sample, xsectionFound)
                 # print "inputDatFile="+inputDatFile
 
                 # ---Read .dat table for current dataset
@@ -241,6 +244,47 @@ def MakeCombinedSample(args):
         finally:
             taskQueue.task_done()
 
+def GetHistosFromInclusionList(tfileName, sample, inclusionList, keepHistName=True):
+    histNameToHistDict = {}
+    if tfileName.startswith("/eos/cms"):
+        tfileName = "root://eoscms/" + tfileName
+    elif tfileName.startswith("/eos/user"):
+        tfileName = "root://eosuser/" + tfileName
+    tfile = TFile.Open(tfileName)
+    tempHistList = []
+    if keepHistName==True:
+        for histName in inclusionList:
+            hist = tfile.Get(histName)
+            #print("get hist ",histName," from ",tfile)
+            tempHistList.append(hist)
+    else:
+        for key in tfile.GetListOfKeys():
+            histoName = key.GetName()
+            hist = key.ReadObj()
+            tempHistList.append(hist)
+    for htemp in tempHistList:
+        htempName = htemp.GetName()
+        SetOwnership(htemp, True)
+        if htemp.InheritsFrom("TH1"):
+            htemp.SetDirectory(0)
+        histNameToHistDict[htempName] = htemp
+    sortedDict = dict(sorted(histNameToHistDict.items()))
+    for htemp in sortedDict.values():
+        if not keepHistName:
+            hname = htemp.GetName()
+            if "cutHisto" in hname:
+                prefixEndPos = hname.rfind("cutHisto")
+            elif len(re.findall("__", hname)) > 2:
+                raise RuntimeError("Found hist {} in file {} and unclear how to shorten its name".format(hname, tfile.GetName()))
+            else:
+                prefixEndPos = hname.rfind("__")+2
+            htemp.SetName(hname[prefixEndPos:])
+    sampleHistos = list(sortedDict.values())
+    tfile.Close()
+    if len(sampleHistos) < 1:
+        raise RuntimeError(
+                "GetHistosFromInclusionList({}, {}) -- failed to read any histos for the sampleName from this file!".format(tfile.GetName(), sampleName))
+    return sampleHistos
 
 ####################################################################################################
 # RUN
@@ -373,6 +417,15 @@ parser.add_option(
     metavar="NCORES",
 )
 
+parser.add_option(
+    "-z", #all the letters that I thought were sensible to use for this were already taken. -Emma
+    "--histInclusionList",
+    dest="histInclusionList",
+    default="",
+    help="Use an inclusion list to specify which histograms make it into the output file. Defaults to False",
+    metavar="HISTINCLUSIONLIST",
+)
+
 (options, args) = parser.parse_args()
 
 if len(sys.argv) < 14:
@@ -387,6 +440,15 @@ if os.path.isfile(options.sampleListForMerging) is False:
 # ---Check if xsection file exists
 if os.path.isfile(options.xsection) is False:
     raise RuntimeError("File " + options.xsection + " not found")
+
+useInclusionList = False
+histoNamesToUse = []
+if os.path.isfile(options.histInclusionList) is True:
+    print("using inclusion list: ",options.histInclusionList)
+    useInclusionList = True
+    with open(options.histInclusionList) as f:
+        histoNamesToUse = [line.rstrip() for line in f]
+#print("including histos: ",histoNamesToUse)
 
 print("Launched like:")
 print("python ", end=' ')

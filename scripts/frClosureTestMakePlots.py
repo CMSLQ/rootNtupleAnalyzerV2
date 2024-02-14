@@ -18,6 +18,8 @@ from ROOT import (
     TRatioPlot,
     TPad,
     TLine,
+    TBox,
+    TF1,
 )
 import ROOT
 import numpy as np
@@ -52,84 +54,70 @@ def MakeStackAndRatioPlot(histDict,histoKeysForStack):
     ratioPlot.GetXaxis().SetTitleSize(0.08)
     return stack, ratioPlot
 
-input_file = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_July23/FRCTCombined.root"
-pdf_folder = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_July23/plots"
+input_file = "$LQDATAEOS/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
+pdf_folder = os.getenv("LQDATAEOS")+"/2017/qcdFRClosureTest_amcatnlo/plots_SF"
+fit_results = os.getenv("LQDATAEOS")+"/2017/qcdFRClosureTest_amcatnlo/fitResults_SF.txt"
 
+if not os.path.isdir(pdf_folder) and pdf_folder != "":
+    print("Making directory ", pdf_folder)
+    os.mkdir(pdf_folder)
 gROOT.SetBatch(True)
+
 
 tfile = TFile.Open(input_file)
 binsDict = {}
-#generate ptBins
-ptBins = [50]
-#I want 50 GeV bins up to 500
-binLowEdge = 50
-ptRange1 = 500-50
-for i in range(int(ptRange1/50)):
-    binHighEdge = binLowEdge+50
-    ptBins.append(binHighEdge)
-    binLowEdge = binHighEdge
-#and 100 GeV bins from 500 to 700
-ptRange2 = 700-500
-for i in range(int(ptRange2/100)):
-    binHighEdge = binLowEdge+100
-    ptBins.append(binHighEdge)
-    binLowEdge = binHighEdge
-#and end at 1000
-ptBins.append(1000)
-binsDict["Pt1stEle_PAS"] = ptBins
-#Me1j1 bins
-binLowEdge = 200
-me1j1Bins = [50,200]
-mejRange1 = 1300-200
-for i in range(int(mejRange1/100)):
-    binHighEdge = binLowEdge+100
-    me1j1Bins.append(binHighEdge)
-    binLowEdge = binHighEdge
-me1j1Bins.append(1500)
-me1j1Bins.append(1700)
-me1j1Bins.append(2000)
-binsDict["Me1j1_PAS"] = me1j1Bins
-#Mee bins
-meeBins = [110,200]
-meeRange1 = 1300-200
-binLowEdge = 200
-for i in range(int(meeRange1/100)):
-    binHighEdge = binLowEdge+100
-    meeBins.append(binHighEdge)
-    binLowEdge = binHighEdge
-meeBins.append(1500)
-meeBins.append(1700)
-meeBins.append(2000)
-binsDict["Mee_PAS"] = meeBins
-#sT bins
-sTBins = [200]
-sTRange1 = 1200-200
-binLowEdge = 200
-for i in range(int(sTRange1/100)):
-    binHighEdge = binLowEdge+100
-    sTBins.append(binHighEdge)
-    binLowEdge = binHighEdge
-sTBins.append(1400)
-sTBins.append(2000)
-binsDict["sT_PAS"] = sTBins
 
 etaRegs = ["_BB","_BE","_EE",""]
+
 #get histos
-variable_names = ["Pt1stEle_PAS","Me1j1_PAS","Mee_PAS","sT_PAS"]
+variable_names = [
+    "Pt1stEle_PAS",
+    "Me1j1_PAS",
+    "Mee_PAS",
+    "sT_PAS",
+    "Me2j1_PAS",
+    "MET_PAS",
+    "Pt2ndEle_PAS",
+    "Mt_MET_Ele1_PAS",
+    "Mt_MET_Ele2_PAS",
+    "Phi1stEle_PAS",
+    "Phi2ndEle_PAS",
+    "METPhi_PAS",
+#    "HT",
+    "Pt1stEle_tight",
+    "Me1j1_tight",
+    "Mee_tight",
+    "sT_tight",
+    "Me2j1_tight",
+    "MET_tight",
+    "Pt2ndEle_tight",
+    "Mt_MET_Ele1_tight",
+    "Mt_MET_Ele2_tight",
+    "Phi1stEle_tight",
+    "Phi2ndEle_tight",
+    "METPhi_tight",
+#    "HT_tight",
+]
+for name in variable_names:
+    folderToMake = pdf_folder +"/"+ name
+    if not os.path.isdir(folderToMake) and folderToMake != "":
+        print("Making directory ", folderToMake)
+        os.mkdir(folderToMake)
 histDict = {}
 for region in etaRegs:
     histDict[region] = {}
     for var in variable_names:
         histDict[region][var] = {}
         histDict[region][var]["bkg"] = {}
-        histDict[region][var]["bkg"]["fakeRate"] = tfile.Get("histo1D__QCDFakes_DATA2F__"+var+region)
+        histDict[region][var]["bkg"]["fakeRate"] = tfile.Get("histo1D__QCDFakes_DATA2F_WError__"+var+region)
+        #histDict[region][var]["bkg"]["fakeRate"] = tfile.Get("histo1D__QCDFakes_DATA2F__"+var+region)
         histDict[region][var]["data"] = tfile.Get("histo1D__QCDFakes_DATA1P1F__"+var+region)
-        histDict[region][var]["bkg"]["MCOnly"] = tfile.Get("histo1D__MCTotal__"+var+region)
-#mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_amcatnlo_Inc", "TTbar_powheg", "SingleTop", "PhotonJets_Madgraph", "DIBOSON_nlo"]
-#mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_amcatnlo_jetBinned_lte1Jet", "TTbar_powheg", "SingleTop", "PhotonJets_Madgraph", "DIBOSON_nlo"]
-#mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_amcatnlo_jetBinned", "TTbar_powheg", "SingleTop", "PhotonJets_Madgraph", "DIBOSON_nlo"]
-#mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJetHT", "TTbar_powheg", "SingleTop", "PhotonJets_Madgraph", "DIBOSON_nlo"]
-mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJetSherpa", "TTbar_powheg", "SingleTop", "PhotonJets_Madgraph", "DIBOSON_nlo"]
+        histDict[region][var]["bkg"]["MCOnly"] = tfile.Get("histo1D__MCTotal-WHTBinnedIncStitch__"+var+region)
+
+#mcSamples = ["ZJet_NNLO_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
+
+mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
+
 mcShortNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson"]
 allBkgNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson","fakeRate"]
 allBkgNamesNoW = ["ZJets","TTBar", "ST", "GJets", "Diboson","fakeRate"]
@@ -142,20 +130,185 @@ for index, sample in enumerate(mcSamples):
             histo = tfile.Get("histo1D__"+sample+"__"+variableName+region)
             histDict[region][variableName]["bkg"][mcShortNames[index]] = histo
 
+'''
+#comparison of WJets
+WJetNames = ["WJet_amcatnlo_jetBinned", "WJet_HTBinned"]
+c = TCanvas()
+fPads1 = TPad("p1","",0.00,0.3,0.99,0.99)
+fPads2 = TPad("p2","",0.00,0.00,0.99,0.301)
+fPads1.SetFillColor(0)
+fPads1.SetLineColor(0)
+fPads2.SetFillColor(0)
+fPads2.SetLineColor(0)
+fPads1.SetBottomMargin(1e-2)
+fPads2.SetTopMargin(3e-2)
+fPads2.SetBottomMargin(3e-1)
+fPads1.SetLogy()
+fPads1.SetGridy()
+fPads2.SetGridy()
+fPads1.Draw()
+fPads2.Draw()
+for variable in variable_names:
+    l = TLegend(0.6,0.8,0.9,0.9)
+    for name in WJetNames:
+        histo = tfile.Get("histo1D__"+name+"__"+variable)
+        histo.SetLineWidth(2)
+        #histo.Rebin(2)
+        #histo.GetXaxis().SetRangeUser(0,2000)
+        #print("found histo ", histo.GetName())
+        if "HT" in name:
+            histo.SetLineColor(kRed)
+            histo.SetMarkerColor(kRed)
+        #if "amcatnlo_jet" in name:
+        #    histo.SetLineColor(kAzure+1)
+        #    histo.SetMarkerColor(kAzure+1)
+        histo.SetStats(0)
+        histo.SetMinimum(0.01)
+        var = variable.replace("_PAS","")
+        var = var.replace("_tight","")
+        histo.GetXaxis().SetTitle(var +" (GeV)")
+        if "amcatnlo" in name:
+            histoMax = 10*histo.GetBinContent(histo.GetMaximumBin())
+            histo.GetYaxis().SetRangeUser(0.1,1000)#histoMax)
+        if "MET_tight" in variable:
+            histo.GetXaxis().SetRangeUser(0,100)
+        if "HT" in variable:
+            histo.GetXaxis().SetRange(0,500)
+            histo.Rebin(2)
+        if "Mt" in variable:
+            histo.GetXaxis().SetRangeUser(0,1000)
+        if "tight" in variable:
+            histo.SetTitle("WJet samples "+var+" BDT selection")
+        elif "PAS" in variable:
+            histo.SetTitle("WJet samples "+var+" preselection")
+        else:
+            histo.SetTitle("WJet samples "+variable)
+        if "HT" in name:
+            l.AddEntry(histo, "WJet_LO_HTBinned","lp")
+        else:
+            l.AddEntry(histo, name, "lp")
+        fPads1.cd()
+        if "amcatnlo" in name:
+            histo.Draw()
+        else:
+            histo.Draw("same")
+    l.Draw("same")
+
+    fPads2.cd()
+    histoHT = tfile.Get("histo1D__WJet_HTBinned__"+variable)
+    histoJet = tfile.Get("histo1D__WJet_amcatnlo_jetBinned__"+variable)
+    #histoHT.Rebin(2)
+    #histoJet.Rebin(2)
+    ratio = copy.deepcopy(histoHT)
+    ratio.Divide(histoJet)
+    ratio.SetLineColor(kBlack)
+    ratio.SetMarkerColor(kBlack)
+    ratio.SetTitle("")
+    ratio.SetStats(0)
+    ratio.GetYaxis().SetRangeUser(0,2)
+    ratio.GetYaxis().SetTitle("LO WJets / NLO WJets")
+    ratio.Draw()
+    xLow = ratio.GetXaxis().GetXmin()
+    xHigh = ratio.GetXaxis().GetXmax()
+    line = TLine(xLow,1,xHigh,1)
+    line.SetLineStyle(7)
+    line.SetLineColor(kGray+2)
+    line.Draw("Same")
+    ratio.Draw("same")
+    #c.Print("/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/WJetComparisons/"+variable+".pdf")
+'''
+
 #set colors and style
 for region in etaRegs:
     for var in variable_names:
+        print("set style for: ", var, " ", region)
         histDict[region][var]["data"].SetLineWidth(2)
         for index, name in enumerate(allBkgNames):
+            print("set color and style for "+name+" "+var+" "+region)
+            if "fake" in name and "HT" in var:
+                continue
             histo = histDict[region][var]["bkg"][name]
             histo.SetLineColor(colors[index])
             histo.SetFillColor(colors[index])
             histo.SetMarkerColor(colors[index])
             histo.SetLineWidth(2)
             histo.SetStats(0)
-
+'''
+for region in etaRegs:
+    for var in variable_names:
+        for name in allBkgNames:
+            histo = copy.deepcopy(histDict[region][var]["bkg"][name])
+            c = TCanvas()
+            c.SetLogy()
+            histo.GetXaxis().SetTitle("GeV")
+            histo.GetYaxis().SetRangeUser(0.1, 3000)
+            histo.SetTitle(name + " " +var+region)
+            histo.Draw()
+            c.Print(pdf_folder+"/"+var+"/"+name+"MC.pdf")
+'''
 #print(histDict)
 #rebin histos
+for variable in variable_names:
+    binSize = 10
+    lowestEdge = 0
+    minWidth = 50
+
+    if "Pt" in variable:
+        plotRange = 1000
+        lowestEdge = 50
+    elif "MET_PAS" in variable or "MET_tight" in variable:
+        plotRange = 100
+        minWidth = 10
+        binSize = 5
+    elif "Mee_PAS" in variable:
+        lowestEdge = 110
+    elif "sT_PAS" in variable:
+        lowestEdge = 200
+    elif "Mee_tight" in variable:
+        lowestEdge = 220
+    elif "sT_tight" in variable:
+        lowestEdge = 400
+    elif "phi" in variable.lower():
+        lowestEdge = -3.1416
+        plotRange = 3.1416
+        minWidth = 0.1
+        binSize = (2*3.1416)/60 
+    elif "Mt" in variable:
+        plotRange = 1000
+    else:
+        plotRange = 2000
+    nStartingBins = int(plotRange / binSize)
+    if "Phi" in variable:
+        nStartingBins = 60
+    threshold = 100
+    total = 0
+    binEdges = [lowestEdge]
+    currentBinWidth = 0
+    hist = histDict[""][variable]["data"]
+    if lowestEdge > 0:
+        startBin = hist.GetXaxis().FindBin(lowestEdge+1)
+    else: 
+        startBin = 1 
+    for i in range(startBin,nStartingBins+1):
+        content = hist.GetBinContent(i)
+        total += content
+        currentBinWidth += binSize
+        if currentBinWidth >= minWidth and total > threshold:
+            lowEdge = hist.GetBinLowEdge(i)
+            binEdges.append(lowEdge+binSize) #I need the high edge, which is low edge + bin width
+            total = 0
+            currentBinWidth = 0
+            if lowEdge+binSize >= plotRange:
+                break
+    #If we get to the end of the for loop without reaching the end of the plot, there are < 100 events in the rest of the range.
+    if lowEdge+binSize < plotRange:
+        binEdges.pop()
+        binEdges.append(plotRange)
+        
+    print("binning for ", variable)
+    print(binEdges)
+    binsDict[variable] = binEdges
+
 histDictRebinned = {}
 for region in etaRegs:
     histDictRebinned[region] = {}
@@ -178,7 +331,7 @@ for region in etaRegs:
 #make background MC plots. One set as is and one rebinned, for all eta regions
 c1 = TCanvas()
 c1.SetGridy()
-c1.SetLogy()
+#c1.SetLogy()
 c2 = TCanvas()
 c2.SetGridy()
 c2.SetLogy()
@@ -186,7 +339,10 @@ for reg in etaRegs:
     for var in variable_names:
         varPieces = var.split("_")
         axisTitle = varPieces[0] + " (GeV)"
-        l = TLegend(0.5,0.7,0.8,0.9)
+        if "MET_tight" in var:
+            l = TLegend(0.4,0.1,0.7,0.3)
+        else:
+            l = TLegend(0.5,0.7,0.8,0.9)
         c1.cd()
         for i,name in enumerate(mcShortNames):
             histo = histDict[reg][var]["bkg"][name]
@@ -210,6 +366,7 @@ for reg in etaRegs:
         c2.cd()
         for i,name in enumerate(mcShortNames):
             histo2 = histDictRebinned[reg][var]["bkg"][name]
+            histo2.GetYaxis().SetRangeUser(0.1,1e5)
             #histo.Rebin(2)
             if i==0:
                 hist2Copy = copy.deepcopy(histo2)
@@ -220,13 +377,34 @@ for reg in etaRegs:
                     hist2Copy.GetXaxis().SetRangeUser(50,2000)
                 elif "me1j1" in var.lower():
                     hist2Copy.GetXaxis().SetRangeUser(0,2000)
-                else:
+                elif "pt" in var.lower():
                     hist2Copy.GetXaxis().SetRangeUser(0,1000)
                 hist2Copy.Draw()
             else:
                 histo2.Draw("same")
         l.Draw("same")
         c2.Print(pdf_folder+"/"+var+"/mcHistsRebinned_"+var+reg+".pdf")
+
+#make plot of un-rebinned data
+for reg in etaRegs:
+    for var in variable_names:
+        histo = histDict[reg][var]["data"]
+        c = TCanvas()
+        if "MET_tight" in var:
+            histo.GetXaxis().SetRangeUser(0,100)
+        if "Mt" in var:
+            histo.GetXaxis().SetRangeUser(0,1000)
+        shortVarName = var.replace("_PAS", "")
+        shortVarName.replace("_tight", "")
+        histo.GetXaxis().SetTitle(shortVarName)
+        if "tight" in var:
+            histo.SetTitle(shortVarName+" BDT")
+        elif "PAS" in var:
+            histo.SetTitle(shortVarName+" preselection")
+        else:
+            histo.SetTitle(shortVarName)
+        histo.Draw()
+        c.Print(pdf_folder+"/"+var+"/dataHist_"+var+reg+".pdf")
 
 #make stack and ratio plots
 stackAllBkg = {}
@@ -254,23 +432,38 @@ fPads2.SetGridy()
 fPads1.Draw()
 fPads2.Draw()
 leg = TLegend(0.6,0.6,0.9,0.9)
+legMETPlot = TLegend(0.3,0.1,0.6,0.3)
 #Note: it doesn't matter which eta region and var name I use to make the legend bc it's the same samples for all of them
 for name in allBkgNames:
     histo = histDictRebinned[""]["Pt1stEle_PAS"]["bkg"][name]
     leg.AddEntry(histo,name,"lp")
+    legMETPlot.AddEntry(histo,name,"lp")
 leg.AddEntry(histDictRebinned[""]["Pt1stEle_PAS"]["data"],"1P1F data","lp")
-
+legMETPlot.AddEntry(histDictRebinned[""]["Pt1stEle_PAS"]["data"],"1P1F data","lp")
 #draw stack and ratio plots
+fitResults = {}
+fitResults["stack"] = {}
 for reg in etaRegs:
+    fitResults["stack"][reg] = {}
     for var in variable_names:
         varPieces = var.split("_")
         axisTitle = varPieces[0] + " (GeV)"
         fPads1.cd()
-        stackAllBkg[reg][var].SetTitle(var+reg)
+        title = var+reg
+        if "PAS" in var:
+            title = title.replace("_PAS", "")
+            title+=" preselection"
+        if "tight" in var:
+            title = title.replace("_tight", "")
+            #title+=" BDT selection"
+        stackAllBkg[reg][var].SetTitle(title)
         stackAllBkg[reg][var].Draw("hist")
         histDictRebinned[reg][var]["data"].Draw("same")
         #histDict[reg]["data"].Draw("same")
-        leg.Draw("same")
+        if "MET_PAS" in var or "MET_tight" in var:
+            legMETPlot.Draw("same")
+        else:
+            leg.Draw("same")
 
         fPads2.cd()
         ratioAllBkg[reg][var].GetXaxis().SetTitle(axisTitle)
@@ -279,6 +472,20 @@ for reg in etaRegs:
         line.Draw("same")
         line.SetLineStyle(5)
         line.SetLineColorAlpha(13, 0.5)
+        xAxisLow = ratioAllBkg[reg][var].GetXaxis().GetXmin()
+        xAxisHigh = ratioAllBkg[reg][var].GetXaxis().GetXmax()
+        errWindow = TBox(xAxisLow,0.75,xAxisHigh,1.25)
+        errWindow.SetLineColor(kGray)
+        errWindow.SetFillColorAlpha(kGray,0.50)
+        errWindow.Draw("same")
+        fitFunction = TF1("fit", "pol0", xAxisLow, xAxisHigh)
+        fit = ratioAllBkg[reg][var].Fit(fitFunction, "S", "", xAxisLow, xAxisHigh)
+        fitResults["stack"][reg][var] = {}
+        fitResults["stack"][reg][var]["value"] = fit.Parameter(0)
+        fitResults["stack"][reg][var]["error"] = fit.ParError(0)
+        fitResults["stack"][reg][var]["chi2"] = fit.Chi2()
+        fitResults["stack"][reg][var]["ndf"] = fit.Ndf()
+        ratioAllBkg[reg][var].Draw("same")
         c.Print(pdf_folder+"/"+var+"/stack_plot_"+var+reg+".pdf")
     #c.Print(pdf_folder+"/stack_plot"+reg+"_not_rebinned.pdf")
 #make the same stack/ratio plot without the 2F data added in
@@ -295,9 +502,18 @@ for reg in etaRegs:
 #make mc sub plot
 c = TCanvas()
 c.cd()
-c.SetGridy()
-c.SetLogy()
+tpad1 = TPad("pad1","",0.00,0.3,0.99,0.99)
+tpad2 = TPad("pad2","",0.00,0.00,0.99,0.301)
+tpad1.SetLogy()
+tpad1.SetGridy()
+tpad2.SetGridy()
+tpad1.Draw()
+tpad2.Draw()
+ratioHists = {}
+fitResults["MCSub"] = {}
 for reg in etaRegs:
+    ratioHists[reg] = {}
+    fitResults["MCSub"][reg] = {}
     for var in variable_names:
         varPieces = var.split("_")
         axisTitle = varPieces[0] +" (GeV)"
@@ -306,28 +522,139 @@ for reg in etaRegs:
         histoFR = histDictRebinned[reg][var]["bkg"]["fakeRate"]
         #histoFR = histDict[reg]["bkg"]["fakeRate"]
         histoMCSub.SetStats(0)
+        title = var+reg
+        if "PAS" in var:
+            title = title.replace("_PAS", "")
+            title+=" preselection"
+        if "tight" in var:
+            title = title.replace("_tight", "")
+            #title+=" BDT selection"
+        histoMCSub.SetTitle(title)
         if "gte" in pdf_folder.lower(): #gte 1Jet has more stats so I need a bigger range here since I don't do this one log scale
             histoMCSub.GetYaxis().SetRangeUser(-4000,4000)
         else:
             histoMCSub.GetYaxis().SetRangeUser(0.1,1e4)
+        tpad1.cd()
         l = TLegend(0.6,0.7,0.9,0.9)
         l.AddEntry(histoMCSub,"data - MC 1P1F region","lp")
         l.AddEntry(histoFR,"prediction by fake rate","lp")
         histoMCSub.GetXaxis().SetTitle(axisTitle)
         histoMCSub.Draw()
-        histoFR.Draw("same")
+        histoFR.Draw("Esame")
         l.Draw("same")
+        
+        MC_FRratio = copy.deepcopy(histoFR)
+        MC_FRratio.Divide(histoMCSub)
+        tpad2.cd()
+        MC_FRratio.GetYaxis().SetTitle("fake rate pred. / MCSub yield")
+        MC_FRratio.SetTitle("")
+        MC_FRratio.Draw()
+        xAxisLow = MC_FRratio.GetXaxis().GetXmin()
+        xAxisHigh = MC_FRratio.GetXaxis().GetXmax()
+        errWindow = TBox(xAxisLow,0.75,xAxisHigh,1.25)
+        errWindow.SetLineColor(kGray)
+        errWindow.SetFillColorAlpha(kGray,0.50)
+        errWindow.Draw("same")
+        MC_FRratio.SetLineColor(kBlack)
+        MC_FRratio.SetMarkerColor(kBlack)
+        #ratioHists[reg][var] = ratio 
+        fitFunction = TF1("fit", "pol0", xAxisLow, xAxisHigh)
+        fitFunction.SetParameter(0,1)
+        fit = MC_FRratio.Fit(fitFunction, "S", "", xAxisLow, xAxisHigh)
+        fitResult = fit.Parameter(0)
+        fitResultErr = fit.ParError(0)
+        fitResults["MCSub"][reg][var] = {}
+        fitResults["MCSub"][reg][var]["value"] = fitResult
+        fitResults["MCSub"][reg][var]["error"] = fitResultErr
+        fitResults["MCSub"][reg][var]["chi2"] = fit.Chi2()
+        fitResults["MCSub"][reg][var]["ndf"] = fit.Ndf()
+        MC_FRratio.GetYaxis().SetRangeUser(0,3)
+        MC_FRratio.Draw("same")
         c.Print(pdf_folder+"/"+var+"/mcSub_fr_comparison_logScale_"+var+reg+".pdf")
     #c.Print(pdf_folder+"/mcSub_fr_comparison"+reg+"_not_rebinned.pdf")
-#make plot of just FR prediction by itself for comparison w the AN
+with open(fit_results, "w") as resultsFile:
+    resultsFile.write("MC subtraction ratio plot fit results:\n\n")
+    for var in variable_names:
+        if "PAS" in var:
+            varToWrite = var.replace("PAS", "preselection")
+        elif "tight" in var:
+            varToWrite = var.replace("tight", "")
+        else:
+            varToWrite = var
+        line = str(fitResults["MCSub"][""][var]["value"]) + " +/- " + str(fitResults["MCSub"][""][var]["error"])
+        resultsFile.write(varToWrite+"\n")
+        resultsFile.write("    Chi2: "+str(fitResults["MCSub"][reg][var]["chi2"])+"\n")
+        resultsFile.write("    NDF: "+str(fitResults["MCSub"][reg][var]["ndf"])+"\n")
+        chi2OverNdf = fitResults["MCSub"][reg][var]["chi2"]/fitResults["MCSub"][reg][var]["ndf"]
+        resultsFile.write("    Chi2 / NDF: "+str(chi2OverNdf)+"\n")
+        resultsFile.write("    fit: "+line+"\n\n")
+#put fit results in plot
+fitResultsHistBDT = TH1D("fitResultsB", "fit results", 7,0,7)
+fitResultsHistPresel = TH1D("fitResultsP", "fit results presel", 7,0,7)
+binCounter = 1
+varNamesPresel = ["Pt1stEle_PAS", "Mee_PAS", "Me1j1_PAS", "sT_PAS", "Pt2ndEle_PAS", "Me2j1_PAS", "MET_PAS"]
+for var in varNamesPresel: 
+    fitResultsHistPresel.SetBinContent(binCounter, fitResults["MCSub"][reg][var]["value"])
+    fitResultsHistPresel.SetBinError(binCounter, fitResults["MCSub"][reg][var]["error"])
+    fitResultsHistPresel.SetLineWidth(2)
+    fitResultsHistPresel.GetXaxis().SetBinLabel(binCounter, var.replace("_PAS",""))
+    fitResultsHistPresel.SetMarkerColor(kRed)
+    fitResultsHistPresel.SetLineColor(kRed)
+    varBDT = var.replace("PAS","tight")
+    fitResultsHistBDT.SetBinContent(binCounter, fitResults["MCSub"][reg][varBDT]["value"])
+    fitResultsHistBDT.SetBinError(binCounter, fitResults["MCSub"][reg][varBDT]["error"])
+    fitResultsHistBDT.SetLineWidth(2)
+    fitResultsHistBDT.GetXaxis().SetBinLabel(binCounter, varBDT.replace("_tight",""))
+    binCounter+=1
+print("fit of the fit results: ")
 c = TCanvas()
-c.cd()
-c.SetLogy()
 c.SetGridy()
-oldPtBins = [50,100,150,220,300,400,500,600,800,1000]
-histoFR = histDict[""]["Pt1stEle_PAS"]["bkg"]["fakeRate"].Rebin(len(oldPtBins)-1,"FR_with_old_ptBins",np.array(oldPtBins,dtype = float))
-histoFR.SetStats(0)
-histoFR.GetYaxis().SetRangeUser(0.1,1e5)
-histoFR.GetXaxis().SetTitle("Pt1stEle (GeV)")
-histoFR.Draw()
-c.Print(pdf_folder+"/Pt1stEle_PAS/fakeRatePrediction.pdf")
+fitResultsHistBDT.SetStats(0)
+fitResultsHistBDT.GetYaxis().SetRangeUser(0.8,1.3)
+fitResultsHistBDT.SetNdivisions(25,"X")
+f1 = TF1("fitResultsFit", "pol0", 0,7)
+BDTFit = fitResultsHistBDT.Fit(f1,"S","",0,7)
+fitResultsHistBDT.Draw()
+BDTFitResult = BDTFit.Parameter(0)
+BDTFitErr = BDTFit.ParError(0)
+BDTChi2 = BDTFit.Chi2()
+BDTNDF = BDTFit.Ndf()
+BDTChi2OverNdf = BDTChi2 / BDTNDF
+#fitResultsHistPresel.Draw("same")
+l = TLegend(0.6,0.8,0.9,0.9)
+l.AddEntry(fitResultsHistBDT, "BDT fit results", "lp")
+l.AddEntry(fitResultsHistPresel, "preselection fit results", "lp")
+#l.Draw("same")
+c.Print(pdf_folder+"/fitResults.pdf")
+with open(fit_results, "a") as resultsFile:
+    resultsFile.write("fit of the fits\n")
+    resultsFile.write("    Chi2: "+str(BDTChi2)+"\n")
+    resultsFile.write("    NDF: "+str(BDTNDF)+"\n")
+    resultsFile.write("    Chi2 / NDF: "+str(BDTChi2OverNdf)+"\n")
+    resultsFile.write("    fit: "+str(BDTFitResult)+" +/- "+str(BDTFitErr)+"\n\n")
+
+print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+print("total yield and uncertainty")
+print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+totBkgErr = ctypes.c_double()
+totBkg = histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].IntegralAndError(histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].GetXaxis().GetFirst(), histDictRebinned[""]["Mee_tight"]["bkg"]["MCOnly"].GetXaxis().GetLast(), totBkgErr)
+print("total MC    :    ",totBkg," +/- ",totBkgErr.value)
+for name in allBkgNames:
+    if "fake" in name.lower():
+        continue
+    uncertainty = ctypes.c_double()
+    value = histDictRebinned[""]["Mee_tight"]["bkg"][name].IntegralAndError(histDictRebinned[""]["Mee_tight"]["bkg"][name].GetXaxis().GetFirst(), histDictRebinned[""]["Mee_tight"]["bkg"][name].GetXaxis().GetLast(), uncertainty)
+    percentage = value / totBkg
+    print("    ",name,"    :    ",value," +/- ",uncertainty.value, ", % of tot. MC: ", percentage)
+
+dataErr = ctypes.c_double()
+data = histDictRebinned[""]["Mee_tight"]["data"].IntegralAndError(histDictRebinned[""]["Mee_tight"]["data"].GetXaxis().GetFirst(), histDictRebinned[""]["Mee_tight"]["data"].GetXaxis().GetLast(), dataErr)
+print("1P1F data    :    ",data," +/- ",dataErr.value)
+print("1P1F data - MC : ",data - totBkg, " +/- ", math.sqrt(totBkgErr.value**2 + dataErr.value**2))
+uncertainty = ctypes.c_double()
+FRPred = histDictRebinned[""]["Mee_tight"]["bkg"]["fakeRate"].IntegralAndError(histDictRebinned[""]["Mee_tight"]["bkg"]["fakeRate"].GetXaxis().GetFirst(),histDictRebinned[""]["Mee_tight"]["bkg"]["fakeRate"].GetXaxis().GetLast(), uncertainty)
+print("fake rate    :    ",FRPred," +/- ",uncertainty.value)
+
+ratio = FRPred / (data - totBkg)
+ratioErr = math.sqrt(((1/ (data-totBkg) )*uncertainty.value)**2 + ((FRPred/(data-totBkg)**2)*math.sqrt(totBkgErr.value**2 + dataErr.value**2))**2)
+print("fake rate prediction / MC sub observed = ", ratio, " +/- ", ratioErr)
