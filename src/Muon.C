@@ -25,16 +25,7 @@ float Muon::PFEta                    (){ return m_collection->ReadArrayBranch<Fl
 float Muon::PFPhi                    (){ return m_collection->ReadArrayBranch<Float_t>("Muon_phi",   m_raw_index); } 
 //float & Muon::PFPhiError               (){ return -1.0; } 
 
-float Muon::CocktailPt              (){
-  // for stock nano
-  if(m_collection->HasBranch("Muon_tunepRelPt")) {
-    return m_collection->ReadArrayBranch<Float_t>("Muon_tunepRelPt", m_raw_index)*m_collection->ReadArrayBranch<Float_t>("Muon_pt", m_raw_index);
-  }
-  else
-    return -1.0;
-  //// custom nano branch
-  //return m_collection->ReadArrayBranch<Float_t>("Muon_ptTuneP", m_raw_index);
-} 
+float Muon::CocktailPt              (){ return m_collection->ReadArrayBranch<Float_t>("Muon_tunepRelPt", m_raw_index)*m_collection->ReadArrayBranch<Float_t>("Muon_pt", m_raw_index); } 
 float Muon::CocktailPtError         (){ return m_collection->ReadArrayBranch<Float_t>("Muon_ptErr",   m_raw_index); } 
 float Muon::CocktailEta              (){ return m_collection->ReadArrayBranch<Float_t>("Muon_eta",    m_raw_index); } 
 //float & Muon::CocktailEtaError         (){ return -1.0; } 
@@ -43,10 +34,8 @@ float Muon::CocktailPhi              (){ return m_collection->ReadArrayBranch<Fl
 // Isolation variables				   				   
 float Muon::TrkIso                    (){ return -999; } 
 float Muon::TrkIsoR03SumPt            (){ return m_collection->ReadArrayBranch<Float_t>("Muon_tkRelIso", m_raw_index) * CocktailPt(); } 
-//float Muon::PFIsoR04ChargedHadron     (){ return m_collection->ReadArrayBranch<Float_t>("") MuonPFIsoR04ChargedHadron      -> at ( m_raw_index ); } 
-//float Muon::PFIsoR04NeutralHadron     (){ return m_collection->ReadArrayBranch<Float_t>("") MuonPFIsoR04NeutralHadron      -> at ( m_raw_index ); } 
-//float Muon::PFIsoR04Photon            (){ return m_collection->ReadArrayBranch<Float_t>("") MuonPFIsoR04Photon             -> at ( m_raw_index ); } 
-//float Muon::PFIsoR04PU                (){ return m_collection->ReadArrayBranch<Float_t>("") MuonPFIsoR04PU                 -> at ( m_raw_index ); } 
+float Muon::PFRelIso04                (){ return m_collection->ReadArrayBranch<Float_t>("Muon_pfRelIso04_all", m_raw_index); }
+bool  Muon::PassPFRelIsoLoose         (){ return m_collection->ReadArrayBranch<UChar_t>("Muon_pfIsoId", m_raw_index)==2; } 
 						   				   
 // ID variables					                                      
 

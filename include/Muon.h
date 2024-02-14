@@ -41,10 +41,8 @@ class Muon : public Object {
 
   float TrkIso                    ();
   float TrkIsoR03SumPt            ();
-//  float PFIsoR04ChargedHadron     ();
-//  float PFIsoR04NeutralHadron     ();
-//  float PFIsoR04Photon            ();
-//  float PFIsoR04PU                ();
+  float PFRelIso04                ();
+  bool PassPFRelIsoLoose          ();
          
   // ID variables      
          
