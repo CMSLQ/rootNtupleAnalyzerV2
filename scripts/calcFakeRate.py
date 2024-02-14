@@ -931,20 +931,6 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 ####################################################################################################
 # RUN
 ####################################################################################################
-# filename = "$LQDATA/nanoV6/2016/qcdFakeRateCalc/17jul2020/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-# filename = "$LQDATA/nanoV6/2017/qcdFakeRateCalc/20jul2020/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-# filename = "$LQDATA/nanoV6/2018/qcdFakeRateCalc/20jul2020/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/15nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots_unscaled.root"  # for HEEP-based FR
-# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/19nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # also unscaled
-# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/26nov2021/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots_unscaled.root"
-# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/inconsistenIDs_14mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # test for validation
-# filename = "$LQDATA/nanoV7/2016/qcdFakeRateCalc/calcFR_egmoose_19mar2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"  # fixed vloose ID for EGMLoose
-# filename = "$LQDATA/2016/qcdFakeRateCalc/calcFR_2016Pre_06dec2022/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-# filename = "/eos/user/e/eipearso/LQ/lqData/2016/Seths_old_data.root"
-# filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postMay2023/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-# filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/combinePlotsTest/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-#filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016postJune2023newPrescale/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
-#filename = "/eos/user/e/eipearso/LQ/lqData/2016/qcdFakeRateCalc/calcFR_2016HEEPpre/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 filename = "$LQDATAEOS/fakeRateCalcFinal/2018/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
@@ -965,7 +951,7 @@ elif "2018" in filename:
     analysisYearStr = "2018"
 
 outputFileName = "$LQDATAEOS/fakeRateCalcFinal/2018/fakeRate_plots.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/fakeRateCalcFinal/2018/fakeRate_plots"
+pdf_folder = "$LQDATAEOS/fakeRateCalcFinal/2018/fakeRate_plots"
 fr2Dfilename = "$LQDATAEOS/fakeRateCalcFinal/2018/fr2D2018.root"
 
 gROOT.SetBatch(True)
@@ -989,7 +975,8 @@ else:
     jetBins = ["","2Jet_"]
 # for MC
 mcSamples = [
-    "ZJet_NNLO_IncStitch",
+    "ZJet_amcatnlo_ptBinned_IncStitch",
+#    "ZJet_NNLO_IncStitch",
 #    "WJet_amcatnlo_jetBinned",
     "WJetHTBinned",
     "TTBar_powheg",
@@ -1215,7 +1202,7 @@ for varName in allHistos:
                 histDict[varName][reg][jetBin]["mc"] = histFRMC
                 numerHistDict[varName][reg][jetBin]["mc"] = histNumMC
                 denomHistDict[varName][reg][jetBin]["mc"] = histDenMC
-"""
+
 #for 2018, I also need a FR plot for the barrel region with the last two bins combined, to use for making the HEM15/16 only Barrel FR
 if analysisYear==2018:
     BarNoHEMwCombinedBins, BarNoHEMwCombinedBinsNum, BarNoHEMwCombinedBinsDen = MakeFakeRatePlot("TrkIsoHEEP7vsHLTPt_noHEM_post319077", "Bar","2Jet_",ptBinsEndcapHEM1516Only,allHistos["TrkIsoHEEP7vsHLTPt_noHEM_post319077"],verbose=True,dataDriven=True,fractionFit=False)
@@ -1232,7 +1219,7 @@ if analysisYear==2018:
     denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"] = {}
     denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"]["data"] = BarNoHEMwCombinedBinsDen
 
-#comparing for 2018 bc of HEM15/16 issue
+#2018 is special bc of HEM15/16 issue
 if analysisYear==2018:
     c = TCanvas()
     fPads1 = TPad("pad1","",0.00,0.3,0.99,0.99)
@@ -1275,74 +1262,40 @@ if analysisYear==2018:
     l.AddEntry(graphHEMonly, "HEM15/16 FR measured from data")
     l.Draw("same")
     c1.Print(pdf_folder+"/BarNoHEMscaled.pdf")
-'''
-c2 = TCanvas()
-fPads1.Draw()
-fPads2.Draw()
-graphNoHEM, graphHEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "same eta as HEM 15/16, different phi", "HEM 15/16 only")
-fPads1.cd()
-fPads1.SetGridy()
-graphNoHEM.Draw("ap0")
-graphHEMonly.Draw("psame0")
-leg.Draw("same")
-fPads2.cd()
-fPads2.SetGridy()
-HEMonlyNoHEMRatio, HEMonlyNoHEMres = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077", "Bar", 2.0, "HEM 15/16 only / HEM 15/16 same eta diff phi")
-HEMonlyNoHEMRatio.GetYaxis().SetRangeUser(0,10)
-HEMonlyNoHEMRatio.Draw()
-c2.Print(pdf_folder+"/frRatioPlots/HEMonly-HEMSameEtaDiffPhi.pdf")
 
-c3 = TCanvas()
-fPads1.Draw()
-fPads2.Draw()
-fPads1.cd()
-fPads1.SetGridy()
-graphBarHEMonly, graphEnd1HEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "End1", "Barrel, post319077, HEM15/16 only", "End1, post319077, HEM15/16 only")
-graphBarHEMonly.Draw("ap0")
-graphEnd1HEMonly.Draw("psame0")
-leg.Draw("Same")
-fPads2.cd()
-fPads2.SetGridy()
-barEnd1RatioHEMonly, barEnd1HEMonlyRes = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "End1", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", 5.0, "End1 / Bar")
-barEnd1RatioHEMonly.Draw()
-c3.Print(pdf_folder+"/frRatioPlots/Bar-End1-HEMonly.pdf")
-'''
-#fit barrel fake rates for HEMonly
-'''
-graphToFit = copy.deepcopy(histDict["TrkIsoHEEP7vsHLTPt_HEMonly_post319077"]["Bar"]["2Jet_"]["data"])
-graphToFit.GetXaxis().SetTitle("pT (GeV)")
-graphToFit.SetTitle("2018 FR, Run >= 319077, HEM15and16only, Barrel, >= 2 jets")
-xMin1 = 36
-xMax1 = 187.5
-xMin2 = xMax1
-xMax2 = 1000
-#f1 = TF1("fit1","pol1", xMin1, xMax1)
-#f2 = TF1("fit2","pol1",xMin2,xMax2)
-fTot = TF1("fitTot","[0]+[1]/x+[2]/x^2",xMin1, xMax2)
-#fTot.SetParameter(0,1)
-#fTot.SetParameter(1,-1)
-#fTot.SetParameter(2,-50)
-#graphToFit.Fit(f1,"S","",xMin1,xMax1)
-#graphToFit.Fit(f2,"S+","",xMin2,xMax2)
-graphToFit.Fit(fTot,"","",xMin1,xMax2)
-c = TCanvas()
-c.cd()
-graphToFit.Draw("ap0")
-c.Print(pdf_folder+"/fitPlotBarrelHEMonly.pdf")
+    #a few more plots
+    c2 = TCanvas()
+    fPads1.Draw()
+    fPads2.Draw()
+    graphNoHEM, graphHEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "same eta as HEM 15/16, different phi", "HEM 15/16 only")
+    fPads1.cd()
+    fPads1.SetGridy()
+    graphNoHEM.Draw("ap0")
+    graphHEMonly.Draw("psame0")
+    leg.Draw("same")
+    fPads2.cd()
+    fPads2.SetGridy()
+    HEMonlyNoHEMRatio, HEMonlyNoHEMres = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077", "Bar", 2.0, "HEM 15/16 only / HEM 15/16 same eta diff phi")
+    HEMonlyNoHEMRatio.GetYaxis().SetRangeUser(0,10)
+    HEMonlyNoHEMRatio.Draw()
+    c2.Print(pdf_folder+"/frRatioPlots/HEMonly-HEMSameEtaDiffPhi.pdf")
 
-graphToFitNoHEM = copy.deepcopy(histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077"]["Bar"]["2Jet_"]["data"])
-graphToFitNoHEM.GetXaxis().SetTitle("pT (GeV)")
-graphToFitNoHEM.SetTitle("2018 FR, Run >= 319077, no HEM15and16, Barrel, >= 2 jets")
-xMin1 = 36
-xMax1 = 225
-xMin2 = xMax1
-xMax2 = 1000
-#f1 = TF1("fit1","pol1", xMin1, xMax1)
-#f2 = TF1("fit2","pol1",xMin2,xMax2)
-fTot = TF1("fitTot","[0]+[1]/x+[2]/x^2",xMin1, xMax2)
-#graphToFitNoHEM.Fit(f1,"S","",xMin1,xMax1)
-#graphToFitNoHEM.Fit(f2,"S+","",xMin2,xMax2)
-graphToFitNoHEM.Fit(fTot,"","",xMin1,xMax2)
+    c3 = TCanvas()
+    fPads1.Draw()
+    fPads2.Draw()
+    fPads1.cd()
+    fPads1.SetGridy()
+    graphBarHEMonly, graphEnd1HEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "End1", "Barrel, post319077, HEM15/16 only", "End1, post319077, HEM15/16 only")
+    graphBarHEMonly.Draw("ap0")
+    graphEnd1HEMonly.Draw("psame0")
+    leg.Draw("Same")
+    fPads2.cd()
+    fPads2.SetGridy()
+    barEnd1RatioHEMonly, barEnd1HEMonlyRes = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "End1", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", 5.0, "End1 / Bar")
+    barEnd1RatioHEMonly.Draw()
+    c3.Print(pdf_folder+"/frRatioPlots/Bar-End1-HEMonly.pdf")
+
+'''
 c = TCanvas()
 c.cd()
 c.SetLogy()
@@ -1370,7 +1323,8 @@ l.AddEntry(dataNum, "Ratio method numerator", "lp")
 l.AddEntry(mcSubDenom, "Denominator","lp")
 l.Draw("same")
 c.Print(pdf_folder+"/mcSubNumDen_Bar_0Jet.pdf")
-"""
+'''
+
 for varName in allHistos:
     for reg in detectorRegions:
         for jetBin in jetBins:

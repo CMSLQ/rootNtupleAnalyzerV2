@@ -54,16 +54,9 @@ def MakeStackAndRatioPlot(histDict,histoKeysForStack):
     ratioPlot.GetXaxis().SetTitleSize(0.08)
     return stack, ratioPlot
 
-#input_file = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_July23/FRCTCombined.root"
-#input_file = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_Aug23/MCfix/FRCTCombined.root"
-#input_file = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_sept2023/withSF/FRCTCombined.root"
-#input_file = "$LQDATA/2017/qcdFRClosureTest/frClosureTest_2017_sept2023/gte1Jet/noSF/FRCTCombined.root"
-#input_file = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
-#pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/plots_SF"
-#fit_results = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/fitResults_SF.txt"
-input_file = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_powheg/closureTestFinal/frClosureTest_2017_nov2023-c/FRCTCombined.root"
-pdf_folder = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_powheg/closureTestFinal/frClosureTest_2017_nov2023-c/scratch"
-fit_results = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_powheg/closureTestFinal/frClosureTest_2017_nov2023-c/scratch/fit_results.txt"
+input_file = "$LQDATAEOS/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
+pdf_folder = os.getenv("LQDATAEOS")+"/2017/qcdFRClosureTest_amcatnlo/plots_SF"
+fit_results = os.getenv("LQDATAEOS")+"/2017/qcdFRClosureTest_amcatnlo/fitResults_SF.txt"
 
 if not os.path.isdir(pdf_folder) and pdf_folder != "":
     print("Making directory ", pdf_folder)
@@ -121,9 +114,9 @@ for region in etaRegs:
         histDict[region][var]["data"] = tfile.Get("histo1D__QCDFakes_DATA1P1F__"+var+region)
         histDict[region][var]["bkg"]["MCOnly"] = tfile.Get("histo1D__MCTotal-WHTBinnedIncStitch__"+var+region)
 
-mcSamples = ["ZJet_NNLO_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
+#mcSamples = ["ZJet_NNLO_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
 
-#mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
+mcSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "WJet_HTBinned_IncStitch", "TTBar_powheg", "SingleTop", "GJets", "DIBOSON_nlo"]
 
 mcShortNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson"]
 allBkgNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson","fakeRate"]
@@ -137,7 +130,7 @@ for index, sample in enumerate(mcSamples):
             histo = tfile.Get("histo1D__"+sample+"__"+variableName+region)
             histDict[region][variableName]["bkg"][mcShortNames[index]] = histo
 
-
+'''
 #comparison of WJets
 WJetNames = ["WJet_amcatnlo_jetBinned", "WJet_HTBinned"]
 c = TCanvas()
@@ -223,6 +216,7 @@ for variable in variable_names:
     line.Draw("Same")
     ratio.Draw("same")
     #c.Print("/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest/frClosureTest_2017_nov2023-d/WJetComparisons/"+variable+".pdf")
+'''
 
 #set colors and style
 for region in etaRegs:
@@ -638,50 +632,6 @@ with open(fit_results, "a") as resultsFile:
     resultsFile.write("    NDF: "+str(BDTNDF)+"\n")
     resultsFile.write("    Chi2 / NDF: "+str(BDTChi2OverNdf)+"\n")
     resultsFile.write("    fit: "+str(BDTFitResult)+" +/- "+str(BDTFitErr)+"\n\n")
-
-#make plot of just FR prediction by itself for comparison w the AN
-c = TCanvas()
-c.cd()
-c.SetLogy()
-c.SetGridy()
-oldPtBins = [50,100,150,220,300,400,500,600,800,1000]
-histoFR = histDict[""]["Pt1stEle_PAS"]["bkg"]["fakeRate"].Rebin(len(oldPtBins)-1,"FR_with_old_ptBins",np.array(oldPtBins,dtype = float))
-histoFR.SetStats(0)
-histoFR.GetYaxis().SetRangeUser(0.1,1e5)
-histoFR.GetXaxis().SetTitle("Pt1stEle (GeV)")
-histoFR.Draw()
-c.Print(pdf_folder+"/Pt1stEle_PAS/fakeRatePrediction.pdf")
-
-#Get and print Pt1stEle, HEEPEle_Pt, LooseEle_Pt
-'''
-histoHEEPEle = tfile.Get("histo1D__QCDFakes_DATA1P1F__HEEPEle_Pt")
-histoLooseEle = tfile.Get("histo1D__QCDFakes_DATA1P1F__LooseEle_Pt")
-histo1stEle = tfile.Get("histo1D__QCDFakes_DATA1P1F__Pt1stEle_PAS")
-histoHEEPEle.SetLineWidth(2)
-histoHEEPEle.SetStats(0)
-histoHEEPEle.SetTitle("pT, 1-pass-1-fail data")
-histoHEEPEle.GetXaxis().SetTitle("pT (GeV)")
-histoHEEPEle.GetYaxis().SetRangeUser(0.1,4500)
-histoLooseEle.SetLineWidth(2)
-histoLooseEle.SetLineColor(kGreen)
-histoLooseEle.SetMarkerColor(kGreen)
-histo1stEle.SetLineWidth(2)
-histo1stEle.SetLineColor(kRed)
-histo1stEle.SetMarkerColor(kRed)
-leg = TLegend(0.6,0.7,0.9,0.9)
-leg.AddEntry(histoHEEPEle, "pass HEEP electron pT", "lp")
-leg.AddEntry(histoLooseEle, "fail HEEP electron pT", "lp")
-leg.AddEntry(histo1stEle, "Pt1stEle_PAS", "lp")
-c = TCanvas()
-#c.SetLogy()
-c.SetGridy()
-histoHEEPEle.Draw()
-histo1stEle.Draw("same")
-histoLooseEle.Draw("same")
-histoHEEPEle.Draw("same")
-leg.Draw("same")
-c.Print(pdf_folder+"/elePtComparison.pdf")
-'''
 
 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 print("total yield and uncertainty")

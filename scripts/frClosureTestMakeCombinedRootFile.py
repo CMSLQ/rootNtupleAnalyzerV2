@@ -18,10 +18,9 @@ import os
 import math
 
 #runs on the output of combinePlots for 1P1F and 2F. Copies the histos you need for the closure test into a single ROOT file. Also adds all the MC together to make an MC total histo, and puts that in the output file too.
-input_file2F = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/2F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-#input_file1P1F = "$LQDATA/2016/qcdFRClosureTest/frClosureTest_2016pre_Aug23/MCfix/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-input_file1P1F = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/1P1F_SF/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-output_name = "/eos/user/e/eipearso/LQ/lqData/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
+input_file2F = "$LQDATAEOS/2017/qcdFRClosureTest_amcatnlo/2F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
+input_file1P1F = "$LQDATAEOS/2017/qcdFRClosureTest_amcatnlo/1P1F_SF/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
+output_name = os.getenv("LQDATAEOS")+"/2017/qcdFRClosureTest_amcatnlo/FRCTCombined_SF.root"
 
 #run
 gROOT.SetBatch(True)
