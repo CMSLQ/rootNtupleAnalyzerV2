@@ -295,7 +295,7 @@ if options.reducedSkim or options.nanoSkim:
     if len(siteList) < 1:
         siteList = GetDefaultCondorSites()
     # apply exclusions
-    sitesToExclude = ["T2_TR_METU", "T2_UA_KIPT", "T1_ES_PIC", "T2_TW_NCHC", "T2_US_MIT", "T2_UA_KIPT", "T2_ES_IFCA", "T2_EE_Estonia"]
+    sitesToExclude = ["T2_TR_METU", "T2_UA_KIPT", "T1_ES_PIC", "T2_TW_NCHC", "T2_US_MIT", "T2_UA_KIPT", "T2_ES_IFCA", "T2_EE_Estonia", "T2_ES_CIEMAT"]
     for site in sitesToExclude:
         if site in siteList:
             siteList.remove(site)
