@@ -87,7 +87,8 @@ WWto2L2Nu:
   - /WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
 WW_nlo:
   pieces:
-  - WWto4Q
+  #- WWto4Q
+  - WWto2L2Nu
   - WWto1L1Nu2Q
 ZZto2Q2L:
   pieces:
@@ -104,7 +105,7 @@ ZZto2L2Nu:
 ZZ_nlo:
   pieces:
   - ZZto2Q2L
-  - ZZto2Nu2Q
+  #- ZZto2Nu2Q
   - ZZto4L
   - ZZto2L2Nu
 WZto1L1Nu2Q:
@@ -127,7 +128,8 @@ WZ_nlo:
   - WZto1L1Nu2Q
   - WZto1L3Nu
   - WZto2Q2L
-  - WZto3LNu_amcatnlo
+  #- WZto3LNu_amcatnlo
+  - WZto3LNu_powheg
 DIBOSON_nlo:
   pieces:
   - WW_nlo
