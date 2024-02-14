@@ -228,7 +228,9 @@ def TrainBDT(args):
                 # "!H:!V:NTrees=400:MinNodeSize=2.5%:MaxDepth=1:BoostType=Grad:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20:NegWeightTreatment=IgnoreNegWeightsInTraining" )
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
-                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
+                # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
+                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=1:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
         
         factory.TrainAllMethods()
         factory.TestAllMethods()
@@ -271,9 +273,9 @@ def TrainParametrizedBDT(lqMassList, year):
    
    loader.PrepareTrainingAndTestTree( mycuts, mycutb, "V:SplitMode=random:NormMode=EqualNumEvents" )
    factory.BookMethod(loader, TMVA.Types.kBDT, "BDTG",
-           # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
+           "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
            # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
-           "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
+           # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
    
    factory.TrainAllMethods()
    factory.TestAllMethods()
@@ -401,11 +403,11 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
 
-        binsToUse = 1000 # 10000
+        binsToUse = 100 # 10000
         hname = "hsig_" + name + "_" + str(lqMassToUse)
         htitle = "Classifier Output on signal for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
-        hsig = TH1D(hname,htitle,binsToUse,-1,1)
-        hsigUnweighted = TH1D(hname+"_unweighted", htitle+" (unweighted)", binsToUse, -1, 1)
+        hsig = TH1D(hname,htitle,binsToUse,-1.001,1.001)
+        hsigUnweighted = TH1D(hname+"_unweighted", htitle+" (unweighted)", binsToUse, -1.001, 1.001)
         #hname = "hbkg_" + name + "_" + lqMassToUse
         #hbkg = ROOT.RDF.TH1DModel(hname,htitle,binsToUse,-1,1)
 
@@ -421,8 +423,8 @@ def OptimizeBDTCut(args):
         # backgrounds
         histTitle = "Classifier Output on {} background for " + name + ", M_{{LQ}} = " + str(lqMassToUse) + " GeV"
         histName = "BDTOutput{}LQM" + str(lqMassToUse)
-        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1, 1)
-        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1, 1)
+        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1.001, 1.001)
+        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1.001, 1.001)
         bkgHists = dict()
         bkgHistsUnweightedUnscaled = dict()
         bkgTotIntegralOverCut = 0
@@ -431,8 +433,8 @@ def OptimizeBDTCut(args):
             bkgSampleIntegralOverCut = 0
             bkgSampleIntegral = 0
             bkgSampleIntegralHist = 0
-            bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
-            bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
+            bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1.001, 1.001)
+            bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
                 #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
@@ -458,9 +460,9 @@ def OptimizeBDTCut(args):
                 df = df.Define('BDT', 'BDTv[0]')
                 df = df.Define('eventWeight', eventWeightExpression)
                 histName = "BDTVal_{}_{}".format(sample, idx)
-                hbkg = TH1D(histName, histName, binsToUse, -1, 1)
+                hbkg = TH1D(histName, histName, binsToUse, -1.001, 1.001)
                 histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), "BDT", "eventWeight")
-                hbkgUnweighted =  TH1D(histName+"_unweighted", histName+"_unweighted", binsToUse, -1, 1)
+                hbkgUnweighted =  TH1D(histName+"_unweighted", histName+"_unweighted", binsToUse, -1.001, 1.001)
                 histBkgUnweighted = df.Histo1D(ROOT.RDF.TH1DModel(hbkgUnweighted), "BDT")
                 #bkgWeight = backgroundDatasetsWeightsTimesOneThousand[os.path.basename(txtFile).replace(".txt", "")]/1000.0
                 #bkgWeight = FindWeight(os.path.basename(txtFile).replace(".txt", ""), backgroundDatasetsWeightsTimesOneThousand)/1000.0
@@ -633,7 +635,7 @@ def OptimizeBDTCut(args):
             #     print("Evaluate figure of merit for nS={}, nB={}, unweightedNs={}, unweightedNb={}".format(nS, nB, unweightedNs, unweightedNb), flush=True)
             #     exit(0)
             # require at least one background event expected
-            if nB > 1 and not skipFOMCalc:
+            if nB > 1.0 and not skipFOMCalc:
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
@@ -1358,14 +1360,14 @@ if __name__ == "__main__":
     includeQCD = True
     normalizeVars = False
     # normTo = "Meejj"
-    lqMassesToUse = [2700]#,1100,1200]
-    #lqMassesToUse = list(range(2500, 3100, 100))
+    #lqMassesToUse = [2700]#,1100,1200]
+    lqMassesToUse = list(range(2000, 3100, 100))
     #lqMassesToUse = list(range(600, 1100, 100))
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
-    #lqMassesToUse = list(range(700, 1100, 100))
+    #lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = list(range(300, 1100, 100))
-    #lqMassesToUse = list(range(300,3100,100))
+    #lqMassesToUse = list(range(300,800,100))
     #lqMassesToUse = [300]#,400,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"

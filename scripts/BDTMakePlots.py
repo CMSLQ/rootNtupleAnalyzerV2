@@ -53,7 +53,7 @@ else:
     if moreVars==True:
         optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/optimizationPlots.root"
         base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/dedicated_mass"
-        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/dedicated_mass/bdtPlots.root"
+        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
         optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"
@@ -215,8 +215,8 @@ for i,mass in enumerate(LQmasses):
     #print("got hist ", sigPlot.GetName(), " for LQM ", mass)
     bkgPlotRebin = copy.deepcopy(bkgPlot)
     sigPlotRebin = copy.deepcopy(sigPlot)
-    bkgPlotRebin.Rebin(4)
-    sigPlotRebin.Rebin(4)
+    #bkgPlotRebin.Rebin(4)
+    #sigPlotRebin.Rebin(4)
     plotMax = max(sigPlotRebin.GetMaximum(),bkgPlotRebin.GetMaximum())
     plotMin = min(sigPlotRebin.GetMinimum(0), bkgPlotRebin.GetMinimum(0))
     cut = cutValues[str(mass)]
@@ -329,7 +329,6 @@ cEff.Print(pdf_folder+"/bkgRejVsMLQ.pdf")
 
 bdtTFile = TFile.Open(bdtPlotFile)
 #ROC curve and integral
-'''
 rocaucVsMLQPlot = TGraph(len(LQmasses))
 rocaucVsMLQPlot.SetName("rocaucVsMLQ")
 oneMaucVsMLQPlot = TGraph(len(LQmasses))
@@ -370,7 +369,7 @@ oneMaucVsMLQPlot.Draw("AP")
 outFile.cd()
 oneMaucVsMLQPlot.Write()
 c3.Print(pdf_folder+"/1-rocaucVsMLQ.pdf")
-'''
+
 #compare sig and bkg variable distributions for each mass
 c5 = TCanvas()
 c5.SetLogy()
@@ -404,7 +403,7 @@ for i,mass in enumerate(LQmasses):
        #plotMax = max(bkgPlot.GetMaximum(), sigPlot.GetMaximum())
        #plotMin = min(bkgPlot.GetMinimum(0), sigPlot.GetMinimum(0))
        plotMax = 2*bkgPlot.GetMaximum()
-       plotMin = 0.5*bkgPlot.GetMinimum(0)
+       plotMin = min(bkgPlot.GetMinimum(0), sigPlot.GetMinimum(0))
        bkgPlot.GetYaxis().SetRangeUser(0.5*plotMin,2*plotMax)
        bkgPlot.GetXaxis().SetTitle(var)
        bkgPlot.SetTitle("signal and bkg for "+var+", MLQ="+str(mass)+" GeV")
