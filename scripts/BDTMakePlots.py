@@ -51,8 +51,8 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/dedicated_mass"
+        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/lowMassMoreTrees/optimizationPlots.root"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/dedicated_mass/lowMassMoreTrees"
         bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
@@ -312,7 +312,9 @@ cEff = TCanvas()
 cEff.SetGridy()
 sigEfficiency.SetMarkerStyle(8)
 sigEfficiency.SetTitle("signal efficiency at opt cut vs MLQ")
+sigEfficiency.GetYaxis().SetRangeUser(0.7,1.01)
 sigEfficiency.GetXaxis().SetTitle("MLQ GeV")
+sigEfficiency.GetXaxis().SetRangeUser(250,3050)
 sigEfficiency.SetName("sigEffAtOptCutVsMLQ")
 sigEfficiency.Draw("ALP")
 outFile.cd()
@@ -321,6 +323,7 @@ cEff.Print(pdf_folder+"/sigEffVsMLQ.pdf")
 bkgRejection.SetMarkerStyle(8)
 bkgRejection.SetTitle("background rejection at opt cut vs MLQ")
 bkgRejection.GetXaxis().SetTitle("MLQ GeV")
+bkgRejection.GetXaxis().SetRangeUser(250,3050)
 bkgRejection.SetName("bkgRejAtOptCutVsMLQ")
 bkgRejection.Draw("ALP")
 outFile.cd()

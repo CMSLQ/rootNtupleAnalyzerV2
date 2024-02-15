@@ -230,7 +230,7 @@ def TrainBDT(args):
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
-                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=1:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
+                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=125:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
         
         factory.TrainAllMethods()
         factory.TestAllMethods()
@@ -1361,13 +1361,13 @@ if __name__ == "__main__":
     normalizeVars = False
     # normTo = "Meejj"
     #lqMassesToUse = [2700]#,1100,1200]
-    lqMassesToUse = list(range(2000, 3100, 100))
+    lqMassesToUse = list(range(1000, 2100, 100))
     #lqMassesToUse = list(range(600, 1100, 100))
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
     #lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = list(range(300, 1100, 100))
-    #lqMassesToUse = list(range(300,800,100))
+    #lqMassesToUse = list(range(600,1000,100))
     #lqMassesToUse = [300]#,400,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
