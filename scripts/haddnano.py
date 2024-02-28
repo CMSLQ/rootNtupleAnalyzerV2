@@ -47,23 +47,14 @@ def RunCommand(cmd):
     return returnCode
 
 
-def FindLFNToUse(lfn):
-    if os.getenv("GLIDEIN_CMSSite").split("_")[1] == "US":
-        lfnPrefixDefault = "root://cmsxrootd.fnal.gov/"
-        hostDefault = "cmsxrootd.fnal.gov"
-    else:
-        lfnPrefixDefault = "root://cms-xrd-global.cern.ch/"
-        hostDefault = "cms-xrd-global.cern.ch"
-    cmsSite = os.getenv("GLIDEIN_CMSSite")
-    host = hostDefault
-    hostPrefix = lfnPrefixDefault
-    print("found GLIDEIN_CMSSite={}".format(cmsSite))
-    print("Checking to see if this file is available at {}...".format(cmsSite))
-    # try this trick sent on mattermost to get the prefix
+def GetTFile(lfn):
+    print("Checking to see if this file {} is available at {}...".format(lfn, cmsSite))
+    # # try this trick sent on mattermost to get the prefix
     # import json
     # try:
     #     data = json.load(open("/cvmfs/cms.cern.ch/SITECONF/{}/storage.json".format(cmsSite)))
     #     sites = [cmsSite for cmsSite in data if cmsSite["type"]=="DISK"]
+    #     prefix = None
     #     for site in sites:
     #         theprotoc = next(protoc for protoc in site["protocols"] if protoc["protocol"]=="XRootD")
     #         if "prefix" not in theprotoc.keys():
@@ -77,65 +68,57 @@ def FindLFNToUse(lfn):
     #         # if not prefixEnd.endswith("/"):
     #         #     prefixEnd += "/"
     #         print("Found prefix from storage.json on cvmfs:", prefix, "with host:", host, "prefixEnd:", prefixEnd)
-    #         lfnTest = prefixEnd + lfn
     #         break
-    #     if host == "":
+    #     if prefix is None:
     #         raise RuntimeError("Could not find a site specification in the storage json with 'prefix' key in XRootD protocol")
-    #     cmd = 'xrdfs {} ls {}'.format(host, lfnTest)
-    #     returnCode = RunCommand(cmd)
-    #     if returnCode != 0:
-    #         print("xrdfs ls returned nonzero with output/error above; try to guess direct URL")
-    #     else:
-    #         lfnToUse = "root://" + host + "/" + prefixEnd
-    #         print("OK, use {}".format(lfnToUse))
-    #         return lfnToUse
-    # except (FileNotFoundError, KeyError, RuntimeError, StopIteration) as ex:
-    #     print("\tCaught exception trying to get prefix from storage.json on cvmfs:", ex, "; try to guess direct URL")
+    #     # cmd = 'xrdfs {} ls {}'.format(host, lfnTest)
+    #     # returnCode = RunCommand(cmd)
+    #     # if returnCode != 0:
+    #     #     print("xrdfs ls returned nonzero with output/error above; try to guess direct URL")
+    #     # else:
+    #     #     lfnToUse = "root://" + host + "/" + prefixEnd
+    #     #     print("OK, use {}".format(lfnToUse))
+    #     #     return lfnToUse
+    #     lfnToTest = prefix + lfn
+    #     handle = ROOT.TFile.Open(lfnToTest)
+    #     print("OK, use prefix  {}".format(prefix))
+    #     return handle
+    # except (FileNotFoundError, KeyError, RuntimeError, StopIteration, OSError) as ex:
+    #     print("\tCaught exception trying to get and check prefix from storage.json on cvmfs:", ex, "; try to guess direct URL")
     if cmsSite is not None:
         lfnTest = "/store/test/xrootd/" + cmsSite
     else:
         print("cmsSite is None; use default XRootD redirector {}".format(lfnPrefixDefault))
-        return lfnPrefixDefault
-    # cmd = 'xrdfs {} ls {}'.format(host, lfnTest + lfn)
-    # returnCode = RunCommand(cmd)
-    # if returnCode != 0:
-    #     print("xrdfs ls returned nonzero with output/error above; use default XRootD redirector {}".format(lfnPrefixDefault))
-    #     return lfnPrefixDefault
-    # else:
-    #     lfnToUse = "root://" + host + "/" + lfnTest
-    #     print("OK, use {}".format(lfnToUse))
-    #     return lfnToUse
+        return ROOT.TFile.Open(lfnPrefixDefault + lfn)
     try:
-        handle = ROOT.TFile.Open(hostPrefix + lfnTest + lfn)
-        handle.Close()
-        lfnToUse = "root://" + host + "/" + lfnTest
+        lfnToUse = lfnPrefixDefault + lfnTest
+        handle = ROOT.TFile.Open(lfnToUse + lfn)
         print("OK, use {}".format(lfnToUse))
-        return lfnToUse
+        return handle
     except OSError as ex:
         print("\tCaught exception:", ex)
-        print("xrdfs ls returned nonzero with output/error above; use default XRootD redirector {}".format(lfnPrefixDefault))
-        handle.Close()
-        return lfnPrefixDefault
+        print("ROOT.TFile.Open() returned nonzero with output/error above; use default XRootD redirector {}".format(lfnPrefixDefault))
+        return ROOT.TFile.Open(lfnPrefixDefault + lfn)
 
 
+# if os.getenv("GLIDEIN_CMSSite").split("_")[1] == "US":
+#     lfnPrefixDefault = "root://cmsxrootd.fnal.gov/"
+#     hostDefault = "cmsxrootd.fnal.gov"
+# else:
+#     lfnPrefixDefault = "root://cms-xrd-global.cern.ch/"
+#     hostDefault = "cms-xrd-global.cern.ch"
+lfnPrefixDefault = "root://cms-xrd-global.cern.ch/"
+hostDefault = "cms-xrd-global.cern.ch"
+cmsSite = os.getenv("GLIDEIN_CMSSite")
+host = hostDefault
+print("found GLIDEIN_CMSSite={}".format(cmsSite))
 fileHandles=[]
 goFast=True
 start = time.time()
 host = ""
 for idx, fn in enumerate(files):
     lfn = fn.replace("root://cms-xrd-global.cern.ch/", "")
-    if idx == 0:  # just check the first file, since the xrdfs takes a while and if we find one, likely all the others will be there
-        lfnPrefixToUse = FindLFNToUse(lfn)
-    fn = lfnPrefixToUse+lfn
-    print("Try opening file", fn)
-    handle = ROOT.TFile.Open(fn)
-    # try:
-    #     handle = ROOT.TFile.Open(fn)
-    # except OSError as ex:
-    #     print("\tCaught exception:", ex)
-    #     defaultFN = lfnPrefixDefault+lfn
-    #     print("\tTry to reopen the file as {}".format(defaultFN))
-    #     handle = ROOT.TFile.Open(defaultFN)
+    handle = GetTFile(lfn)
     fileHandles.append(handle)
     if fileHandles[-1].GetCompressionSettings() != fileHandles[0].GetCompressionSettings() :
         goFast=False
