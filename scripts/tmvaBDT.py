@@ -166,6 +166,7 @@ def TrainBDT(args):
     lqMassToUse = args[0]
     year = args[1]
     normVars = args[2]
+    eosDir = args[3]
     # just one use the single LQ signal specified by mass just above
     try:
         signalDatasetsDict = {}
@@ -173,7 +174,7 @@ def TrainBDT(args):
         signalDatasetsDict[signalDatasetName] = allSignalDatasetsDict[signalDatasetName]
         print(signalDatasetsDict)
         
-        outputFile = TFile.Open("TMVA_ClassificationOutput_"+signalDatasetName+".root", "RECREATE")
+        outputFile = TFile.Open(eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".root", "RECREATE")
         
         TMVA.Tools.Instance()
         factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
@@ -229,8 +230,8 @@ def TrainBDT(args):
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
-                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
-                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=125:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
+                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=125:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
         
         factory.TrainAllMethods()
         factory.TestAllMethods()
@@ -1347,11 +1348,12 @@ if __name__ == "__main__":
     inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/"
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_DATA_2FR/"
+    eosDir = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/dedicated_mass"
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
-    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_2016preVFP_22jan2024.txt"
+    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_2016postVFP_22jan2024.txt"
     xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/config/" + xsectionTxt
-    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016postVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
+    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/config/" + xsectionTxt
     train = options.train
     optimize = options.optimize
     roc = options.roc
@@ -1361,11 +1363,11 @@ if __name__ == "__main__":
     normalizeVars = False
     # normTo = "Meejj"
     #lqMassesToUse = [2700]#,1100,1200]
-    lqMassesToUse = list(range(1000, 2100, 100))
+    #lqMassesToUse = list(range(1000, 2100, 100))
     #lqMassesToUse = list(range(600, 1100, 100))
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
-    #lqMassesToUse = list(range(300, 3100, 100))
+    lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = list(range(300, 1100, 100))
     #lqMassesToUse = list(range(600,1000,100))
     #lqMassesToUse = [300]#,400,500,600]
@@ -1421,7 +1423,7 @@ if __name__ == "__main__":
                 jobCount = 0
                 for mass in lqMassesToUse:
                     try:
-                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars]], callback=log_result)
+                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir]], callback=log_result)
                         jobCount += 1
                     except KeyboardInterrupt:
                         print("\n\nCtrl-C detected: Bailing.")
@@ -1443,7 +1445,7 @@ if __name__ == "__main__":
                     raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
             else:
                 for mass in lqMassesToUse:
-                    TrainBDT([mass, year, normalizeVars])
+                    TrainBDT([mass, year, normalizeVars, eosDir])
         print("INFO: Training {} done.".format("parametrized BDT" if parametrized else "BDT"))
     
     if optimize:

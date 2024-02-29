@@ -404,11 +404,11 @@ parallelize = True
 date = "9oct2023"
 includeQCD = True
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/2016preVFP/janSkims/trainingTreeInputs/preselOnly"
-inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/2016preVFP/janSkims/trainingTreeInputs/singleFR/"
-inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/2016preVFP/janSkims/trainingTreeInputs/doubleFR/"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/preselOnly"
+inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/singleFR/"
+inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/janSkims_amcatnloDY"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/"+str(year)+"/febSkims_amcatnloDY"
 signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
 
 if __name__ == "__main__":

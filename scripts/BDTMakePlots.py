@@ -51,9 +51,9 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/lowMassMoreTrees/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/dedicated_mass/lowMassMoreTrees"
-        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/dedicated_mass/bdtPlots.root"
+        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016postVFP/dedicated_mass/optimizationPlots.root"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/dedicated_mass"
+        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016postVFP/dedicated_mass/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
         optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"
@@ -106,6 +106,7 @@ for i, mass in enumerate(LQmasses):
     FOMVsMLQPlot.SetPoint(i,mass,maxFOM)
 c2 = TCanvas()
 c2.SetGridy()
+c2.SetLogy()
 FOMVsMLQPlot.SetName("maxFOM_vs_MLQ")
 FOMVsMLQPlot.SetTitle("max FOM vs MLQ")
 FOMVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
@@ -212,6 +213,11 @@ for i,mass in enumerate(LQmasses):
     cBDTOutput.SetGridy()
     bkgPlot = optTFile.Get("LQM"+str(mass)+"/BDTOutputTotalBackgroundLQM"+str(mass))
     sigPlot = optTFile.Get("LQM"+str(mass)+"/hsig_BDTG_"+str(mass))
+    #if mass==3000:
+    #    bkgPlot.SetMarkerStyle(8)
+     #   bkgPlot.SetMarkerSize(0.6)
+     #   sigPlot.SetMarkerStyle(8)
+     #   sigPlot.SetMarkerSize(0.6)
     #print("got hist ", sigPlot.GetName(), " for LQM ", mass)
     bkgPlotRebin = copy.deepcopy(bkgPlot)
     sigPlotRebin = copy.deepcopy(sigPlot)
@@ -233,6 +239,7 @@ for i,mass in enumerate(LQmasses):
     bkgPlotRebin.GetYaxis().SetRangeUser(0.2*plotMin,5*plotMax)
     bkgPlotRebin.SetStats(0)
     bkgPlotRebin.GetXaxis().SetTitle("BDT output")
+    bkgPlotRebin.GetXaxis().SetRangeUser(-1.1,1.1)
     bkgPlotRebin.SetTitle("BDT output")
     sigPlotRebin.SetName("sigBDTOutput_MLQ"+str(mass))
     bkgPlotRebin.SetName("bkgBDTOutput_MLQ"+str(mass))
@@ -243,6 +250,8 @@ for i,mass in enumerate(LQmasses):
     sigPlotRebin.Draw("same")
     line.Draw("same")
     l.Draw("same")
+    bkgPlotRebin.Draw("Same")
+    sigPlotRebin.Draw("same")
     cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputMLQ"+str(mass)+".pdf")
     
     c = TCanvas()
@@ -295,8 +304,8 @@ yieldAtCutBkg.SetMarkerStyle(8)
 yieldAtCutBkg.SetMarkerColor(kRed)
 yieldAtCutBkg.SetName("BkgYieldAtOptCut")
 yieldAtCutSig.GetYaxis().SetRangeUser(1e-4,50000)
-yieldAtCutSig.GetXaxis().SetLimits(200,2100)
-yieldAtCutBkg.GetXaxis().SetLimits(200,2100)
+yieldAtCutSig.GetXaxis().SetLimits(200,3100)
+yieldAtCutBkg.GetXaxis().SetLimits(200,3100)
 l = TLegend(0.7,0.8,0.9,0.9)
 l.AddEntry(yieldAtCutSig,"signal","p")
 l.AddEntry(yieldAtCutBkg,"background","p")
