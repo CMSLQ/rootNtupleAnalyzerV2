@@ -155,6 +155,8 @@ harmlessErrorMessages.append("security protocol 'ztn' disallowed for non-TLS con
 harmlessErrorMessages.append("tac: write error: Broken pipe")  # no idea what this is about, but apparently harmless
 harmlessErrorMessages.append("Info in <TCanvas::MakeDefCanvas>:  created default TCanvas with name c1")
 
+harmlessOutMessages = ["xrdfs locate"]
+
 print("Checking that all events expected were processed from datasets in given inputList...", flush = True)
 fileToEventsDict = {}
 with open(inputListFile, "r") as inputList:
@@ -225,7 +227,9 @@ for outFile in fileList:
     with open(outFile, 'r') as thisFile:
         lines = thisFile.readlines()
         for line in lines:
-            if "error" in line.lower():
+            if any(substring in line for substring in harmlessOutMessages):
+                continue
+            elif "error" in line.lower():
                 outputThisFile.append(line.strip("\n"))
     if len(outputThisFile) > 0:
         filesAndOutput[outFile] = outputThisFile
