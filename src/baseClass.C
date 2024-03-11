@@ -1,8 +1,10 @@
 #define baseClass_cxx
 #include "baseClass.h"
 
-#include <boost/lexical_cast.hpp>
+#include <regex>
+#include <algorithm>
 
+#include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
 
 #include "TEnv.h"
@@ -575,7 +577,7 @@ void baseClass::readCutFile()
           string modelName = splitByCommas[0];
           if(!hasPreCut(splitByCommas[1]))
             throw runtime_error("baseClass::readCutFile: TMVACut was specified in cut file, but no weight file was found among the precuts.");
-          string weightFile = getPreCutString1(splitByCommas[1]);
+          string weightFile = expandEnvironmentVariables(getPreCutString1(splitByCommas[1]));
           string trainingSelection = splitByCommas[2];
           if(cutName_cut_.find(trainingSelection) == cutName_cut_.end()) {
             STDOUT("ERROR: For cut named " << variableName << ", did not find training selection cut " << trainingSelection << " in list of previously-defined cuts.");
@@ -914,59 +916,21 @@ void baseClass::readCutFile()
       orderedSystCutNames_.push_back(cc->first);
     }
     int nCutsForSysts = orderedSystCutNames_.size();
-    STDOUT("Making systematics 2D hist with " << nCutsForSysts << " x bins");
+    STDOUT("Making systematics 2D hists with " << nCutsForSysts << " x bins");
     histsToSave_.push_back(std::shared_ptr<TH2D>(new TH2D("systematics", "systematics", nCutsForSysts, 0, nCutsForSysts, nSysts, 0, nSysts)));
     currentSystematicsHist_.reset(new TH2D("currentSystematics", "current systematics", nCutsForSysts, 0, nCutsForSysts, nSysts, 0, nSysts));
     auto systHist = dynamic_pointer_cast<TH2D>(histsToSave_.back());
     histsToSave_.push_back(std::shared_ptr<TH2D>(new TH2D("systematicsUnweighted", "systematics (no weight)", nCutsForSysts, 0, nCutsForSysts, nSysts, 0, nSysts)));
     auto systHistUnweighted = dynamic_pointer_cast<TH2D>(histsToSave_.back());
-    systHist->Sumw2();
-    systHist->SetDirectory(0);
-    systHistUnweighted->Sumw2();
-    systHistUnweighted->SetDirectory(0);
-    int idx = 1;
-    for (auto& cutName : orderedSystCutNames_) {
-      systHist->GetXaxis()->SetBinLabel(idx, cutName.c_str());
-      systHistUnweighted->GetXaxis()->SetBinLabel(idx, cutName.c_str());
-      ++idx;
-    }
-    idx = 1;
-    for(auto& syst : systematics_) {
-      if(syst.length==1) {
-        systHist->GetYaxis()->SetBinLabel(idx, syst.name.c_str());
-        systHistUnweighted->GetYaxis()->SetBinLabel(idx, syst.name.c_str());
-        ++idx;
-      }
-      else {
-        unsigned int length = syst.length;
-        // always use 103 PDF weights and 9 scale weights
-        if(syst.name=="LHEPdfWeight")
-          length = NUMPDFWEIGHTS;
-        else if(syst.name=="LHEScaleWeight")
-          length = NUMSCALEWEIGHTS;
-        for(int arrIdx = 0; arrIdx < length; ++arrIdx) {
-          string systName = syst.name + "_" + to_string(arrIdx);
-          systHist->GetYaxis()->SetBinLabel(idx, systName.c_str());
-          systHistUnweighted->GetYaxis()->SetBinLabel(idx, systName.c_str());
-          ++idx;
-        }
-        if(syst.name=="LHEPdfWeight") {
-          for(const auto& binName : pdfCombBins) {
-            systHist->GetYaxis()->SetBinLabel(idx, binName.c_str());
-            systHistUnweighted->GetYaxis()->SetBinLabel(idx, binName.c_str());
-            ++idx;
-          }
-        }
-        else if(syst.name=="LHEScaleWeight") {
-          for(const auto& binName : scaleCombBins) {
-            systHist->GetYaxis()->SetBinLabel(idx, binName.c_str());
-            systHistUnweighted->GetYaxis()->SetBinLabel(idx, binName.c_str());
-            ++idx;
-          }
-        }
-      }
-    }
-    systHist->GetYaxis()->Copy(*currentSystematicsHist_->GetYaxis());
+    setupSystHist(systHist.get(), pdfCombBins, scaleCombBins);
+    setupSystHist(systHistUnweighted.get(), pdfCombBins, scaleCombBins);
+    // fail
+    histsToSave_.push_back(std::shared_ptr<TH2D>(new TH2D("systematicsFail", "systematicsFail", nCutsForSysts, 0, nCutsForSysts, nSysts, 0, nSysts)));
+    auto systFailHist = dynamic_pointer_cast<TH2D>(histsToSave_.back());
+    histsToSave_.push_back(std::shared_ptr<TH2D>(new TH2D("systematicsFailUnweighted", "systematics fail (no weight)", nCutsForSysts, 0, nCutsForSysts, nSysts, 0, nSysts)));
+    auto systFailHistUnweighted = dynamic_pointer_cast<TH2D>(histsToSave_.back());
+    setupSystHist(systFailHist.get(), pdfCombBins, scaleCombBins);
+    setupSystHist(systFailHistUnweighted.get(), pdfCombBins, scaleCombBins);
   }
 }
 
@@ -1233,15 +1197,17 @@ void baseClass::runOptimizer()
 void baseClass::runSystematics()
 {
   shared_ptr<TH2D> systHist = dynamic_pointer_cast<TH2D>(findSavedHist("systematics"));
-  if(systHist == nullptr) {
-    cout << "ERROR: could not find systematics histogram. This shouldn't happen. Exiting" << endl;
-    exit(-6);
-  }
+  if(systHist == nullptr)
+    throw runtime_error("ERROR: could not find systematics histogram. This shouldn't happen.");
   shared_ptr<TH2D> systHistUnweighted = dynamic_pointer_cast<TH2D>(findSavedHist("systematicsUnweighted"));
-  if(systHistUnweighted == nullptr) {
-    cout << "ERROR: could not find systematics unweighted histogram. This shouldn't happen. Exiting" << endl;
-    exit(-6);
-  }
+  if(systHistUnweighted == nullptr)
+    throw runtime_error("ERROR: could not find systematics unweighted histogram. This shouldn't happen.");
+  shared_ptr<TH2D> systFailHist = dynamic_pointer_cast<TH2D>(findSavedHist("systematicsFail"));
+  if(systFailHist == nullptr)
+    throw runtime_error("ERROR: could not find systematicsFail histogram. This shouldn't happen.");
+  shared_ptr<TH2D> systFailHistUnweighted = dynamic_pointer_cast<TH2D>(findSavedHist("systematicsFailUnweighted"));
+  if(systFailHistUnweighted == nullptr)
+    throw runtime_error("ERROR: could not find systematicsFail unweighted histogram. This shouldn't happen.");
   currentSystematicsHist_->Reset();
   // copy cut decisions/filled
   for(auto& cutName : orderedCutNames_) {
@@ -1349,16 +1315,29 @@ void baseClass::runSystematics()
             systHist->Fill(xbinCoord, ybinCoord, systCutName_cut_[cutName]->weight*systVal);
             systHistUnweighted->Fill(xbinCoord, ybinCoord, systVal);
             currentSystematicsHist_->Fill(xbinCoord, ybinCoord, systVal);
-            int bin = currentSystematicsHist_->FindFixBin(xbinCoord, ybinCoord);
+            //int bin = currentSystematicsHist_->FindFixBin(xbinCoord, ybinCoord);
             //if(syst.name == "nominal")
             //if(syst.name=="LHEPdfWeight" && cutName == "preselection" && i > 40 && i < 45)
-            if(syst.name=="nominal" || syst.name.find("EleTrig") != std::string::npos || syst.name.find("EleReco") != std::string::npos) {
-              if(cutName.find("BDTOutput") != std::string::npos) {
-                STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", index=" << i << ", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
-                    << ", syst. weight=weight*systVal="<<systCutName_cut_[cutName]->weight << "*"
-                    << systVal << "=" << systCutName_cut_[cutName]->weight*systVal << "; binContent=" << systHist->GetBinContent(bin) << "; nominal binContent=" << systHist->GetBinContent(systHist->FindBin(xbinCoord, 1)))
-              }
-            }
+            //if(syst.name=="nominal" || syst.name.find("EleTrig") != std::string::npos || syst.name.find("EleReco") != std::string::npos) {
+            //  if(cutName.find("BDTOutput") != std::string::npos) {
+            //    STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", index=" << i << ", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
+            //        << ", syst. weight=weight*systVal="<<systCutName_cut_[cutName]->weight << "*"
+            //        << systVal << "=" << systCutName_cut_[cutName]->weight*systVal << "; binContent=" << systHist->GetBinContent(bin) << "; nominal binContent=" << systHist->GetBinContent(systHist->FindBin(xbinCoord, 1)))
+            //  }
+            //}
+          }
+        }
+        else if(passedAllPreviousCuts(cutName, systCutName_cut_, orderedCutNames_)) {
+          // failed the selection, but passed all previous cuts, so fill the failed selection hist
+          if(shiftValue) {
+            systFailHist->Fill(xbinCoord, ybinCoord, systCutName_cut_[cutName]->weight);
+            systFailHistUnweighted->Fill(xbinCoord, ybinCoord);
+            //currentSystematicsHist_->Fill(xbinCoord, ybinCoord, 1);
+          }
+          else {
+            systFailHist->Fill(xbinCoord, ybinCoord, systCutName_cut_[cutName]->weight*systVal);
+            systFailHistUnweighted->Fill(xbinCoord, ybinCoord, systVal);
+            //currentSystematicsHist_->Fill(xbinCoord, ybinCoord, systVal);
           }
         }
         xbinCoord+=1;
@@ -1437,6 +1416,13 @@ bool baseClass::hasPreCut(const string& s) {
   return preCutName_cut_.find(s) != preCutName_cut_.end();
 }
 
+bool baseClass::hasPreCutMatch(const string& s) {
+  std::string matchString = "[\\w]*" + s + "[\\w]*";
+  std::regex match(matchString);
+  return find_if(preCutName_cut_.begin(), preCutName_cut_.end(),
+      [&](const auto& x) { return std::regex_match(x.first, match); }) != preCutName_cut_.end();
+}
+
 string baseClass::getPreCutString1(const string& s)
 {
   string ret;
@@ -1448,7 +1434,20 @@ string baseClass::getPreCutString1(const string& s)
   }
   return (cc->second->string1);
 }
-
+void baseClass::autoExpandEnvironmentVariables(std::string& text) {
+    static std::regex env( "\\$\\{([^}]+)\\}" );
+    std::smatch match;
+    while ( std::regex_search( text, match, env ) ) {
+        const char * s = getenv( match[1].str().c_str() );
+        const std::string var( s == NULL ? "" : s );
+        text.replace( match[0].first, match[0].second, var );
+    }
+}
+std::string baseClass::expandEnvironmentVariables(const std::string& input) {
+    std::string text = input;
+    autoExpandEnvironmentVariables(text);
+    return text;
+}
 float baseClass::getCutMinValue1(const string& s)
 {
   float ret;
@@ -2881,4 +2880,47 @@ shared_ptr<TProfile> baseClass::makeNewEventsPassingSkimCutsProfile(const shared
     ++skimBinCounter;
   }
   return profToRet;
+}
+
+void baseClass::setupSystHist(TH2D* systHist, const std::vector<std::string>& pdfCombBins,  const std::vector<std::string>& scaleCombBins) {
+  systHist->Sumw2();
+  systHist->SetDirectory(0);
+  int idx = 1;
+  for (auto& cutName : orderedSystCutNames_) {
+    systHist->GetXaxis()->SetBinLabel(idx, cutName.c_str());
+    ++idx;
+  }
+  idx = 1;
+  for(auto& syst : systematics_) {
+    if(syst.length==1) {
+      systHist->GetYaxis()->SetBinLabel(idx, syst.name.c_str());
+      ++idx;
+    }
+    else {
+      unsigned int length = syst.length;
+      // always use 103 PDF weights and 9 scale weights
+      if(syst.name=="LHEPdfWeight")
+        length = NUMPDFWEIGHTS;
+      else if(syst.name=="LHEScaleWeight")
+        length = NUMSCALEWEIGHTS;
+      for(int arrIdx = 0; arrIdx < length; ++arrIdx) {
+        string systName = syst.name + "_" + to_string(arrIdx);
+        systHist->GetYaxis()->SetBinLabel(idx, systName.c_str());
+        ++idx;
+      }
+      if(syst.name=="LHEPdfWeight") {
+        for(const auto& binName : pdfCombBins) {
+          systHist->GetYaxis()->SetBinLabel(idx, binName.c_str());
+          ++idx;
+        }
+      }
+      else if(syst.name=="LHEScaleWeight") {
+        for(const auto& binName : scaleCombBins) {
+          systHist->GetYaxis()->SetBinLabel(idx, binName.c_str());
+          ++idx;
+        }
+      }
+    }
+  }
+  systHist->GetYaxis()->Copy(*currentSystematicsHist_->GetYaxis());
 }

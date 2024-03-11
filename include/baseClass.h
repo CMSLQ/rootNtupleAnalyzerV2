@@ -134,6 +134,7 @@ class SimpleCut {
         else if (!valueIsType<T>()) {
           std::string varTypeName = getValueTypeName();
           STDOUT("ERROR: Trying to set value of variable " << variableName << " which is of type " << varTypeName << " to a value of different type " << typeid(T).name() << "; can't do this.");
+          //throw std::runtime_error(std::string(__FILE__) + " - Line " + __LINE__ + " - " +__FUNCTION__ + ": ERROR: Trying to set value of variable " + variableName + " which is of type " + varTypeName + " to a value of different type " + typeid(T).name() + "; can't do this." + boost::stacktrace::to_string(boost::stacktrace::stacktrace()));
           exit(-10);
         }
         else
@@ -609,6 +610,7 @@ class baseClass {
     bool isSkimCut(const cut& c) { return c.level_int == SKIM_LEVEL; }
     bool hasCut(const std::string& s) { return hasCut(s, cutName_cut_, combCutName_passed_); }
     bool hasPreCut(const std::string& s);
+    bool hasPreCutMatch(const std::string& s);
     template <typename T = float> T getVariableValue(const std::string& s)
     {
       auto&& cc = cutName_cut_.find(s);
@@ -638,6 +640,8 @@ class baseClass {
     std::string getPreCutString2(const std::string& s);
     std::string getPreCutString3(const std::string& s);
     std::string getPreCutString4(const std::string& s);
+    void autoExpandEnvironmentVariables(std::string& text);
+    std::string expandEnvironmentVariables(const std::string& input);
     float getCutMinValue1(const std::string& s);
     float getCutMaxValue1(const std::string& s);
     float getCutMinValue2(const std::string& s);
@@ -661,6 +665,7 @@ class baseClass {
     void runOptimizer();
     bool isOptimizationEnabled() { return optimizeName_cut_.size()>0; }
 
+    void setupSystHist(TH2D* systHist, const std::vector<std::string>& pdfCombBins,  const std::vector<std::string>& scaleCombBins);
     bool haveSystematics() { return !systematics_.empty(); }
     unsigned int getNumSystematics() { return systematics_.size(); }
     void runSystematics();
