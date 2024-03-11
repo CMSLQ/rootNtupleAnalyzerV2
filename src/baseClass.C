@@ -577,7 +577,7 @@ void baseClass::readCutFile()
           string modelName = splitByCommas[0];
           if(!hasPreCut(splitByCommas[1]))
             throw runtime_error("baseClass::readCutFile: TMVACut was specified in cut file, but no weight file was found among the precuts.");
-          string weightFile = expandEnvironmentVariables(getPreCutString1(splitByCommas[1]));
+          string weightFile = getPreCutString1(splitByCommas[1]);
           string trainingSelection = splitByCommas[2];
           if(cutName_cut_.find(trainingSelection) == cutName_cut_.end()) {
             STDOUT("ERROR: For cut named " << variableName << ", did not find training selection cut " << trainingSelection << " in list of previously-defined cuts.");
@@ -1432,7 +1432,7 @@ string baseClass::getPreCutString1(const string& s)
     STDOUT("ERROR: did not find variableName = "<<s<<" in preCutName_cut_. Bailing.");
     exit(-5);
   }
-  return (cc->second->string1);
+  return expandEnvironmentVariables(cc->second->string1);
 }
 void baseClass::autoExpandEnvironmentVariables(std::string& text) {
     static std::regex env( "\\$\\{([^}]+)\\}" );
