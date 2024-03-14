@@ -13,12 +13,14 @@ import traceback
 import copy
 import numpy as np
 import ctypes
+import time
 from optparse import OptionParser
 
 from combineCommon import ParseXSectionFile, lookupXSection
 
 import ROOT
-from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad
+from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad, RooStats
+ROOT.EnableImplicitMT(6)
 
 class Sample:
     def __init__(self, name, subSampleList, subSampleWeights):
@@ -164,6 +166,7 @@ def TrainBDT(args):
     lqMassToUse = args[0]
     year = args[1]
     normVars = args[2]
+    eosDir = args[3]
     # just one use the single LQ signal specified by mass just above
     try:
         signalDatasetsDict = {}
@@ -171,7 +174,7 @@ def TrainBDT(args):
         signalDatasetsDict[signalDatasetName] = allSignalDatasetsDict[signalDatasetName]
         print(signalDatasetsDict)
         
-        outputFile = TFile.Open("TMVA_ClassificationOutput_"+signalDatasetName+".root", "RECREATE")
+        outputFile = TFile.Open(eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".root", "RECREATE")
         
         TMVA.Tools.Instance()
         factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
@@ -226,8 +229,13 @@ def TrainBDT(args):
                 # "!H:!V:NTrees=400:MinNodeSize=2.5%:MaxDepth=1:BoostType=Grad:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20:NegWeightTreatment=IgnoreNegWeightsInTraining" )
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
-                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
-        
+                # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
+                # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=125:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #  use bigger nodes, more depth
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=10%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #  use medium size nodes, more depth, ignore neg weights
+                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #large node size, no neg weights    
+    
         factory.TrainAllMethods()
         factory.TestAllMethods()
         factory.EvaluateAllMethods()
@@ -269,9 +277,9 @@ def TrainParametrizedBDT(lqMassList, year):
    
    loader.PrepareTrainingAndTestTree( mycuts, mycutb, "V:SplitMode=random:NormMode=EqualNumEvents" )
    factory.BookMethod(loader, TMVA.Types.kBDT, "BDTG",
-           # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
+           "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
            # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
-           "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
+           # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
    
    factory.TrainAllMethods()
    factory.TestAllMethods()
@@ -367,6 +375,8 @@ def EvaluateFigureOfMerit(nS, nB, efficiency, bkgEnts, figureOfMerit):
             nOn = nS + nB
             nTot = nOff + nOn
             value = math.sqrt(2)*math.sqrt(nOn*math.log(nOn*(1+tau)/nTot) + nOff*math.log(nOff*(1+tau)/(nTot*tau)))
+        elif figureOfMerit == "ssb":
+            value = nS / math.sqrt(nS+nB)
         else:
             raise RuntimeError("Evaluation of '{}' as figure of merit is not implemented".format(figureOfMerit))
     except ZeroDivisionError:
@@ -379,6 +389,7 @@ def EvaluateFigureOfMerit(nS, nB, efficiency, bkgEnts, figureOfMerit):
 
 def OptimizeBDTCut(args):
     bdtWeightFileName, lqMassToUse, sharedOptValsDict, sharedOptHistsDict, sharedFOMInfoDict, year = args
+    startTime = time.time()
     try:
         signalDatasetsDict = {}
         signalDatasetName = signalNameTemplate.format(lqMassToUse)
@@ -396,11 +407,11 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
 
-        binsToUse = 1000 # 10000
+        binsToUse = 500 #100 # 10000
         hname = "hsig_" + name + "_" + str(lqMassToUse)
         htitle = "Classifier Output on signal for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
-        hsig = TH1D(hname,htitle,binsToUse,-1,1)
-        hsigUnweighted = TH1D(hname+"_unweighted", htitle+" (unweighted)", binsToUse, -1, 1)
+        hsig = TH1D(hname,htitle,binsToUse,-1.001,1.001)
+        hsigUnweighted = TH1D(hname+"_unweighted", htitle+" (unweighted)", binsToUse, -1.001, 1.001)
         #hname = "hbkg_" + name + "_" + lqMassToUse
         #hbkg = ROOT.RDF.TH1DModel(hname,htitle,binsToUse,-1,1)
 
@@ -416,8 +427,8 @@ def OptimizeBDTCut(args):
         # backgrounds
         histTitle = "Classifier Output on {} background for " + name + ", M_{{LQ}} = " + str(lqMassToUse) + " GeV"
         histName = "BDTOutput{}LQM" + str(lqMassToUse)
-        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1, 1)
-        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1, 1)
+        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1.001, 1.001)
+        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1.001, 1.001)
         bkgHists = dict()
         bkgHistsUnweightedUnscaled = dict()
         bkgTotIntegralOverCut = 0
@@ -426,8 +437,8 @@ def OptimizeBDTCut(args):
             bkgSampleIntegralOverCut = 0
             bkgSampleIntegral = 0
             bkgSampleIntegralHist = 0
-            bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
-            bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
+            bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1.001, 1.001)
+            bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
                 #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
@@ -453,9 +464,9 @@ def OptimizeBDTCut(args):
                 df = df.Define('BDT', 'BDTv[0]')
                 df = df.Define('eventWeight', eventWeightExpression)
                 histName = "BDTVal_{}_{}".format(sample, idx)
-                hbkg = TH1D(histName, histName, binsToUse, -1, 1)
+                hbkg = TH1D(histName, histName, binsToUse, -1.001, 1.001)
                 histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), "BDT", "eventWeight")
-                hbkgUnweighted =  TH1D(histName+"_unweighted", histName+"_unweighted", binsToUse, -1, 1)
+                hbkgUnweighted =  TH1D(histName+"_unweighted", histName+"_unweighted", binsToUse, -1.001, 1.001)
                 histBkgUnweighted = df.Histo1D(ROOT.RDF.TH1DModel(hbkgUnweighted), "BDT")
                 #bkgWeight = backgroundDatasetsWeightsTimesOneThousand[os.path.basename(txtFile).replace(".txt", "")]/1000.0
                 #bkgWeight = FindWeight(os.path.basename(txtFile).replace(".txt", ""), backgroundDatasetsWeightsTimesOneThousand)/1000.0
@@ -550,6 +561,7 @@ def OptimizeBDTCut(args):
         sumWeights = GetSignalSumWeights(lqMassToUse, year)
         signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
         #signalWeight = signalDatasetsWeightsTimesOneThousand[signalDatasetName]/1000.0
+        print("multiply hist by signal weight ", signalWeight)
         histSig.Scale(signalWeight)
 
         # print some entries
@@ -595,26 +607,27 @@ def OptimizeBDTCut(args):
                     break
                 nB += nBThisProcess
                 nBErr += nBThisProcessErr*nBThisProcessErr
-            qcd1FRDataErr = ctypes.c_double()
-            qcd1FRDataYield = bkgHists["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
-            # print("INFO: Fot cutVal={}, Got qcd1FRDataYield={} from hist with integral={} and entries={}".format(cutVal, qcd1FRDataYield, bkgHists["QCDFakes_DATA"].Integral(), bkgHists["QCDFakes_DATA"].GetEntries()))
-            qcd1FRDYJErr = ctypes.c_double()
-            qcd1FRDYJYield = bkgHists["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
-            qcd2FRDataErr = ctypes.c_double()
-            qcd2FRDataYield = bkgHists["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
-            qcd1FRYield = qcd1FRDataYield+qcd1FRDYJYield
-            if qcd1FRYield < 0:
-                # print("INFO: Limiting 1 FR QCD yield for cutVal {} to zero; old qcd1FRYield = 1FRData-DYJ = {} + {} = {}".format(
-                #     cutVal, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield))
-                qcd1FRYield = 0
-            limit = 0.5
-            if abs(qcd2FRDataYield) > limit*qcd1FRYield:
-                # print("INFO: Limiting 2 FR QCD yield for cutVal {} to {} from {}; qcd1FRYield = 1FRData-DYJ = {} + {} = {}; qcdYield = qcd2FRYield + qcd1FRYield = {} + {} = {}".format(
-                #     cutVal, -1*limit*qcd1FRYield, qcd2FRDataYield, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield, -1*limit*qcd1FRYield, qcd1FRYield, -1*limit*qcd1FRYield+qcd1FRYield))
-                qcd2FRDataYield = -1*limit*qcd1FRYield
-            nB += qcd2FRDataYield+qcd1FRYield
-            nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
-            nBErr = math.sqrt(nBErr)
+            if includeQCD:
+                qcd1FRDataErr = ctypes.c_double()
+                qcd1FRDataYield = bkgHists["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
+                # print("INFO: Fot cutVal={}, Got qcd1FRDataYield={} from hist with integral={} and entries={}".format(cutVal, qcd1FRDataYield, bkgHists["QCDFakes_DATA"].Integral(), bkgHists["QCDFakes_DATA"].GetEntries()))
+                qcd1FRDYJErr = ctypes.c_double()
+                qcd1FRDYJYield = bkgHists["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
+                qcd2FRDataErr = ctypes.c_double()
+                qcd2FRDataYield = bkgHists["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
+                qcd1FRYield = qcd1FRDataYield+qcd1FRDYJYield
+                if qcd1FRYield < 0:
+                    # print("INFO: Limiting 1 FR QCD yield for cutVal {} to zero; old qcd1FRYield = 1FRData-DYJ = {} + {} = {}".format(
+                    #     cutVal, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield))
+                    qcd1FRYield = 0
+                limit = 0.5
+                if abs(qcd2FRDataYield) > limit*qcd1FRYield:
+                    # print("INFO: Limiting 2 FR QCD yield for cutVal {} to {} from {}; qcd1FRYield = 1FRData-DYJ = {} + {} = {}; qcdYield = qcd2FRYield + qcd1FRYield = {} + {} = {}".format(
+                    #     cutVal, -1*limit*qcd1FRYield, qcd2FRDataYield, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield, -1*limit*qcd1FRYield, qcd1FRYield, -1*limit*qcd1FRYield+qcd1FRYield))
+                    qcd2FRDataYield = -1*limit*qcd1FRYield
+                nB += qcd2FRDataYield+qcd1FRYield
+                nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
+                nBErr = math.sqrt(nBErr)
             # if nB < 3:
             # if nS < 5:
             #      fomValueToCutInfoDict[iBin] = [-1.0, cutVal, nS, efficiency, nB]
@@ -627,10 +640,12 @@ def OptimizeBDTCut(args):
             #     print("Evaluate figure of merit for nS={}, nB={}, unweightedNs={}, unweightedNb={}".format(nS, nB, unweightedNs, unweightedNb), flush=True)
             #     exit(0)
             # require at least one background event expected
-            if nB > 1 and not skipFOMCalc:
-                fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
-                # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
-                #fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
+            if nB > 1.0 and not skipFOMCalc:
+                # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
+                fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
+                # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
+                # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zbi")
+                # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "ssb")
             else:
                 fom = 0.0
             fomValueToCutInfoDict[iBin] = [fom, cutVal, nS, efficiency, nB]
@@ -706,11 +721,16 @@ def OptimizeBDTCut(args):
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
         raise e
+    endTime = time.time()
+    totTime = endTime - startTime
+    print("total time = ", totTime)
     return True
 
 
 def DoROCAndBDTPlots(args):
     rootFileName, bdtWeightFileName, lqMassToUse, year = args
+    startTime = time.time()
+    timeMakingHistos = 0
     try:
         rootFile = TFile.Open(rootFileName, "update")
         rootFile.cd()
@@ -739,7 +759,7 @@ def DoROCAndBDTPlots(args):
         for var in variableList+["BDT"]:
             if var == "LQCandidateMass":
                 continue
-            varHistsBkg[var] = TH1D(var+"_bkg", var+" bkg", *variableHistInfo[var])
+            varHistsBkg[var] = TH1D(var+"_bkg", var+" bkg", *variableHistInfo[var])            
         for sample in backgroundDatasetsDict.keys():
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
@@ -777,19 +797,33 @@ def DoROCAndBDTPlots(args):
                 df = df.Redefine("eventWeight", "eventWeight*datasetWeight")
                 bkgMvaValues.extend(df.Take["float"]("BDT").GetValue())
                 bkgWeights.extend(df.Take["double"]("eventWeight").GetValue())
-                #
+                
+                st = time.time()
+                histosToRun = []
+                hbkg = {}
+                histBkg = {}
                 for var in variableList+["BDT"]:
                     if var == "LQCandidateMass":
                         continue
                     histName = "{}_{}_{}".format(var, sample, idx)
-                    hbkg = TH1D(histName, histName, *variableHistInfo[var])
-                    histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), var, "eventWeight")
+                    hbkg[var] = TH1D(histName, histName, *variableHistInfo[var])
+                    histBkg[var] = df.Histo1D(ROOT.RDF.TH1DModel(hbkg[var]), var, "eventWeight")
                     # histBkg.Scale(bkgWeight)
-                    varHistsBkg[var].Add(histBkg.GetPtr())
+                    histosToRun.append(histBkg[var])
+                ROOT.RDF.RunGraphs(histosToRun)
+                for var in variableList+["BDT"]:
+                    if var == "LQCandidateMass":
+                        continue
+                    varHistsBkg[var].Add(histBkg[var].GetPtr())
+                et = time.time()
+                timeMakingHistos += et - st    
         rootFile.cd("LQM{}".format(lqMassToUse))
+
+        st = time.time()
         for varHist in varHistsBkg.values():
             varHist.Write()
-
+        et = time.time()
+        timeMakingHistos+= et - st
         # signal
         tchainSig = LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=None, lqMass=lqMassToUse, year=year)
         dfSig = RDataFrame(tchainSig)
@@ -814,6 +848,7 @@ def DoROCAndBDTPlots(args):
         dfSig = dfSig.Redefine("eventWeight", "eventWeight*datasetWeight")
         # vars
         rootFile.cd("LQM{}".format(lqMassToUse))
+        st = time.time()
         for var in variableList+["BDT"]:
             if var == "LQCandidateMass":
                 continue
@@ -821,8 +856,10 @@ def DoROCAndBDTPlots(args):
             histSig = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), var, "eventWeight")
             histSig.Scale(signalWeight)
             histSig.Write()
-
+        et = time.time()
+        timeMakingHistos += et - st
         # ROC
+        startROCcode = time.time()
         rocCurve = TMVA.ROCCurve(dfSig.Take["float"]("BDT").GetValue(), bkgMvaValues, dfSig.Take["double"]("eventWeight").GetValue(), bkgWeights)
         rocGraph = rocCurve.GetROCCurve(500)
         c = TCanvas("rocLQ"+str(lqMassToUse))
@@ -842,6 +879,12 @@ def DoROCAndBDTPlots(args):
         print("ERROR: exception in DoROCAndBDTPlots for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
         raise e
+    endTime = time.time()
+    ROCTime = endTime - startROCcode
+    totTime = endTime - startTime
+    print("total time = ", totTime)
+    print("time spent making and writing histograms = ", timeMakingHistos)
+    print("time to make ROC curve = ", ROCTime)
     return True
 
 @ROOT.Numba.Declare(["int"], "float")
@@ -951,7 +994,8 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
         bkgHist.Rebin(rebinFactor)
         bkgHist.SetTitle("Classifier output for M_{LQ} = " + str(lqMass) + " GeV")
         minY = min(signalHist.GetMinimum(), bkgHist.GetMinimum())
-        maxY = 1.1*max(signalHist.GetYaxis().GetXmax(), bkgHist.GetYaxis().GetXmax())
+        #maxY = 1.1*max(signalHist.GetYaxis().GetXmax(), bkgHist.GetYaxis().GetXmax())
+        maxY = 1.1*max(signalHist.GetMaximum(), bkgHist.GetMaximum())
         bkgHist.GetYaxis().SetRangeUser(minY, maxY)
         bkgHist.Draw()
         signalHist.Draw("sames")
@@ -1007,28 +1051,28 @@ def GetBackgroundDatasets(inputListBkgBase):
     #FIXME: comment out datasets with zero events; should handle this a bit better
     #       this came from the fact that the makeBDTTrainingTrees script doesn't write out files for trees with zero entries
     backgroundDatasetsDict = {
-            # "ZJet_amcatnlo_ptBinned" : [
-            #     #inclusive stitched yields no events
-            #     inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-0To50_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-            #     inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-            #     inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-            #     inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-            #     inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-            #     inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-            #     ],
-            "ZJet_powhegminnlo" : [
-                inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                # inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            "ZJet_amcatnlo_ptBinned" : [
+                #inclusive stitched yields no events
+                inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-0To50_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+                inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+                inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+                inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+                inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+                inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 ],
+            #"ZJet_powhegminnlo" : [
+                #inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                # inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                #],
             "TTbar_powheg" : [
                 inputListBkgBase+"TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8.txt",
                 #inputListBkgBase+"TTToHadronic_TuneCP5_13TeV-powheg-pythia8.txt",
@@ -1105,28 +1149,28 @@ def GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year):
     #                 ]
     #     }
     qcdFakes = {
-        # "QCDFakes_DYJ" : [
-        #     inputListQCD1FRBase+"DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-0To50_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-        #     ],
         "QCDFakes_DYJ" : [
-            inputListQCD1FRBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-0To50_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            inputListQCD1FRBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
+            ],
+        #"QCDFakes_DYJ" : [
+            #inputListQCD1FRBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
             # inputListQCD1FRBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            inputListQCD1FRBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            ]
+            #inputListQCD1FRBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #inputListQCD1FRBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            #]
     }
     if year == "2016preVFP":
         qcdFakes["QCDFakes_DATA"] = [
@@ -1173,39 +1217,39 @@ if __name__ == "__main__":
         "M_e2j2",
         "Ele1_Pt",
         "Ele2_Pt",
-        # "Ele1_Eta",
-        # "Ele2_Eta",
-        # "Ele1_Phi",
-        # "Ele2_Phi",
-        # "Jet1_Pt",
-        # "Jet2_Pt",
-        # "Jet3_Pt",
-        # "Jet1_Eta",
-        # "Jet2_Eta",
-        # "Jet3_Eta",
-        # "Jet1_Phi",
-        # "Jet2_Phi",
-        # "Jet3_Phi",
-        # "DR_Ele1Jet1",
-        # "DR_Ele1Jet2",
-        # "DR_Ele2Jet1",
-        # "DR_Ele2Jet2",
-        # "DR_Jet1Jet2",
-        # "Masym",
+#        "Ele1_Eta",
+#        "Ele2_Eta",
+#        "Ele1_Phi",
+#        "Ele2_Phi",
+        "Jet1_Pt",
+        "Jet2_Pt",
+        "Jet3_Pt",
+#        "Jet1_Eta",
+#        "Jet2_Eta",
+#        "Jet3_Eta",
+#        "Jet1_Phi",
+#        "Jet2_Phi",
+#        "Jet3_Phi",
+#        "DR_Ele1Jet1",
+#        "DR_Ele1Jet2",
+#        "DR_Ele2Jet1",
+#        "DR_Ele2Jet2",
+#        "DR_Jet1Jet2",
+#        "Masym",
         "MejMin",
         "MejMax",
         "Meejj",
         "LQCandidateMass"
     ]
     variableHistInfo = {}
-    variableHistInfo["sT_eejj"] = [300, 0, 3000]  # nbins, min, max
+    variableHistInfo["sT_eejj"] = [700, 0, 7000]  # nbins, min, max
     variableHistInfo["PFMET_Type1_Pt"] = [200, 0, 2000]
     variableHistInfo["PFMET_Type1_Phi"] = [60, -3.1416, 3.1416]
-    variableHistInfo["M_e1e2"] = [200, 0, 2000]
-    variableHistInfo["M_e1j1"] = [200, 0, 2000]
-    variableHistInfo["M_e1j2"] = [200, 0, 2000]
-    variableHistInfo["M_e2j1"] = [200, 0, 2000]
-    variableHistInfo["M_e2j2"] = [200, 0, 2000]
+    variableHistInfo["M_e1e2"] = [500, 0, 5000]
+    variableHistInfo["M_e1j1"] = [500, 0, 5000]
+    variableHistInfo["M_e1j2"] = [500, 0, 5000]
+    variableHistInfo["M_e2j1"] = [500, 0, 5000]
+    variableHistInfo["M_e2j2"] = [500, 0, 5000]
     variableHistInfo["Ele1_Pt"] = [200, 0, 2000]
     variableHistInfo["Ele2_Pt"] = [200, 0, 2000]
     variableHistInfo["Ele1_Eta"] = [100, -5, 5]
@@ -1227,9 +1271,9 @@ if __name__ == "__main__":
     variableHistInfo["DR_Ele2Jet2"] = [100, 0, 10]
     variableHistInfo["DR_Jet1Jet2"] = [100, 0, 10]
     variableHistInfo["Masym"] = [200, 0, 2000]
-    variableHistInfo["MejMin"] = [200, 0, 2000]
-    variableHistInfo["MejMax"] = [200, 0, 2000]
-    variableHistInfo["Meejj"] = [200, 0, 2000]
+    variableHistInfo["MejMin"] = [350, 0, 3500]
+    variableHistInfo["MejMax"] = [350, 0, 3500]
+    variableHistInfo["Meejj"] = [700, 0, 7000]
     variableHistInfo["BDT"] = [200, -1, 1]
     eventWeightExpression = "EventWeight"
     #eventWeightExpression = "Weight*PrefireWeight*puWeight*FakeRateEffective*MinPrescale*Ele1_RecoSF*Ele2_RecoSF*EventTriggerScaleFactor*ZVtxSF"
@@ -1305,29 +1349,32 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    inputListBkgBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/bdt/{}/inputList_bdtTraining_eejj_heep_" + dateStr + "_mee220st400_allLQ/{}/QCDFakes_DATA_2FR/"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_DATA_2FR/"
+    eosDir = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/"+str(year)+"/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins"
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
-    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
-    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016preVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
-    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/versionsOfAnalysis/2016postVFP/eejj/eejj_4oct2023_heep_preselOnly/" + xsectionTxt
+    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_13feb2024.txt"
+    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
+    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     train = options.train
     optimize = options.optimize
     roc = options.roc
     parallelize = True
-    parametrized = True
-    includeQCD = True
+    parametrized = False
+    includeQCD = False
     normalizeVars = False
     # normTo = "Meejj"
-    # lqMassesToUse = [1000]
-    # lqMassesToUse = list(range(1000, 2100, 100))
-    # lqMassesToUse = list(range(300, 2100, 100))
-    #lqMassesToUse = list(range(1000, 3100, 100))
-    #lqMassesToUse = list(range(300, 1100, 100))
-    #lqMassesToUse = list(range(800, 3100, 100))
-    lqMassesToUse = list(range(300, 800, 100))
+    #lqMassesToUse = [2700]#,1100,1200]
+    #lqMassesToUse = list(range(1000, 2100, 100))
+    #lqMassesToUse = list(range(600, 1100, 100))
+    #lqMassesToUse = list(range(800, 1300, 100))
+    #lqMassesToUse = list(range(300, 1000, 100))
+    lqMassesToUse = list(range(300, 1600, 100))
+    #lqMassesToUse = list(range(300, 3100, 100))
+    #lqMassesToUse = list(range(800,1100,100))
+    #lqMassesToUse = [3000]#,400,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
@@ -1380,7 +1427,7 @@ if __name__ == "__main__":
                 jobCount = 0
                 for mass in lqMassesToUse:
                     try:
-                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars]], callback=log_result)
+                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir]], callback=log_result)
                         jobCount += 1
                     except KeyboardInterrupt:
                         print("\n\nCtrl-C detected: Bailing.")
@@ -1402,7 +1449,7 @@ if __name__ == "__main__":
                     raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
             else:
                 for mass in lqMassesToUse:
-                    TrainBDT([mass, year, normalizeVars])
+                    TrainBDT([mass, year, normalizeVars, eosDir])
         print("INFO: Training {} done.".format("parametrized BDT" if parametrized else "BDT"))
     
     if optimize:
@@ -1483,4 +1530,7 @@ if __name__ == "__main__":
         #     for mass in lqMassesToUse:
         #         DoROCAndBDTPlots([bdtPlotFile, weightFile.format(mass), mass, year])
         for mass in lqMassesToUse:
-            DoROCAndBDTPlots([bdtPlotFile, weightFile.format(mass), mass, year])
+            if not parametrized:
+                signalDatasetName = signalNameTemplate.format(mass)
+                weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
+            DoROCAndBDTPlots([bdtPlotFile, weightFile, mass, year])
