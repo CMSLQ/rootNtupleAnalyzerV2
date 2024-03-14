@@ -51,9 +51,9 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016postVFP/dedicated_mass/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/dedicated_mass"
-        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016postVFP/dedicated_mass/bdtPlots.root"
+        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins/optimizationPlots.root"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins"
+        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
         optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"
@@ -321,7 +321,7 @@ cEff = TCanvas()
 cEff.SetGridy()
 sigEfficiency.SetMarkerStyle(8)
 sigEfficiency.SetTitle("signal efficiency at opt cut vs MLQ")
-sigEfficiency.GetYaxis().SetRangeUser(0.7,1.01)
+sigEfficiency.GetYaxis().SetRangeUser(0.6,1.01)
 sigEfficiency.GetXaxis().SetTitle("MLQ GeV")
 sigEfficiency.GetXaxis().SetRangeUser(250,3050)
 sigEfficiency.SetName("sigEffAtOptCutVsMLQ")

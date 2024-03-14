@@ -230,9 +230,12 @@ def TrainBDT(args):
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2 but use neg. weights in training with pray
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" )
-                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
+                # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #mess with minNodeSize, include negative weights
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=125:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
-        
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #  use bigger nodes, more depth
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=10%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #  use medium size nodes, more depth, ignore neg weights
+                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #large node size, no neg weights    
+    
         factory.TrainAllMethods()
         factory.TestAllMethods()
         factory.EvaluateAllMethods()
@@ -404,7 +407,7 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
 
-        binsToUse = 100 # 10000
+        binsToUse = 500 #100 # 10000
         hname = "hsig_" + name + "_" + str(lqMassToUse)
         htitle = "Classifier Output on signal for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
         hsig = TH1D(hname,htitle,binsToUse,-1.001,1.001)
@@ -604,26 +607,27 @@ def OptimizeBDTCut(args):
                     break
                 nB += nBThisProcess
                 nBErr += nBThisProcessErr*nBThisProcessErr
-            qcd1FRDataErr = ctypes.c_double()
-            qcd1FRDataYield = bkgHists["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
-            # print("INFO: Fot cutVal={}, Got qcd1FRDataYield={} from hist with integral={} and entries={}".format(cutVal, qcd1FRDataYield, bkgHists["QCDFakes_DATA"].Integral(), bkgHists["QCDFakes_DATA"].GetEntries()))
-            qcd1FRDYJErr = ctypes.c_double()
-            qcd1FRDYJYield = bkgHists["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
-            qcd2FRDataErr = ctypes.c_double()
-            qcd2FRDataYield = bkgHists["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
-            qcd1FRYield = qcd1FRDataYield+qcd1FRDYJYield
-            if qcd1FRYield < 0:
-                # print("INFO: Limiting 1 FR QCD yield for cutVal {} to zero; old qcd1FRYield = 1FRData-DYJ = {} + {} = {}".format(
-                #     cutVal, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield))
-                qcd1FRYield = 0
-            limit = 0.5
-            if abs(qcd2FRDataYield) > limit*qcd1FRYield:
-                # print("INFO: Limiting 2 FR QCD yield for cutVal {} to {} from {}; qcd1FRYield = 1FRData-DYJ = {} + {} = {}; qcdYield = qcd2FRYield + qcd1FRYield = {} + {} = {}".format(
-                #     cutVal, -1*limit*qcd1FRYield, qcd2FRDataYield, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield, -1*limit*qcd1FRYield, qcd1FRYield, -1*limit*qcd1FRYield+qcd1FRYield))
-                qcd2FRDataYield = -1*limit*qcd1FRYield
-            nB += qcd2FRDataYield+qcd1FRYield
-            nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
-            nBErr = math.sqrt(nBErr)
+            if includeQCD:
+                qcd1FRDataErr = ctypes.c_double()
+                qcd1FRDataYield = bkgHists["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
+                # print("INFO: Fot cutVal={}, Got qcd1FRDataYield={} from hist with integral={} and entries={}".format(cutVal, qcd1FRDataYield, bkgHists["QCDFakes_DATA"].Integral(), bkgHists["QCDFakes_DATA"].GetEntries()))
+                qcd1FRDYJErr = ctypes.c_double()
+                qcd1FRDYJYield = bkgHists["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
+                qcd2FRDataErr = ctypes.c_double()
+                qcd2FRDataYield = bkgHists["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
+                qcd1FRYield = qcd1FRDataYield+qcd1FRDYJYield
+                if qcd1FRYield < 0:
+                    # print("INFO: Limiting 1 FR QCD yield for cutVal {} to zero; old qcd1FRYield = 1FRData-DYJ = {} + {} = {}".format(
+                    #     cutVal, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield))
+                    qcd1FRYield = 0
+                limit = 0.5
+                if abs(qcd2FRDataYield) > limit*qcd1FRYield:
+                    # print("INFO: Limiting 2 FR QCD yield for cutVal {} to {} from {}; qcd1FRYield = 1FRData-DYJ = {} + {} = {}; qcdYield = qcd2FRYield + qcd1FRYield = {} + {} = {}".format(
+                    #     cutVal, -1*limit*qcd1FRYield, qcd2FRDataYield, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield, -1*limit*qcd1FRYield, qcd1FRYield, -1*limit*qcd1FRYield+qcd1FRYield))
+                    qcd2FRDataYield = -1*limit*qcd1FRYield
+                nB += qcd2FRDataYield+qcd1FRYield
+                nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
+                nBErr = math.sqrt(nBErr)
             # if nB < 3:
             # if nS < 5:
             #      fomValueToCutInfoDict[iBin] = [-1.0, cutVal, nS, efficiency, nB]
@@ -1348,18 +1352,18 @@ if __name__ == "__main__":
     inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/"
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_DATA_2FR/"
-    eosDir = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/dedicated_mass"
+    eosDir = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/"+str(year)+"/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins"
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
-    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_2016postVFP_22jan2024.txt"
-    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/config/" + xsectionTxt
-    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/config/" + xsectionTxt
+    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_13feb2024.txt"
+    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
+    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     train = options.train
     optimize = options.optimize
     roc = options.roc
     parallelize = True
     parametrized = False
-    includeQCD = True
+    includeQCD = False
     normalizeVars = False
     # normTo = "Meejj"
     #lqMassesToUse = [2700]#,1100,1200]
@@ -1367,10 +1371,10 @@ if __name__ == "__main__":
     #lqMassesToUse = list(range(600, 1100, 100))
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
-    lqMassesToUse = list(range(300, 3100, 100))
-    #lqMassesToUse = list(range(300, 1100, 100))
-    #lqMassesToUse = list(range(600,1000,100))
-    #lqMassesToUse = [300]#,400,500,600]
+    lqMassesToUse = list(range(300, 1600, 100))
+    #lqMassesToUse = list(range(300, 3100, 100))
+    #lqMassesToUse = list(range(800,1100,100))
+    #lqMassesToUse = [3000]#,400,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
