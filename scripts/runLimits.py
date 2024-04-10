@@ -9,10 +9,15 @@ import time
 import datetime
 import numpy as np
 import re
+import math
+import multiprocessing
+import traceback
 from pathlib import Path
-from ROOT import TFile
+from bisect import bisect
+from ROOT import TFile, TGraph, TSpline3
 from combineCommon import SeparateDatacards
 from BR_Sigma_EE_vsMass import BR_Sigma_EE_vsMass
+from ComboPlotLQ1 import ComboPlot
 
 ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
@@ -28,55 +33,103 @@ def GetExecTimeStr(startTime, stopTime):
     return execTimeStr
 
 
-def RunCommand(cmd, workingDir=None, cleanEnv=False, shell=False):
+def ExtractCMSSWEnv(cmsswPreambleCmds):
+    cmd = cmsswPreambleCmds + 'echo ~~~~START_ENVIRONMENT_HERE~~~~ && set'
+    try:
+        process = subprocess.run(cmd, check=True, shell=True, env={}, stdout=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        result = ansi_escape.sub('', e.output.decode())
+        print(colored("ExtractCMSSWEnv had an error; output: {}".format(result), "red"), flush=True)
+        raise e
+    env = process.stdout.decode().splitlines()
+    envDict = {}
+    record = False
+    idx = 0
+    while idx < len(env):
+        e = env[idx]
+        if record:
+            # print("e={}".format(e))
+            e = e.strip().split('=')
+            # print("e.strip().split('=')={}".format(e))
+            if e[1] == "'":
+                nextLine = env[idx+1].strip()
+                if "=" not in nextLine and nextLine == "'":
+                    e[1] += nextLine
+                    idx+=2
+                else:
+                    raise RuntimeError("Don't know how to process {} and {}".format(e, env[idx+1]))
+            # print("{}={}".format(e[0], e[1]))
+            envDict[e[0]] = e[1]
+        elif e.strip() == '~~~~START_ENVIRONMENT_HERE~~~~': 
+            record = True
+        idx += 1
+    if "SHELLOPTS" in envDict.keys():
+        del envDict["SHELLOPTS"]
+    return envDict
+
+
+# def RunCommand(cmd, workingDir=None, cleanEnv=False, shell=False):
+def RunCommand(cmd, workingDir=None, env=None, suppressOutput=False):
     print(colored("\t{}".format(cmd), "green"), flush=True)
     try:
-        if not shell:
-            cmd = shlex.split(cmd)
-        if cleanEnv:
-            process = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=workingDir, env={}, shell=shell)
-        else:
-            process = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=workingDir, shell=shell)
+        # if not shell:
+        #     cmd = shlex.split(cmd)
+        # if cleanEnv:
+        #     process = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=workingDir, env={}, shell=shell)
+        # else:
+        #     process = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=workingDir, shell=shell)
+
+        useShell = False
+        if env is None:
+            useShell = True
+        #     cmd = shlex.split(cmd)
+        cmd = shlex.split(cmd)
+        process = subprocess.run(cmd, shell=useShell, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=workingDir, env=env)
     except subprocess.CalledProcessError as e:
         result = ansi_escape.sub('', e.output.decode())
         print(colored("RunCommand had an error; output: {}".format(result), "red"), flush=True)
         raise e
-    print(process.stdout.decode(), flush=True)
-    #print(process.stderr.decode())
+    if not suppressOutput:
+        print(process.stdout.decode(), flush=True)
+        #print(process.stderr.decode())
 
 
 def ConvertDatacardToWorkspace(datacard, mass):
     workspaceFileName = datacard+".m{}.root".format(mass)
     if doBatch:
-        cmd = cmsswPreambleCmd
-        cmd += 'text2workspace.py {} -o {} -m {}'.format(datacard, workspaceFileName, mass)
-        RunCommand(cmd, None, True, True)
+        cmd = 'text2workspace.py {} -o {} -m {}'.format(datacard, workspaceFileName, mass)
+        # print(cmsswEnv, flush=True)
+        RunCommand(cmd, None, cmsswEnv)
     else:
         cmd = 'text2workspace.py {} -o {} -m {}'.format(datacard, workspaceFileName, mass)
         RunCommand(cmd)
     return Path(workspaceFileName).resolve()
 
 
-def FindCardWorkspace(cardFile, mass):
+def FindCardWorkspace(cardFile, mass, exceptOnAbsence=False):
     workspaceFileName = cardFile+".m{}.root".format(mass)
     listOfWorkspaceFiles = sorted(glob.glob(workspaceFileName), key=os.path.getmtime)
+    if exceptOnAbsence and len(listOfWorkspaceFiles) != 1:
+        raise RuntimeError("Globbing for {} did not result in one file as expected, but {}".format(workspaceFileName, listOfWorkspaceFiles))
     if len(listOfWorkspaceFiles) > 0:
         return Path(listOfWorkspaceFiles[-1]).resolve()
 
 
-def GenerateAsimovToyData(workspace, mass, toysDir):
+def GenerateAsimovToyData(args):
+    workspace, mass, toysDir, dictAsimovToysByScaleFactor, signalScaleFactor = args
     if doBatch:
-        cmd = cmsswPreambleCmd
-        cmd += 'combine -M GenerateOnly {} -t -1 --seed -1 --saveToys -n .asimov -m {}'.format(workspace, mass)
-        RunCommand(cmd, toysDir, True, True)
+        cmd = 'combine -M GenerateOnly {} -t -1 --seed -1 --saveToys -n .asimov.{} -m {} {}'.format(workspace, signalScaleFactor, mass, commonCombineArgs.format(signalScaleFactor))
+        RunCommand(cmd, toysDir, cmsswEnv, True)
     else:
-        cmd = 'combine -M GenerateOnly {} -t -1 --seed -1 --saveToys -n .asimov -m {}'.format(workspace, mass)
+        cmd = 'combine -M GenerateOnly {} -t -1 --seed -1 --saveToys -n .asimov.{} -m {} {}'.format(workspace, signalScaleFactor, mass, commonCombineArgs.format(signalScaleFactor))
         RunCommand(cmd, toysDir)
-    return Path(sorted(glob.glob(toysDir+'/higgsCombine.asimov.GenerateOnly.mH{}.*.root'.format(mass)), key=os.path.getmtime)[-1]).resolve()
+    toyFile = Path(sorted(glob.glob(toysDir+'/higgsCombine.asimov.{}.GenerateOnly.mH{}.*.root'.format(signalScaleFactor, mass)), key=os.path.getmtime)[-1]).resolve()
+    dictAsimovToysByScaleFactor[signalScaleFactor] = toyFile
+    return toyFile
 
 
-def FindAsimovToyData(mass, toysDir):
-    listOfToyFiles = sorted(glob.glob(toysDir+'/higgsCombine.asimov.GenerateOnly.mH{}.*.root'.format(mass)), key=os.path.getmtime)
+def FindAsimovToyData(mass, signalScaleFactor, toysDir):
+    listOfToyFiles = sorted(glob.glob(toysDir+'/higgsCombine.asimov.{}.GenerateOnly.mH{}.*.root'.format(signalScaleFactor, mass)), key=os.path.getmtime)
     if len(listOfToyFiles) > 0:
         return Path(listOfToyFiles[-1]).resolve()
 
@@ -88,20 +141,86 @@ def FindFile(globString):
     return Path(fileList[-1]).resolve()
 
 
-def GetHybridNewCommandArgs(workspace, mass, dirName, quantile=-1, genAsimovToyFile=""):
+def GetFileList(globString):
+    fileList = sorted(glob.glob(globString), key=os.path.getmtime)
+    if len(fileList) < 1:
+        raise RuntimeError("Globbing for {} did not result in any files.".format(fileList))
+    return fileList
+
+
+def MakeCondorDirs(dirName):
+    condorDir = dirName.strip("/")+"/condor"
+    condorSubfileDir = dirName.strip("/")+"/condor/subFiles"
+    condorOutDir = dirName.strip("/")+"/condor/out"
+    condorErrDir = dirName.strip("/")+"/condor/error"
+    condorLogDir = dirName.strip("/")+"/condor/log"
+    dirsToHave = [condorDir, condorSubfileDir, condorOutDir, condorErrDir, condorLogDir]
+    for idir in dirsToHave:
+        if not os.path.isdir(idir):
+            print("INFO: Making directory", idir, flush=True)
+            Path(idir).mkdir(exist_ok=True)
+
+
+def WriteCondorSubFile(filename, shFilename):
+    basename = shFilename.replace("condor_", "").replace(".sh", "")
+    with open(filename, "w") as subfile:
+        subfile.write("executable = subFiles/" + shFilename + "\n")
+        subfile.write("arguments = $(ProcId)\n")
+        subfile.write("output                = out/"   + basename + ".$(ClusterId).$(ProcId).out\n")
+        subfile.write("error                 = error/" + basename + ".$(ClusterId).$(ProcId).err\n")
+        subfile.write("log                   = log/"   + basename + ".$(ClusterId).log\n")
+        subfile.write("\n")
+        subfile.write("# Send the job to Held state on failure.\n")
+        subfile.write("on_exit_hold = (ExitBySignal == True) || (ExitCode != 0)\n")
+        subfile.write("\n")
+        subfile.write("# Periodically retry the jobs every 10 minutes, up to a maximum of 5 retries.\n")
+        subfile.write("periodic_release =  (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStatus) > 600)\n")
+        subfile.write("\n")
+        subfile.write("+JobFlavour=\"workday\"\n")
+        subfile.write("MY.WantOS = \"el7\"\n")
+        subfile.write("queue 1\n")
+
+
+def WriteCondorShFile(filename, combineCmd):
+    with open(filename, "w") as shfile:
+        shfile.write("#!/bin/sh\n")
+        shfile.write("ulimit -s unlimited\n")
+        shfile.write("set -e\n")
+        shfile.write("cd " + cmsswDir + "\n")
+        # shfile.write("export SCRAM_ARCH=slc7_amd64_gcc900\n")  # try without this
+        shfile.write("source /cvmfs/cms.cern.ch/cmsset_default.sh\n")
+        shfile.write("eval `scramv1 runtime -sh`\n")
+        # shfile.write("cd {}\n".format(condorDir))
+        shfile.write("cd -\n")
+        shfile.write("\n")
+        shfile.write("if [ $1 -eq 0 ]; then\n")
+        shfile.write("  {}\n".format(combineCmd))
+        shfile.write("fi\n")
+
+
+def GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile, signalScaleFactor):
     rAbsAcc = 0.0001
     toys = 4000
+    rMin = 0
+    rMax = 50
     # toys = 500  # reduced for shape-based limits as test, but still took hours
     cmd = '{}'.format(workspace)
+    cmd += ' -v1'
     cmd += ' -M HybridNew'
     cmd += ' --LHCmode LHC-limits'
     cmd += ' --saveHybridResult'
+    # cmd += ' --saveToys'
     cmd += ' --seed -1'
+    cmd += ' --iterations 2'
     cmd += ' --rAbsAcc {}'.format(rAbsAcc)
+    cmd += ' --rMin {}'.format(rMin)
+    cmd += ' --rMax {}'.format(rMax)
     cmd += ' -T {}'.format(toys)
     cmd += ' -m {}'.format(mass)
-    cmd += ' -H AsymptoticLimits'
+    cmd += ' -n .signalScaleFactor{}'.format(round(signalScaleFactor, 6))
+    # cmd += ' -H AsymptoticLimits'
     cmd += ' --fork 4'
+    cmd += commonCombineArgs.format(signalScaleFactor)
     if quantile > 0:
         cmd += ' --expectedFromGrid {}'.format(quantile)
         if genAsimovToyFile != "":
@@ -109,50 +228,119 @@ def GetHybridNewCommandArgs(workspace, mass, dirName, quantile=-1, genAsimovToyF
     return cmd
 
 
-def SubmitHybridNewBatch(workspace, mass, dirName, quantile, genAsimovToyFile):
+def SubmitHybridNewBatch(args):
+    workspace, mass, dirName, listFailedCommands, quantile, genAsimovToyFile, signalScaleFactor = args
     condorDir = dirName.strip("/")+"/condor"
-    if not os.path.isdir(condorDir):
-        print("INFO: Making directory", condorDir, flush=True)
-        Path(condorDir).mkdir(exist_ok=True)
+    condorSubfileDir = dirName.strip("/")+"/condor/subFiles"
+    # condorOutDir = dirName.strip("/")+"/condor/out"
+    # condorErrDir = dirName.strip("/")+"/condor/error"
+    # condorLogDir = dirName.strip("/")+"/condor/log"
+    # dirsToHave = [condorDir, condorSubfileDir, condorOutDir, condorErrDir, condorLogDir]
+    # for idir in dirsToHave:
+    #     if not os.path.isdir(idir):
+    #         print("INFO: Making directory", idir, flush=True)
+    #         Path(idir).mkdir(exist_ok=True)
+    if cmsswDir is None:
+        raise RuntimeError("Need to specify valid CMSSW area with combine checked out.")
+    #cwd = os.getcwd()
+    #os.chdir(condorDir)
+    cmdArgs = GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile, signalScaleFactor)
+    cmd = "combine " + cmdArgs
+    quantileStr = str(quantile).replace(".", "p")
+    taskName = 'hybridNewLimits.M{}.{}'.format(mass, quantileStr)
+    if signalScaleFactor != 1.0:
+        taskName += '.signalScaleFactor{}'.format(round(signalScaleFactor, 6))
+    shFilename = condorSubfileDir + "/condor_" + taskName + ".sh"
+    condorFile = shFilename.replace(".sh", ".sub")
+    WriteCondorShFile(shFilename, cmd)
+    WriteCondorSubFile(condorFile, Path(shFilename).name)
+    # # cmd = cmsswPreambleCmd
+    # # cmd += "cd {} && combineTool.py ".format(cwd + "/" + condorDir)
+    # cmd = "combineTool.py "
+    # cmd += cmdArgs
+    # cmd += ' --job-mode condor'
+    # cmd += ' --task-name {}'.format(taskName)
+    # cmd += ' --sub-opts=\'+JobFlavour="workday"\\nMY.WantOS = "el7"\''
+    # # cmd += ' --dry-run'
+    # # RunCommand(cmd, dirName, True, True)
+    # runCommandArgs = [cmd, condorDir, cmsswEnv]
+    # # now submit
+    # # condorFile = "condor_hybridNewLimits.M{}.{}.sub".format(mass, quantileStr)
+    # # cmd = "source /etc/profile && k5start -f {}".format(kerberosKeytab) + " && condor_submit {}".format(condorFile)
+    # # runCommandArgs = [cmd, cwd + "/" + condorDir, True, True]
+    # try:
+    #     RunCommand(*runCommandArgs)
+    # except subprocess.CalledProcessError as e:
+    #     try:
+    #         print(colored("Caught exception running combineTool batch submission command; retry", "yellow"), flush=True)
+    #         RunCommand(*runCommandArgs)
+    #     except subprocess.CalledProcessError as e:
+    #         listFailedCommands.append( runCommandArgs[0:1])
+    #         return runCommandArgs[0:1]
+    # # cmd = "condor_submit {}".format(condorFile)
+    # # RunCommand(cmd, cwd + "/" + condorDir)
+    # # os.chdir(cwd)
+    cmd = "condor_submit subFiles/{}".format(Path(condorFile).name)
+    runCommandArgs = [cmd, condorDir, cmsswEnv, True]
+    try:
+        RunCommand(*runCommandArgs)
+    except subprocess.CalledProcessError as e:
+        try:
+            print(colored("Caught exception running condor_submit; retry", "yellow"), flush=True)
+            RunCommand(*runCommandArgs)
+        except subprocess.CalledProcessError as e:
+            listFailedCommands.append( runCommandArgs[0:1])
+            return runCommandArgs[0:1]
+
+
+# http://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/part3/nonstandard/#nuisance-parameter-impacts
+def MakeImpacts(workspace, mass, dirName, signalScaleFactor):
+    impactsDir = dirName.strip("/")+"/impacts"
+    if not os.path.isdir(impactsDir):
+        print("INFO: Making directory", impactsDir, flush=True)
+        Path(impactsDir).mkdir(exist_ok=True)
     if cmsswDir is None:
         raise RuntimeError("Need to specify valid CMSSW area with combine checked out.")
     cwd = os.getcwd()
-    cmdArgs = GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile)
-    quantileStr = str(quantile).replace(".", "p")
     cmd = cmsswPreambleCmd
-    cmd += "cd {} && combineTool.py ".format(cwd + "/" + condorDir)
-    cmd += cmdArgs
-    cmd += ' --job-mode condor'
-    cmd += ' --task-name hybridNewLimits.M{}.{}'.format(mass, quantileStr)
-    cmd += ' --sub-opts=\'+JobFlavour="workday"\''
-    cmd += ' --dry-run'
+    cmd += "cd {} && combineTool.py ".format(cwd + "/" + impactsDir)
+    cmd += " -M Impacts -d {} -m {} --doInitialFit --robustFit 1".format(workspace, mass)
+    cmd += commonCombineArgs.format(signalScaleFactor)
     RunCommand(cmd, dirName, True, True)
-    # now submit
-    condorFile = "condor_hybridNewLimits.M{}.{}.sub".format(mass, quantileStr)
-    # cmd = "source /etc/profile && k5start -f {} && cd {}".format(kerberosKeytab, cmsswDir) + " && eval $(/cvmfs/cms.cern.ch/common/scram ru -sh) && cd - && condor_submit {}".format(condorFile)
-    cmd = "source /etc/profile && k5start -f {}".format(kerberosKeytab) + " && condor_submit {}".format(condorFile)
-    RunCommand(cmd, cwd + "/" + condorDir, True, True)
-    # cmd = "condor_submit {}".format(condorFile)
-    # RunCommand(cmd, cwd + "/" + condorDir)
+    cmd = cmsswPreambleCmd
+    cmd += "cd {} && combineTool.py ".format(cwd + "/" + impactsDir)
+    cmd += " -M Impacts -d {} -m {} --robustFit 1 --doFits".format(workspace, mass)
+    cmd += commonCombineArgs.format(signalScaleFactor)
+    RunCommand(cmd, dirName, True, True)
+    cmd = cmsswPreambleCmd
+    cmd += "cd {} && combineTool.py ".format(cwd + "/" + impactsDir)
+    cmd += " -M Impacts -d {} -m {} -o impacts.m{}.json".format(workspace, mass, mass)
+    cmd += commonCombineArgs.format(signalScaleFactor)
+    RunCommand(cmd, dirName, True, True)
+    cmd = cmsswPreambleCmd
+    cmd += "cd {} && plotImpacts.py ".format(cwd + "/" + impactsDir)
+    cmd += " -i impacts.m{}.json -o impacts.m{}".format(mass, mass)
+    RunCommand(cmd, dirName, True, True)
 
-
-def RunHybridNewInteractive(workspace, mass, dirName, quantile=-1, genAsimovToyFile=""):
-    cmd = GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile)
-    cmd = 'combine -v1 ' + cmd
+    
+def RunHybridNewInteractive(workspace, mass, dirName, quantile=-1, genAsimovToyFile="", signalScaleFactor=1.0):
+    cmd = GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile, signalScaleFactor)
+    cmd = 'combine ' + cmd
     RunCommand(cmd, dirName)
     quantileString = "quant{:.3f}".format(quantile) if quantile > 0 else "."
     globString = dirName+'/higgsCombineTest.HybridNew.mH{}.*.{}.root'.format(mass, quantileString)
     return FindFile(globString)
 
 
-def RunAsymptotic(workspace, mass, dirName, blinded=True):
+def RunAsymptotic(workspace, mass, dirName, blinded=True, signalScaleFactor=1.0):
     rAbsAcc = 0.0001
     cmd = 'combine'
-    # cmd += ' -v1'
+    cmd += ' -v1'
     cmd += ' -M AsymptoticLimits {}'.format(workspace)
     cmd += ' --seed -1'
     cmd += ' -m {}'.format(mass)
     cmd += ' --rAbsAcc {}'.format(rAbsAcc)
+    cmd += commonCombineArgs.format(signalScaleFactor)
     if blinded:
         cmd += ' --run blind --expectSignal 0'
     RunCommand(cmd, dirName)
@@ -172,8 +360,13 @@ def ExtractLimitResult(rootFile):
     limit = limitTree.limit
     limitErr = limitTree.limitErr
     quantile = limitTree.quantileExpected
+    signalScaleParam = 0
+    if "trackedParam_signalScaleParam" in limitTree.GetListOfBranches():
+        # print("Scale original limit r={}+/-{} by signalScaleParam={}; final limit={}".format(limit, limitErr, limitTree.trackedParam_signalScaleParam, limit/limitTree.trackedParam_signalScaleParam))
+        limit /= limitTree.trackedParam_signalScaleParam
+        signalScaleParam = limitTree.trackedParam_signalScaleParam
     tfile.Close()
-    return limit, limitErr, quantile
+    return limit, limitErr, quantile, signalScaleParam
 
 
 def ExtractAsymptoticLimitResult(rootFile):
@@ -254,6 +447,214 @@ def CreateArraysForPlotting(xsecLimitsByMassAndQuantile):
     return masses, shadeMasses, xsMedExp, xsOneSigmaExp, xsTwoSigmaExp, xsObs
 
 
+def GetBetaRangeToAttempt(mass):
+    # get a restricted beta range to test for each mass point
+    minBetasPerMass = {300: 0, 400: 0, 500: 0.05, 600: 0.05, 700: 0.1, 800: 0.12, 900: 0.15, 1000: 0.2, 1100: 0.25, 1200: 0.3, 1300: 0.45, 1400: 0.55, 1500: 0.65}
+    maxBetasPerMass = {300: 0.1, 400: 0.1, 500: 0.15, 600: 0.2, 700: 0.2, 800: 0.25, 900: 0.3, 1000: 0.35, 1100: 0.45, 1200: 0.55, 1300: 0.75, 1400: 1.0, 1500: 1.0}
+    if mass > 1500:
+        return 0.9, 1.0
+    else:
+        return minBetasPerMass[mass], maxBetasPerMass[mass]
+
+
+def CheckErrorFile(errFileName):
+    # print("\tChecking error file {}...".format(errFileName), end = "", flush=True)
+    with open(errFileName, "r") as errFile:
+        for line in errFile:
+            if len(line):
+                print(colored("Found unexpected content '{}' in {}".format(line, errFileName), "red"))
+                raise RuntimeError("Found unexpected content '{}' in {}".format(line, errFileName))
+    # print("OK")
+
+
+def ReadBatchResults(massList, condorDir):
+    for mass in massList:
+        rLimitsByMassAndQuantile[mass] = {}
+        xsecLimitsByMassAndQuantile[mass] = {}
+        signalScaleFactorsByMassAndQuantile[mass] = {}
+        for quantileExp in quantilesExpected:
+            quantile = "quant{:.3f}".format(quantileExp) if quantileExp > 0 else "."
+            quantileStr = str(quantileExp).replace(".", "p")
+            globString = condorDir+'/error/hybridNewLimits.M{}.{}.*.0.err'.format(mass, quantileStr)
+            errFileName = FindFile(globString)
+            CheckErrorFile(errFileName)
+            globString = condorDir+'/higgsCombine.signalScaleFactor*.HybridNew.mH{}.*.{}.root'.format(mass, quantile)
+            rootFileName = FindFile(globString)
+            limit, limitErr, quantileFromFile, signalScaleFactor = ExtractLimitResult(rootFileName)
+            rLimitsByMassAndQuantile[mass][str(quantileExp)] = limit
+            xsecLimitsByMassAndQuantile[mass][str(quantileExp)] = limit * xsThByMass[float(mass)]
+            signalScaleFactorsByMassAndQuantile[mass][str(quantileExp)] = signalScaleFactor
+    return xsecLimitsByMassAndQuantile, signalScaleFactorsByMassAndQuantile
+
+
+def ReadBatchResultsBetaScan(massList, condorDir):
+    rLimitsByMassAndQuantile = {}
+    xsecLimitsByMassAndQuantile = {}
+    signalScaleFactorsByMassAndQuantile = {}
+    for quantileExp in quantilesExpected:
+        rLimitsByMassAndQuantile[str(quantileExp)] = {}
+        xsecLimitsByMassAndQuantile[str(quantileExp)] = {}
+        signalScaleFactorsByMassAndQuantile[str(quantileExp)] = {}
+        for mass in massList:
+            quantile = "quant{:.3f}".format(quantileExp) if quantileExp > 0 else "."
+            quantileStr = str(quantileExp).replace(".", "p")
+            globString = condorDir+'/error/hybridNewLimits.M{}.{}.*.0.err'.format(mass, quantileStr)
+            errorFiles = GetFileList(globString)
+            for errFile in errorFiles:
+                CheckErrorFile(errFile)
+                lastPart = errFile.split("{}.".format(quantileStr))[-1]
+                lastPartCut = lastPart.rstrip(".0.err")
+                sigScaleFact = lastPartCut[0:lastPartCut.rfind(".")].strip("signalScaleFactor")
+                sigScaleFactRound = round(float(sigScaleFact), 6)
+                rootGlobString = condorDir+'/higgsCombine.signalScaleFactor{}.HybridNew.mH{}.*.{}.root'.format(sigScaleFactRound, mass, quantile)
+                rootFileName = FindFile(rootGlobString)
+                limit, limitErr, quantileFromFile, signalScaleFactor = ExtractLimitResult(rootFileName)
+                betaVal = math.sqrt(signalScaleFactor)
+                betaValRound = round(betaVal, 6)
+                if not betaValRound in rLimitsByMassAndQuantile[str(quantileExp)].keys():
+                    rLimitsByMassAndQuantile[str(quantileExp)][betaValRound] = {}
+                    xsecLimitsByMassAndQuantile[str(quantileExp)][betaValRound] = {}
+                    signalScaleFactorsByMassAndQuantile[str(quantileExp)][betaValRound] = {}
+                rLimitsByMassAndQuantile[str(quantileExp)][betaValRound][mass] = limit
+                xsecLimitsByMassAndQuantile[str(quantileExp)][betaValRound][mass] = limit * xsThByMass[float(mass)]
+                signalScaleFactorsByMassAndQuantile[str(quantileExp)][betaValRound][mass] = signalScaleFactor
+                # print("\tINFO: ReadBatchResultsBetaScan() - fill xsecLimitsByMassAndQuantile[{}][{}][{}]".format(quantileExp, betaValRound, mass))
+    return xsecLimitsByMassAndQuantile
+
+
+def sigmaval(spline, mval):
+    return spline.Eval(mval)
+    
+ 
+def mval(spline, sigma):
+    testm = 150
+    oldtestm = 1500
+    inc = 50
+    dif = 55
+    olddif = 0
+    while abs(oldtestm - testm) > 0.01:
+        testsigma = sigmaval(spline, testm)
+        olddif = dif
+        dif = testsigma - sigma
+        if testm > 1500:
+            break
+        if dif*olddif <= 0.0:
+            inc = -inc/2.3
+        oldtestm = testm
+        #print '**' + str(testm) + '  ' + str(testsigma) +'  ' +str(dif) + '   ' + str(dif*olddif)
+        testm = testm + inc
+    return testm
+
+
+def loggraph(inputarrayX, inputarrayY):
+    logarray = []
+    for j in inputarrayY:
+        logarray.append(math.log10(j))
+        # logarray.append(math.log(j))
+    x = np.array(inputarrayX, dtype="f")
+    y = np.array(logarray, dtype="f")
+    # print("\tINFO: loggraph() - x={}, y={}".format(x, y))
+    g = TGraph(len(x), x, y)
+    return g
+
+
+def logspline(inputarrayX,inputarrayY):
+    logarray = []
+    for j in inputarrayY:
+        logarray.append(math.log(j))
+    x = array("d",inputarrayX)
+    y = array("d",logarray)
+    g = TGraph(len(x),x,y)
+    outspline = TSpline3("",g)
+    return outspline
+
+
+def get_simple_intersection(graph1, graph2, xmin, xmax):
+    num = (xmax-xmin)*10
+    inc = (xmax - xmin)/(1.0*num)
+    dif = []
+    sdif = []
+    x = xmin +0.1
+    xvals = []
+    xx = []
+    yy = []
+    xvals = []
+    while x < (xmax-.1):
+        # print("\tINFO: get_simple_intersection() - x=", str(x) + '   xmax-.1='+ str(xmax-.1))
+        # print("\tINFO: get_simple_intersection() - graph1.Eval(x) =", graph1.Eval(x))
+        # print("\tINFO: get_simple_intersection() - math.exp(graph1.Eval(x)) =", math.exp(graph1.Eval(x)))
+        # print("\tINFO: get_simple_intersection() - graph2.Eval(x) =", graph2.Eval(x))
+        # print("\tINFO: get_simple_intersection() - math.exp(graph2.Eval(x)) =", math.exp(graph2.Eval(x)))
+        # print("\tINFO: get_simple_intersection() - math.exp(graph1.Eval(x)) - math.exp(graph2.Eval(x)) =", math.exp(graph1.Eval(x)) - math.exp(graph2.Eval(x)))
+        thisdif = (math.exp(graph1.Eval(x)) - math.exp(graph2.Eval(x)))
+        xx.append(math.exp(graph1.Eval(x)))
+        yy.append(math.exp(graph2.Eval(x)))
+        sdif.append(thisdif)
+        dif.append(abs(thisdif))
+        xvals.append(x)
+        # print("\tINFO: get_simple_intersection() [1] -", str(x) + '   ' +str(math.exp(graph1.Eval(x))) + '    '+str(math.exp(graph2.Eval(x))) + '    ' + str(thisdif))
+        x = x+inc
+	#print 'Done Looping for Difs'
+    mindif = min(dif)
+    bestmass = 0	
+    
+    for x in range(len(dif)-2):
+       a = sdif[x]
+       b = sdif[x+1]	
+       # print("\tINFO: get_simple_intersection() [2] -", str(xvals[x+1]) +'    '+str(a)  + '     ' +str(b))
+       if ((a/abs(a))*(b/abs(b))) < 0.0 and a > 0.0 :
+           # print('\tINFO: get_simple_intersection() - Limit found at: '+ (str(xvals[x])))
+           bestmass = xvals[x]
+           break
+    return [bestmass, mindif]
+
+
+def ComputeBetaLimits(xsThByMass, xsecLimitsByMassAndQuantile):
+    mTh = np.array(list(xsThByMass.keys()), dtype="f")
+    xsTh = np.array(list(xsThByMass.items()), dtype="f")
+    g = TGraph(len(mTh), mTh, xsTh);
+    # spline = TSpline3("xsection", g)
+    print("INFO: ComputeBetaLimits() - make theory graph")
+    logtheory = loggraph(list(xsThByMass.keys()), list(xsThByMass.values()))  # make graph with log10 of y values
+    massLimitsByQuantileAndBetaVal = {}
+    for quantile in xsecLimitsByMassAndQuantile.keys():
+        print("INFO: ComputeBetaLimits() - examine quantile={}".format(quantile))
+        massLimitsByQuantileAndBetaVal[quantile] = {}
+        for betaVal in xsecLimitsByMassAndQuantile[quantile].keys():
+            print("\tINFO: examine betaVal={}".format(betaVal))
+            limit_set = list(xsecLimitsByMassAndQuantile[quantile][betaVal].values())
+            massList = list(xsecLimitsByMassAndQuantile[quantile][betaVal].keys())
+            if len(massList) < 2:
+                print("\tWARN: Skipping beta value={} as we only have one mass point tested here! Need to adjust beta scan range.".format(betaVal))
+                continue
+            print("\tINFO: examine massList={}, limit_set={}".format(massList, limit_set))
+            # print("\tINFO: ComputeBetaLimits() - make loggraph for fitted_limits")
+            fitted_limits = loggraph(massList, limit_set)
+            #FIXME: get_simple_intersection seems to assume both graphs are in log base e rather than log10; the spline (really, graph?) is log10, though.
+            # print("\tINFO: ComputeBetaLimits() - get_simple_intersection")
+            goodm = get_simple_intersection(logtheory, fitted_limits, min(mTh), max(mTh))
+            massLimitsByQuantileAndBetaVal[quantile][betaVal] = round(goodm[0], 3)
+            print("\tINFO: for betaVal={}: bestmass, mindif={}".format(betaVal, goodm))
+            if goodm[0] < min(massList) or goodm[0] > max(massList):
+                print("\tWARN: For beta value={}, intersection mass is outside of massList range {}! Need to adjust beta scan range.".format(betaVal, massList))
+    return massLimitsByQuantileAndBetaVal
+
+
+
+def CreateComboArrays(xsecLimitsByMassAndQuantile):
+    retVal = {}
+    for quantile in xsecLimitsByMassAndQuantile.keys():
+        retVal[quantile] = {}
+        retVal[quantile]["betas"] = []
+        retVal[quantile]["massLimits"] = []
+        sortedBetas = list(sorted(xsecLimitsByMassAndQuantile[quantile].keys()))
+        # for betaVal, mass in xsecLimitsByMassAndQuantile[quantile].items():
+        for betaVal in sortedBetas:
+            retVal[quantile]["betas"].append(betaVal)
+            retVal[quantile]["massLimits"].append(xsecLimitsByMassAndQuantile[quantile][betaVal])
+    return retVal
+
+
 ####################################################################################################
 # Run
 ####################################################################################################
@@ -264,11 +665,18 @@ if __name__ == "__main__":
     doShapeBasedLimits = False
     doAsymptoticLimits = False
     blinded = True
-    massList = list(range(1000, 2100, 100))
+    # massList = list(range(300, 3100, 100))
+    # massList = list(range(300, 2600, 100))
+    # massList = list(range(300, 1000, 100))
+    massList = list(range(1000, 2000, 100))
+    betasToScan = list(np.linspace(0.002, 1, 500))[:-1] + [0.9995]
     
     quantilesExpected = [0.025, 0.16, 0.5, 0.84, 0.975]
     xsThFilename = "$LQANA/config/xsection_theory_13TeV_scalarPairLQ.txt"
-    cmsswPreambleCmd = "source /etc/profile && cd {}".format(cmsswDir) + " && eval $(/cvmfs/cms.cern.ch/common/scram ru -sh) && cd - && "
+    if doBatch:
+        cmsswPreambleCmd = "source /etc/profile && k5start -f {}".format(kerberosKeytab) + " && cd {}".format(cmsswDir) + " && eval $(/cvmfs/cms.cern.ch/common/scram ru -sh) && cd - && "
+        cmsswEnv = ExtractCMSSWEnv(cmsswPreambleCmd)
+    commonCombineArgs = " --setParameters signalScaleParam={} --freezeParameters signalScaleParam --trackParameters signalScaleParam"
     
     parser = OptionParser(
         usage="%prog datacard",
@@ -284,9 +692,9 @@ if __name__ == "__main__":
         "-r",
         "--readResults",
         action="store_true",
-        default=False,
         help="read limit results from batch",
         metavar="readResults",
+        default=False,
     )
     parser.add_option(
         "-n",
@@ -295,16 +703,41 @@ if __name__ == "__main__":
         help="name of limit calculation (for bookkeeping)",
         metavar="name",
     )
+    parser.add_option(
+        "-i",
+        "--doImpacts",
+        dest="doImpacts",
+        help="produce impact plots",
+        metavar="doImpacts",
+        action="store_true",
+        default=False,
+    )
+    parser.add_option(
+        "-b",
+        "--doBetaScan",
+        dest="doBetaScan",
+        help="do scan of beta values",
+        metavar="doBetaScan",
+        action="store_true",
+        default=False,
+    )
     (options, args) = parser.parse_args()
     if options.datacard is None and options.readResults is None:
         raise RuntimeError("Need either option -d to specify datacard, or option r to specify reading limit results from batch")
     if options.name is None:
         raise RuntimeError("Option -n to specify name of limit results dir is required")
+    if options.doBetaScan and not doBatch:
+        raise RuntimeError("Won't do beta scan without batch submission enabled (see doBatch parameter inside script).")
     
+    manager = multiprocessing.Manager()
+    dictAsimovToysByScaleFactor = manager.dict()
+    listFailedCommands = manager.list()
     dirName = options.name
     xsThByMass, yPDFUpByMass, yPDFDownByMass = ReadXSecFile(xsThFilename)
     rLimitsByMassAndQuantile = {}
     xsecLimitsByMassAndQuantile = {}
+    signalScaleFactorsByMassAndQuantile = {}
+    failedBatchCommands = []
     if not options.readResults:
         startTime = time.time()
         combinedDatacard = options.datacard
@@ -322,12 +755,13 @@ if __name__ == "__main__":
             Path(asimovToysDir).mkdir(exist_ok=True)
         
         if not doShapeBasedLimits:
-            massList, cardFilesByMass = SeparateDatacards(combinedDatacard, 0, separateDatacardsDir)
+            massListFromCards, cardFilesByMass = SeparateDatacards(combinedDatacard, 0, separateDatacardsDir)
         for mass in massList:
             cardFile = combinedDatacard if doShapeBasedLimits else cardFilesByMass[mass]
             print("INFO: Computing limits for mass {}".format(mass), flush=True)
             rLimitsByMassAndQuantile[mass] = {}
             xsecLimitsByMassAndQuantile[mass] = {}
+            signalScaleFactorsByMassAndQuantile[mass] = {}
             cardWorkspace = FindCardWorkspace(cardFile, mass)
             if cardWorkspace is not None:
                 print("INFO: Using previously-generated card workspace: {}".format(cardWorkspace), flush=True)
@@ -336,7 +770,8 @@ if __name__ == "__main__":
             if doAsymptoticLimits:
                 print("INFO: Doing interactive AsymptoticLimits for mass {}".format(mass), flush=True)
                 asStartTime = time.time()
-                rootFileName = RunAsymptotic(cardWorkspace, mass, dirName, blinded)
+                rootFileName = RunAsymptotic(cardWorkspace, mass, dirName, blinded, 1.0)
+                #TODO: should we also run again, scaling the signal yields, as per below? it might not matter.
                 asStopTime = time.time()
                 execTimeStr = GetExecTimeStr(asStartTime, asStopTime)
                 print("Asymptotic calculation execution time:", execTimeStr, flush=True)
@@ -346,48 +781,115 @@ if __name__ == "__main__":
                     rLimitsByMassAndQuantile[mass][str(quantileExp)] = limit
                     xsecLimitsByMassAndQuantile[mass][str(quantileExp)] = limit * xsThByMass[float(mass)]
             else:
-                asimovToyFile = FindAsimovToyData(mass, asimovToysDir)
-                if asimovToyFile is not None:
-                    print("INFO: Using previously-generated Asimov toy file: {}".format(asimovToyFile), flush=True)
-                else:
-                    asimovToyFile = GenerateAsimovToyData(cardWorkspace, mass, asimovToysDir)
+                # asymptoticRootFileName = RunAsymptotic(cardWorkspace, mass, dirName, blinded, 1.0)
+                # limits, limitErrs, quantiles = ExtractAsymptoticLimitResult(asymptoticRootFileName)
+                # rValuesByQuantile = dict(zip(quantiles, limits))
+                # limits[quantiles.index(0.5)]
+                # signalScaleFactor = rValue
                 for quantileExp in quantilesExpected:
-                    hnStartTime = time.time()
-                    if doBatch:
-                        SubmitHybridNewBatch(cardWorkspace, mass, dirName, quantile=quantileExp, genAsimovToyFile=asimovToyFile)
+                    # signalScaleFactor = rValuesByQuantile[quantileExp]
+                    signalScaleFactor = 1.0
+                    asimovToyFile = FindAsimovToyData(mass, signalScaleFactor, asimovToysDir)
+                    if asimovToyFile is not None:
+                        print("INFO: Using previously-generated Asimov toy file: {}".format(asimovToyFile), flush=True)
                     else:
-                        rootFileName = RunHybridNewInteractive(cardWorkspace, mass, dirName, quantile=quantileExp, genAsimovToyFile=asimovToyFile)
+                        asimovToyFile = GenerateAsimovToyData((cardWorkspace, mass, asimovToysDir, dictAsimovToysByScaleFactor, signalScaleFactor))
+                    if doBatch:
+                        MakeCondorDirs(dirName)
+                        failedCmd = SubmitHybridNewBatch((cardWorkspace, mass, dirName, listFailedCommands, quantileExp, asimovToyFile, signalScaleFactor))
+                        if failedCmd is not None:
+                            failedBatchCommands.append(failedCmd)
+                        if options.doBetaScan:
+                            betaDirName = dirName+"/betaScan"
+                            if not os.path.isdir(betaDirName):
+                                print("INFO: Making directory", betaDirName, flush=True)
+                                Path(betaDirName).mkdir(exist_ok=True)
+                            MakeCondorDirs(betaDirName)
+                            minBeta, maxBeta = GetBetaRangeToAttempt(int(mass))
+                            minBetaPosition = bisect(betasToScan, minBeta)
+                            maxBetaPosition = bisect(betasToScan, maxBeta)
+                            print("INFO: for mass {}, scan beta range {} to {} or indices {} to {}".format(mass, minBeta, maxBeta, minBetaPosition, maxBetaPosition))
+                            betasToSubmit = betasToScan[minBetaPosition : maxBetaPosition]
+                            ncores = 8
+                            with multiprocessing.Pool(ncores) as pool:
+                                asimovJobs = 0
+                                for beta in betasToSubmit:
+                                    signalScaleFactor = beta*beta
+                                    asimovToysBetaDir = betaDirName+"/asimovToys"
+                                    if not os.path.isdir(asimovToysBetaDir):
+                                        print("INFO: beta scan - Making directory", asimovToysBetaDir, flush=True)
+                                        Path(asimovToysBetaDir).mkdir(exist_ok=True)
+                                    asimovToyFile = FindAsimovToyData(mass, signalScaleFactor, asimovToysBetaDir)
+                                    if asimovToyFile is not None:
+                                        # print("INFO: beta scan - Using previously-generated Asimov toy file: {}".format(asimovToyFile), flush=True)
+                                        pass
+                                    else:
+                                        try:
+                                            pool.apply_async(GenerateAsimovToyData, [[cardWorkspace, mass, asimovToysBetaDir, dictAsimovToysByScaleFactor, signalScaleFactor]])
+                                            asimovJobs += 1
+                                        except KeyboardInterrupt:
+                                            print("\n\nCtrl-C detected: Bailing.")
+                                            pool.terminate()
+                                            sys.exit(1)
+                                        except Exception as e:
+                                            print("ERROR: caught exception in asimov toy job for scale factor: {}; exiting".format(signalScaleFactor))
+                                            traceback.print_exc()
+                                            pool.terminate()
+                                            exit(-2)
+                                # now close the pool and wait for jobs to finish
+                                pool.close()
+                                if asimovJobs > 0:
+                                    print("Waiting for {} Asimov toy generation jobs to finish for all beta values for mass={}, quantile={}...".format(asimovJobs, mass, quantileExp))
+                                pool.join()
+                            # HybridNew
+                            with multiprocessing.Pool(ncores) as pool:
+                                hybridNewJobs = 0
+                                for beta in betasToSubmit:
+                                    signalScaleFactor = beta*beta
+                                    try:
+                                        asimovToyFile = FindAsimovToyData(mass, signalScaleFactor, asimovToysBetaDir)
+                                        pool.apply_async(SubmitHybridNewBatch, [[cardWorkspace, mass, betaDirName, listFailedCommands, quantileExp, asimovToyFile, signalScaleFactor]])
+                                        hybridNewJobs += 1
+                                    except KeyboardInterrupt:
+                                        print("\n\nCtrl-C detected: Bailing.")
+                                        pool.terminate()
+                                        sys.exit(1)
+                                    except Exception as e:
+                                        print("ERROR: caught exception in hybridnew job for scale factor: {}; exiting".format(signalScaleFactor))
+                                        traceback.print_exc()
+                                        pool.terminate()
+                                        exit(-2)
+                                # now close the pool
+                                pool.close()
+                                print("Waiting for submission of {} HybridNew jobs for mass={}, quantile={}...".format(hybridNewJobs, mass, quantileExp))
+                                pool.join()
+                                # if failedCmd is not None:
+                                #     failedBatchCommands.append(failedCmd)
+                    else:
+                        hnStartTime = time.time()
+                        rootFileName = RunHybridNewInteractive(cardWorkspace, mass, dirName, quantile=quantileExp, genAsimovToyFile=asimovToyFile, signalScaleFactor=signalScaleFactor)
                         hnStopTime = time.time()
                         execTimeStr = GetExecTimeStr(hnStartTime, hnStopTime)
                         print("HybridNew calculation execution time:", execTimeStr, flush=True)
-                        limit, limitErr, quantile = ExtractLimitResult(rootFileName)
+                        limit, limitErr, quantile, signalScaleFactor = ExtractLimitResult(rootFileName)
                         rLimitsByMassAndQuantile[mass][str(quantileExp)] = limit
                         xsecLimitsByMassAndQuantile[mass][str(quantileExp)] = limit * xsThByMass[float(mass)]
+                        signalScaleFactorsByMassAndQuantile[mass][str(quantileExp)] = signalScaleFactor
         
+    if len(failedBatchCommands):
+        print(colored("batch commands failed:", "red"))
+        for item in failedBatchCommands:
+            print(item)
+    if len(listFailedCommands):
+        print(colored("batch commands failed:", "red"))
+        for item in listFailedCommands:
+            print(item)
+
     if not doBatch or options.readResults:
         if options.readResults:
             condorDir = dirName.strip("/")+"/condor"
-            print("INFO: Reading results from batch from {}...".format(condorDir), flush=True)
-            for mass in massList:
-                rLimitsByMassAndQuantile[mass] = {}
-                xsecLimitsByMassAndQuantile[mass] = {}
-                for quantileExp in quantilesExpected:
-                    quantile = "quant{:.3f}".format(quantileExp) if quantileExp > 0 else "."
-                    # quantile = quantileString.replace("quant0.", "0p")
-                    quantileStr = str(quantileExp).replace(".", "p")
-                    globString = condorDir+'/hybridNewLimits.M{}.{}.*.0.err'.format(mass, quantileStr)
-                    errFileName = FindFile(globString)
-                    # print("\tChecking error file {}...".format(errFileName), end = "", flush=True)
-                    with open(errFileName, "r") as errFile:
-                        for line in errFile:
-                            if len(line):
-                                raise RuntimeError("Found unexpected content '{}' in {}".format(line, errFileName))
-                    # print("OK")
-                    globString = condorDir+'/higgsCombine.Test.HybridNew.mH{}.*.{}.root'.format(mass, quantile)
-                    rootFileName = FindFile(globString)
-                    limit, limitErr, quantile = ExtractLimitResult(rootFileName)
-                    rLimitsByMassAndQuantile[mass][str(quantileExp)] = limit
-                    xsecLimitsByMassAndQuantile[mass][str(quantileExp)] = limit * xsThByMass[float(mass)]
+            print("INFO: Reading results from batch from {}...".format(condorDir), flush=True, end="")
+            xsecLimitsByMassAndQuantile, signalScaleFactorsByMassAndQuantile = ReadBatchResults(massList, condorDir)
             print("DONE", flush=True)
         masses, shadeMasses, xsMedExp, xsOneSigmaExp, xsTwoSigmaExp, xsObs = CreateArraysForPlotting(xsecLimitsByMassAndQuantile)
         print("mData =", list(masses))
@@ -402,3 +904,26 @@ if __name__ == "__main__":
             print("Total limit calculation execution time:", execTimeStr)
         print("Make plot and calculate mass limit")
         BR_Sigma_EE_vsMass(dirName, masses, shadeMasses, xsMedExp, xsObs, xsOneSigmaExp, xsTwoSigmaExp)
+        if options.doBetaScan:
+            mainDirName = dirName
+            betaDirName = dirName+"/betaScan"
+            condorDir = betaDirName.strip("/")+"/condor"
+            print("INFO: Reading results from batch from {}...".format(condorDir), flush=True, end="")
+            xsecLimitsByMassAndQuantile = ReadBatchResultsBetaScan(massList, condorDir)
+            print("DONE", flush=True)
+            # print("xsecLimitsByMassAndQuantile={}".format(xsecLimitsByMassAndQuantile))
+            print("INFO: Compute beta limits...", flush=True, end="")
+            massLimitsByQuantileAndBetaVal = ComputeBetaLimits(xsThByMass, xsecLimitsByMassAndQuantile)
+            print("massLimitsByQuantileAndBetaVal={}".format(massLimitsByQuantileAndBetaVal))
+            print("DONE", flush=True)
+            comboArraysByQuantile = CreateComboArrays(massLimitsByQuantileAndBetaVal)
+            print("comboArraysByQuantile['0.5']['betas']={}".format(comboArraysByQuantile["0.5"]["betas"]))
+            print("comboArraysByQuantile['0.5']['massLimits']={}".format(comboArraysByQuantile["0.5"]["massLimits"]))
+            ComboPlot(mainDirName, comboArraysByQuantile["0.5"]["betas"], comboArraysByQuantile["0.5"]["massLimits"]) # , m_observed_lljj)
+        if options.doImpacts:
+            print("INFO: Making nuisance parameter impact plots...", flush=True, end="")
+            for mass in massList:
+                datacardDir = dirName.strip("/")+"/datacards"
+                cardWorkspace = FindCardWorkspace(datacardDir + "/*", mass, True)
+                MakeImpacts(cardWorkspace, mass, dirName, signalScaleFactorsByMassAndQuantile[mass][str(quantilesExpected[0])])
+            print("DONE", flush=True)
