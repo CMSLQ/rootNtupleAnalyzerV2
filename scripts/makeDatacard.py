@@ -14,6 +14,9 @@ import numpy as np
 import ROOT as r
 import combineCommon as cc
 
+sys.path.append(os.getenv("LQMACRO").rstrip("/") + "/plotting2016/")
+from plotSignalEfficiencyTimesAcceptance import plotSignalEfficiencyTimesAcceptance
+
 r.gROOT.SetBatch()
 
 
@@ -181,7 +184,7 @@ def GetSystematicEffectAbs(systName, sampleName, selection, fullSystDict, verbos
         return "-", 0, 0
     # returned deltaOverNom is always systYield - nominal
     # if "norm" not in systName.lower() and "shape" not in systName.lower() and "lumi" not in systName.lower():
-    if "norm" not in systName.lower() and selection != "preselection":
+    if "norm" not in systName.lower() and selection != "preselection" and selection != "trainingSelection":
         if sampleName in backgroundsToRenormSystAtPresel:
             if verbose:
                 print("\tINFO: renormalizing syst={} for background={}".format(systName, sampleName))
@@ -617,8 +620,8 @@ def GetLastNonzeroSelectionYieldsFromDicts(rateDict, rateErrDict, unscaledRateDi
         rawEvents = unscaledRateDict[lastSelectionName]
         idx += 1
         if idx >= len(massPointsRev):
-            print("WARN GetLastNonzeroSelectionYieldsFromDicts: could not find final selection point with nonzero yield for this background; returning preselection")
-            return "preselection", rateDict["preselection"], rateErrDict["preselection"], unscaledRateDict["preselection"]
+            print("WARN GetLastNonzeroSelectionYieldsFromDicts: could not find final selection point with nonzero yield for this background; returning trainingSelection")
+            return "trainingSelection", rateDict["trainingSelection"], rateErrDict["trainingSelection"], unscaledRateDict["trainingSelection"]
     return lastSelectionName, rate, err, rawEvents
 
 
@@ -689,8 +692,8 @@ def CheckHistBins(hist):
     return hist
 
 
-def CreateAndWriteHist(rootFile, mass, sample, content, err):
-    newHist = r.TH1D("yieldFinalSelection_{}_{}".format(mass, sample), "Yield at LQ {} final selection for {}".format(mass, sample), 1, 0, 1)
+def CreateAndWriteHist(rootFile, mass, sample, content, err, name="yieldFinalSelection", titleStart="Yield at LQ"):
+    newHist = r.TH1D("{}_{}_{}".format(name, mass, sample), "{} {} final selection for {}".format(titleStart, mass, sample), 1, 0, 1)
     newHist.SetBinContent(1, content)
     newHist.SetBinError(1, err)
     if sample == "DATA":
@@ -705,18 +708,25 @@ def CreateAndWriteHistograms(outputRootFilename):
     outputRootFile = r.TFile.Open(outputRootFilename, "recreate")
     for i_signal_name, signal_name in enumerate(signal_names):
         for iSel, selectionName in enumerate(selectionNames):
-            if selectionName == "preselection":
+            if selectionName == "preselection" or selectionName == "trainingSelection":
                 continue
             mass_point = selectionName.replace("LQ", "")
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, mass_point)
             signalEvts = d_signal_rates[signalNameForFile][selectionName]
             signalEvtErrs = d_signal_rateErrs[signalNameForFile][selectionName]
             CreateAndWriteHist(outputRootFile, mass_point, fullSignalName, signalEvts, signalEvtErrs)
+            signalFailEvts = d_signal_failRates[signalNameForFile][selectionName]
+            signalFailEvtErrs = d_signal_failRateErrs[signalNameForFile][selectionName]
+            CreateAndWriteHist(outputRootFile, mass_point, fullSignalName, signalFailEvts, signalFailEvtErrs, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             for ibkg, background_name in enumerate(background_names):
                 thisBkgEvts = d_background_rates[background_name][selectionName]
                 thisBkgEvtsErr = d_background_rateErrs[background_name][selectionName]
                 CreateAndWriteHist(outputRootFile, mass_point, background_name, thisBkgEvts, thisBkgEvtsErr)
+                thisBkgFailEvts = d_background_failRates[background_name][selectionName]
+                thisBkgFailEvtsErr = d_background_failRateErrs[background_name][selectionName]
+                CreateAndWriteHist(outputRootFile, mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             CreateAndWriteHist(outputRootFile, mass_point, "DATA", d_data_rates["DATA"][selectionName], d_data_rateErrs["DATA"][selectionName])
+            CreateAndWriteHist(outputRootFile, mass_point, "DATA", d_data_failRates["DATA"][selectionName], d_data_failRateErrs["DATA"][selectionName], "yieldFailFinalSelection", "Yield failing final selection for LQ")
     outputRootFile.Close()
 
 
@@ -730,6 +740,9 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
     d_unscaledRates = {}
     d_totalEvents = {}
     d_systematics = {}
+    d_failRates = {}
+    d_failRateErrs = {}
+    d_unscaledFailRates = {}
     # start sample
     for i_sample, sampleName in enumerate(sampleNames):
         unscaledTotalEvts = cc.GetUnscaledTotalEvents(scaledRootFile, sampleName)
@@ -739,6 +752,9 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
         ratesDict = {}
         rateErrsDict = {}
         unscaledRatesDict = {}
+        failRatesDict = {}
+        failRateErrsDict = {}
+        unscaledFailRatesDict = {}
         # do all selections
         for i_signal_name, signal_name in enumerate(signal_names):
             for i_mass_point, mass_point in enumerate(selectionPoints):
@@ -752,23 +768,46 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
                     isData,
                     bkgType == "TTData"
                 )
+                sampleFailRate, sampleFailRateErr, sampleFailUnscaledRate = cc.GetFailingRatesAndErrors(
+                    scaledRootFile,
+                    sampleName,
+                    selectionName,
+                    trainingSelectionCutName,
+                    doEEJJ,
+                    isData,
+                    bkgType == "TTData"
+                )
                 # print '------>rate=',rate,'rateErr=',rateErr,'unscaledRate=',unscaledRate
                 # if isQCD:
                 #  print 'for sample:',bkgSample,'got unscaled entries=',unscaledRate
                 # print 'sampleName={}, sampleRate:',sampleRate,'sampleRateErr=',sampleRateErr,'sampleUnscaledRate=',sampleUnscaledRate
                 if selectionName == "preselection" and verbose:
                     print("INFO: for sampleName={}, PRESELECTION ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
+                    print("INFO: for sampleName={}, PRESELECTION ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
+                elif selectionName == "LQ1000" and verbose:
+                    print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
+                    print("INFO: for sampleName={}, {} ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, selectionName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
+                elif selectionName == "LQ1100" and verbose:
+                    print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
+                    print("INFO: for sampleName={}, {} ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, selectionName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
                 elif selectionName == "LQ1200" and verbose:
                     print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
+                    print("INFO: for sampleName={}, {} ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, selectionName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
                 ratesDict[selectionName] = sampleRate
                 # if ratesDict[selectionName] < 0:
                 #     print("WARN: for sample {}, selection {}: found negative rate: {}; set to zero. Had {} unscaled events.".format(sampleName, selectionName, sampleRate, sampleUnscaledRate))
                 #     ratesDict[selectionName] = 0.0
                 rateErrsDict[selectionName] = sampleRateErr
                 unscaledRatesDict[selectionName] = sampleUnscaledRate
+                failRatesDict[selectionName] = sampleFailRate
+                failRateErrsDict[selectionName] = sampleFailRateErr
+                unscaledFailRatesDict[selectionName] = sampleFailUnscaledRate
                 if unscaledRatesDict[selectionName] < 0:
                     print("WARN: for sample {}, selection {}: found negative unscaled rate: {}; set to zero.".format(sampleName, selectionName, sampleUnscaledRate))
                     unscaledRatesDict[selectionName] = 0.0
+                if unscaledFailRatesDict[selectionName] < 0 and selectionName != "preselection":
+                    print("WARN: for sample {}, selection {}: found negative unscaled fail rate: {}; set to zero.".format(sampleName, selectionName, sampleFailUnscaledRate))
+                    unscaledFailRatesDict[selectionName] = 0.0
         if not isData and doSystematics:
             d_systematics[sampleName] = GetSystematicsDict(scaledRootFile, sampleName, selectionNames)  # , sampleName == "LQToDEle_M-300_pair")
             if "zjet" in sampleName.lower():
@@ -784,8 +823,172 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
         d_rateErrs[sampleName] = rateErrsDict
         d_unscaledRates[sampleName] = unscaledRatesDict
         d_totalEvents[sampleName] = unscaledTotalEvts
+        d_failRates[sampleName] = failRatesDict
+        d_failRateErrs[sampleName] = failRateErrsDict
+        d_unscaledFailRates[sampleName] = unscaledFailRatesDict
     scaledRootFile.Close()
-    return d_rates, d_rateErrs, d_unscaledRates, d_totalEvents, d_systematics
+    return d_rates, d_rateErrs, d_unscaledRates, d_totalEvents, d_systematics, d_failRates, d_failRateErrs, d_unscaledFailRates
+
+
+def WriteDatacard(card_file_path):
+    thresholdForAutoMCStats = 10
+    card_file = open(card_file_path, "w")
+    for i_signal_name, signal_name in enumerate(signal_names):
+        doMassPointLoop = True
+        #for i_mass_point, mass_point in enumerate(mass_points):
+        for iSel, selectionName in enumerate(selectionNames):
+            # fullSignalName = signal_name.replace('[masspoint]',mass_point)
+            mass_point = selectionName.replace("LQ", "") if "LQ" in selectionName else "0"
+            fullSignalName, signalNameForFile = GetFullSignalName(signal_name, mass_point)
+            # print "consider fullSignalName={}".format(fullSignalName)
+            #selectionName = "LQ" + mass_point
+            # this will need to be fixed later if needed
+            # else:
+            #     # figure out mass point from name. currently the only case for this is RPV stop, where they are like 'Stop_M100_CTau100'
+            #     mass = int(signal_name.split("_")[1].replace("M", ""))
+            #     if mass < 200:
+            #         mass = 200
+            #     selectionName = "LQ" + str(mass)
+            #     # print 'use selection name=',selectionName,'for fullSignalName=',fullSignalName
+            #     doMassPointLoop = False
+            if selectionName != "preselection" and selectionName != "trainingSelection":
+                txt_file_name = fullSignalName + ".txt\n"
+    
+                card_file.write(txt_file_name + "\n\n")
+                card_file.write("imax " + str(n_channels) + "\n")
+                card_file.write("jmax " + str(n_background) + "\n")
+                if doSystematics:
+                    card_file.write("kmax " + str(n_systematics) + "\n\n")
+                else:
+                    card_file.write("kmax 0\n\n")
+                card_file.write("---------------\n")
+                card_file.write("shapes * * "+str(Path(shapeHistos_filePath).resolve())+" yieldFinalSelection_$MASS_$PROCESS\n")
+                card_file.write("---------------\n")
+                card_file.write("bin bin1\n\n")
+    
+                total_data = d_data_rates["DATA"][selectionName]
+                card_file.write("observation " + str(total_data) + "\n\n")
+    
+                line = "bin "
+                for i_channel in range(0, n_background + 1):
+                    line = line + "bin1 "
+                card_file.write(line + "\n")
+    
+                line = "process " + fullSignalName + " "
+                for background_name in background_names:
+                    line = line + background_name + " "
+                card_file.write(line + "\n")
+    
+                line = "process 0 "
+                for background_name in background_names:
+                    line = line + "1 "
+                card_file.write(line + "\n\n")
+    
+                # rate line
+                signalYield = d_signal_rates[signalNameForFile][selectionName]
+                line = "rate {} ".format(signalYield)
+                totalBackgroundYield = 0
+                for background_name in background_names:
+                    bkgYield = d_background_rates[background_name][selectionName]
+                    line += "{} ".format(bkgYield)
+                    totalBackgroundYield += bkgYield
+                card_file.write(line.strip() + "\n")
+                card_file.write("------------------------------\n")
+                card_file.write("* autoMCStats "+str(thresholdForAutoMCStats)+"\n")
+    
+            # print signal_name, mass_point, total_signal, total_bkg, total_data
+            # print signal_name+str(mass_point), total_signal, total_bkg
+    
+            # recall the form: systDict['PileupUp'/systematicFromHist]['ZJet_amcatnlo_ptBinned'/sampleName]['LQXXXX'/selection] = yield
+            # for RPV, select proper signalSystDict based on ctau of signal
+            # FIXME
+            # if doRPV:
+            #     ctau = int(signal_name[signal_name.find("CTau") + 4:])
+            #     signalSystDict = signalSystDictByCTau[ctau]
+            if doSystematics:
+                d_systematicsApplied[selectionName] = {}
+                d_systematicsApplied[selectionName][signalNameForFile] = []
+                for syst in systematicsNamesBackground:
+                    # if int(mass_point) > maxLQSelectionMass:
+                    #     selectionNameSyst = "LQ"+str(maxLQSelectionMass)
+                    # else:
+                    #     selectionNameSyst = selectionName
+                    selectionNameSyst = selectionName
+                    line = syst + " lnN "
+                    if syst in systematicsNamesSignal and selectionName != "preselection" and selectionName != "trainingSelection":
+                        if signalNameForFile not in list(d_systNominals.keys()):
+                            d_systNominals[signalNameForFile] = {}
+                            d_systNominalErrs[signalNameForFile] = {}
+                            d_systUpDeltas[signalNameForFile] = {}
+                            d_systDownDeltas[signalNameForFile] = {}
+                        if syst not in list(d_systNominals[signalNameForFile].keys()):
+                            d_systNominals[signalNameForFile][syst] = {}
+                            d_systNominalErrs[signalNameForFile][syst] = {}
+                            d_systUpDeltas[signalNameForFile][syst] = {}
+                            d_systDownDeltas[signalNameForFile][syst] = {}
+                        systEntry, deltaOverNominalUp, deltaOverNominalDown = GetSystematicEffectAbs(syst, signalNameForFile, selectionNameSyst, d_signal_systs)
+                        thisSigEvts = d_signal_rates[signalNameForFile][selectionNameSyst]
+                        thisSigEvtErr = d_signal_rateErrs[signalNameForFile][selectionNameSyst]
+                        thisSigSystUp = deltaOverNominalUp*thisSigEvts
+                        thisSigSystDown = deltaOverNominalDown*thisSigEvts
+                        d_systNominals[signalNameForFile][syst][selectionNameSyst] = thisSigEvts
+                        d_systNominalErrs[signalNameForFile][syst][selectionNameSyst] = thisSigEvtErr
+                        d_systUpDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystUp
+                        d_systDownDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystDown
+                        if EntryIsValid(systEntry):
+                            d_systematicsApplied[selectionName][signalNameForFile].append(syst)
+                            # if syst == "LHEPdfWeight": systEntry = 1.1  # hack signal PDF uncertainty
+                            line += str(systEntry) + " "
+                        else:
+                            line += "- "
+                    else:
+                        line += "- "
+                    for ibkg, background_name in enumerate(background_names):
+                        if background_name not in d_systematicsApplied[selectionName]:
+                            d_systematicsApplied[selectionName][background_name] = []
+                        if background_name not in list(d_systNominals.keys()):
+                            d_systNominals[background_name] = {}
+                            d_systNominalErrs[background_name] = {}
+                            d_systUpDeltas[background_name] = {}
+                            d_systDownDeltas[background_name] = {}
+                        if syst not in list(d_systNominals[background_name].keys()):
+                            d_systNominals[background_name][syst] = {}
+                            d_systNominalErrs[background_name][syst] = {}
+                            d_systUpDeltas[background_name][syst] = {}
+                            d_systDownDeltas[background_name][syst] = {}
+                        systEntry, deltaOverNominalUp, deltaOverNominalDown = GetSystematicEffectAbs(syst, background_name, selectionNameSyst, d_background_systs)
+                        thisBkgEvts = d_background_rates[background_name][selectionNameSyst]
+                        thisBkgEvtErr = d_background_rateErrs[background_name][selectionNameSyst]
+                        thisBkgSystUp = deltaOverNominalUp*thisBkgEvts
+                        thisBkgSystDown = deltaOverNominalDown*thisBkgEvts
+                        d_systNominals[background_name][syst][selectionNameSyst] = thisBkgEvts
+                        d_systNominalErrs[background_name][syst][selectionNameSyst] = thisBkgEvtErr
+                        d_systUpDeltas[background_name][syst][selectionNameSyst] = thisBkgSystUp
+                        d_systDownDeltas[background_name][syst][selectionNameSyst] = thisBkgSystDown
+                        if EntryIsValid(systEntry):
+                            d_systematicsApplied[selectionName][background_name].append(syst)
+                            line += str(systEntry) + " "
+                        else:
+                            line += "- "
+                        # if "ZJet" in background_name and "800" in selectionNameSyst and "EES" in syst:
+                        try:
+                            if float(systEntry) < 0:
+                                 print("INFO: For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                                         background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
+                        except ValueError:
+                            continue
+                    if selectionName != "preselection" and selectionName != "trainingSelection":
+                        card_file.write(line + "\n")
+    
+            # rateParam for signal scaling
+            if selectionName != "preselection" and selectionName != "trainingSelection":
+                signalScaleParam = 1.0
+                card_file.write("signalScaleParam rateParam bin1 {} {}".format(fullSignalName, signalScaleParam))
+            if selectionName != "preselection" and selectionName != "trainingSelection":
+                card_file.write("\n\n\n")
+            if not doMassPointLoop:
+                break
+    card_file.close()
 
 
 ###################################################################################################
@@ -800,6 +1003,7 @@ doRPV = False  # to do RPV, set doEEJJ and doRPV to True
 # forceGmNNormBkgStatUncert = False
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
 cc.finalSelectionName = "BDTOutput"
+trainingSelectionCutName = "trainingSelection"
 # signalNameTemplate = "LQToUE_M-{}_BetaOne"
 signalNameTemplate = "LQToDEle_M-{}_pair"
 year = sys.argv[1]
@@ -815,8 +1019,10 @@ qcdFilePaths = {}
 # qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_10oct2023_heepFR_finalSels_dedicatedMassBDTs/output_qcdSubtractedYield/qcdSubtracted_plots.root"
 #qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_23oct2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
 #qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_23oct2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_8nov2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_8nov2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+#qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_8nov2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+#qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_8nov2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_heepFR_bdt_8mar2024/output_qcdSubtractedYield/qcdSubtracted_plots.root"
+qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_heepFR_bdt_8mar2024/output_qcdSubtractedYield/qcdSubtracted_plots.root"
 
 filePaths = {}
 #filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_10oct2023_heep_finalSels_paramBDT/output_cutTable_lq_eejj_BDT/"
@@ -825,9 +1031,12 @@ filePaths = {}
 # filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_10oct2023_heep_finalSels_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT_dedicatedMasses/"
 #filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_23oct2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
 #filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_23oct2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_8nov2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_8nov2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-#
+#filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_8nov2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
+#filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_8nov2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
+filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_8mar2024_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT/"
+filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_8mar2024_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT/"
+
+
 if doEEJJ:
     sampleListForMerging = os.path.expandvars(sampleListForMerging.format(year))
     # SIC 6 Jul 2020 remove
@@ -925,14 +1134,10 @@ if doRPV:
     ]  # go from 200-1200 in 100 GeV steps
 else:
     # LQ case
-    mass_points = []
-    #mass_points = [
-    #    str(i) for i in range(300, 3100, 100)
-    #]  # go from 300-3000 in 100 GeV steps
-    ## mass_points.extend(["3500", "4000"])
     mass_points = [
-        str(i) for i in range(1000, 2100, 100)
-    ]
+        str(i) for i in range(300, 3100, 100)
+    ]  # go from 300-3000 in 100 GeV steps
+    ## mass_points.extend(["3500", "4000"])
 
 if doEEJJ:
     if doRPV:
@@ -951,8 +1156,8 @@ if doEEJJ:
     maxLQSelectionMass = 100000 # FIXME remove
     # background_names =  [ "PhotonJets_Madgraph", "QCDFakes_DATA", "TTBarFromDATA", "ZJet_amcatnlo_ptBinned", "WJet_amcatnlo_ptBinned", "DIBOSON","SingleTop"  ]
     background_names = [
-        "ZJet_powhegminnlo",
-        # "ZJet_amcatnlo_ptBinned_IncStitch",
+        # "ZJet_powhegminnlo",
+        "ZJet_amcatnlo_ptBinned_IncStitch",
         # "TTBarFromDATA",
         "TTTo2L2Nu"] + (["QCDFakes_DATA"] if doQCD else []) + [
         "DIBOSON_nlo",
@@ -1062,8 +1267,8 @@ backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 #     # nonTTBarSampleName='NONTTBARBKG_amcatnloPt_emujj'
 #     nonTTBarSampleName = "NONTTBARBKG_amcatnloPt_amcAtNLODiboson_emujj"
 
-selectionPoints = ["preselection"] + mass_points
-selectionNames = ["LQ"+sel if "preselection" not in sel else sel for sel in selectionPoints]
+selectionPoints = ["preselection", "trainingSelection"] + mass_points
+selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in selectionPoints]
 additionalBkgSystsDict = {}
 # QCDNorm is 0.60 [60% norm uncertainty for eejj = uncertaintyPerElectron*2]
 # lumi uncertainty from https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2#Combination_and_correlations
@@ -1145,7 +1350,7 @@ if doQCD:
 print("Launched like:")
 for arg in sys.argv:
     print("\t" + arg)
-print("Using tables:")
+print("Using input root files:")
 print("\t Data/MC:", dataMC_filepath)
 if doQCD:
     print("\t QCD(data):", qcdFilePath)
@@ -1183,23 +1388,26 @@ d_datacardStatErrs = {}
 # rates/etc.
 print("INFO: Filling background [MC] information...")
 #d_background_rates, d_background_rateErrs, d_background_unscaledRates, d_background_totalEvents, d_background_systs = FillDicts(dataMC_filepath, background_fromMC_names, "MC")
-d_background_rates, d_background_rateErrs, d_background_unscaledRates, d_background_totalEvents, d_background_systs = FillDicts(dataMC_filepath, list(dictSamples.keys()), "MC")
+d_background_rates, d_background_rateErrs, d_background_unscaledRates, d_background_totalEvents, d_background_systs, d_background_failRates, d_background_failRateErrs, d_background_unscaledFailRates = FillDicts(dataMC_filepath, list(dictSamples.keys()), "MC")
 if doQCD:
     print("INFO: Filling QCD[data] information...")
-    bgFromData_rates, bgFromData_rateErrs, bgFromData_unscaledRates, bgFromData_totalEvents, bgFromData_systs = FillDicts(qcdFilePath, background_QCDfromData, "DATA")
+    bgFromData_rates, bgFromData_rateErrs, bgFromData_unscaledRates, bgFromData_totalEvents, bgFromData_systs, bgFromData_failRates, bgFromData_failRateErrs, bgFromData_unscaledFailRates = FillDicts(qcdFilePath, background_QCDfromData, "DATA")
     d_background_rates.update(bgFromData_rates)
     d_background_rateErrs.update(bgFromData_rateErrs)
     d_background_unscaledRates.update(bgFromData_unscaledRates)
     d_background_totalEvents.update(bgFromData_totalEvents)
     d_background_systs.update(bgFromData_systs)
+    d_background_failRates.update(bgFromData_failRates)
+    d_background_failRateErrs.update(bgFromData_failRateErrs)
+    d_background_unscaledFailRates.update(bgFromData_unscaledFailRates)
 if doSystematics:
     for sampleName in additionalBkgSystsDict.keys():
         d_background_systs[sampleName].update(additionalBkgSystsDict[sampleName])
 # above would be similar for TTBarFromDATA
 print("INFO: Filling signal information...")
-d_signal_rates, d_signal_rateErrs, d_signal_unscaledRates, d_signal_totalEvents, d_signal_systs = FillDicts(dataMC_filepath, signalNameList, "signal")
+d_signal_rates, d_signal_rateErrs, d_signal_unscaledRates, d_signal_totalEvents, d_signal_systs, d_signal_failRates, d_signal_failRateErrs, d_signal_unscaledFailRates = FillDicts(dataMC_filepath, signalNameList, "signal")
 print("INFO: Filling data information...")
-d_data_rates, d_data_rateErrs, d_data_unscaledRates, d_data_totalEvents, d_data_systs_garbage = FillDicts(dataMC_filepath, ["DATA"], "DATA")
+d_data_rates, d_data_rateErrs, d_data_unscaledRates, d_data_totalEvents, d_data_systs_garbage, d_data_failRates, d_data_failRateErrs, d_data_unscaledFailRates = FillDicts(dataMC_filepath, ["DATA"], "DATA")
 # print one of the systematics for checking
 # for syst in backgroundSystDict.keys():
 #    print 'Syst is:',syst
@@ -1210,168 +1418,15 @@ d_data_rates, d_data_rateErrs, d_data_unscaledRates, d_data_totalEvents, d_data_
 # print signalSystDict
 # print backgroundSystDict
 
-selectionNames = ["preselection"]
-selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
+# selectionNames = ["preselection"]
+# selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
 
 print("INFO: Preparing shape histograms...", end=' ')
 CreateAndWriteHistograms(shapeHistos_filePath)
 print("Done")
 
 print("INFO: Preparing datacard...", end=' ')
-
-thresholdForAutoMCStats = 10
-card_file_path = datacard_filePath
-card_file = open(card_file_path, "w")
-
-for i_signal_name, signal_name in enumerate(signal_names):
-    doMassPointLoop = True
-    #for i_mass_point, mass_point in enumerate(mass_points):
-    for iSel, selectionName in enumerate(selectionNames):
-        # fullSignalName = signal_name.replace('[masspoint]',mass_point)
-        mass_point = selectionName.replace("LQ", "") if "LQ" in selectionName else "0"
-        fullSignalName, signalNameForFile = GetFullSignalName(signal_name, mass_point)
-        # print "consider fullSignalName={}".format(fullSignalName)
-        #selectionName = "LQ" + mass_point
-        # this will need to be fixed later if needed
-        # else:
-        #     # figure out mass point from name. currently the only case for this is RPV stop, where they are like 'Stop_M100_CTau100'
-        #     mass = int(signal_name.split("_")[1].replace("M", ""))
-        #     if mass < 200:
-        #         mass = 200
-        #     selectionName = "LQ" + str(mass)
-        #     # print 'use selection name=',selectionName,'for fullSignalName=',fullSignalName
-        #     doMassPointLoop = False
-
-        if selectionName != "preselection":
-            txt_file_name = fullSignalName + ".txt\n"
-
-            card_file.write(txt_file_name + "\n\n")
-            card_file.write("imax " + str(n_channels) + "\n")
-            card_file.write("jmax " + str(n_background) + "\n")
-            if doSystematics:
-                card_file.write("kmax " + str(n_systematics) + "\n\n")
-            else:
-                card_file.write("kmax 0\n\n")
-            card_file.write("---------------\n")
-            card_file.write("shapes * * "+str(Path(shapeHistos_filePath).resolve())+" yieldFinalSelection_$MASS_$PROCESS\n")
-            card_file.write("---------------\n")
-            card_file.write("bin bin1\n\n")
-
-            total_data = d_data_rates["DATA"][selectionName]
-            card_file.write("observation " + str(total_data) + "\n\n")
-
-            line = "bin "
-            for i_channel in range(0, n_background + 1):
-                line = line + "bin1 "
-            card_file.write(line + "\n")
-
-            line = "process " + fullSignalName + " "
-            for background_name in background_names:
-                line = line + background_name + " "
-            card_file.write(line + "\n")
-
-            line = "process 0 "
-            for background_name in background_names:
-                line = line + "1 "
-            card_file.write(line + "\n\n")
-
-            # rate line
-            line = "rate -1 "
-            for background_name in background_names:
-                line = line + "-1 "
-            card_file.write(line.strip() + "\n")
-            card_file.write("------------------------------\n")
-            card_file.write("* autoMCStats "+str(thresholdForAutoMCStats)+"\n")
-
-        # print signal_name, mass_point, total_signal, total_bkg, total_data
-        # print signal_name+str(mass_point), total_signal, total_bkg
-
-        # recall the form: systDict['PileupUp'/systematicFromHist]['ZJet_amcatnlo_ptBinned'/sampleName]['LQXXXX'/selection] = yield
-        # for RPV, select proper signalSystDict based on ctau of signal
-        # FIXME
-        # if doRPV:
-        #     ctau = int(signal_name[signal_name.find("CTau") + 4:])
-        #     signalSystDict = signalSystDictByCTau[ctau]
-        if doSystematics:
-            d_systematicsApplied[selectionName] = {}
-            d_systematicsApplied[selectionName][signalNameForFile] = []
-            for syst in systematicsNamesBackground:
-                # if int(mass_point) > maxLQSelectionMass:
-                #     selectionNameSyst = "LQ"+str(maxLQSelectionMass)
-                # else:
-                #     selectionNameSyst = selectionName
-                selectionNameSyst = selectionName
-                line = syst + " lnN "
-                if syst in systematicsNamesSignal and selectionName != "preselection":
-                    if signalNameForFile not in list(d_systNominals.keys()):
-                        d_systNominals[signalNameForFile] = {}
-                        d_systNominalErrs[signalNameForFile] = {}
-                        d_systUpDeltas[signalNameForFile] = {}
-                        d_systDownDeltas[signalNameForFile] = {}
-                    if syst not in list(d_systNominals[signalNameForFile].keys()):
-                        d_systNominals[signalNameForFile][syst] = {}
-                        d_systNominalErrs[signalNameForFile][syst] = {}
-                        d_systUpDeltas[signalNameForFile][syst] = {}
-                        d_systDownDeltas[signalNameForFile][syst] = {}
-                    systEntry, deltaOverNominalUp, deltaOverNominalDown = GetSystematicEffectAbs(syst, signalNameForFile, selectionNameSyst, d_signal_systs)
-                    thisSigEvts = d_signal_rates[signalNameForFile][selectionNameSyst]
-                    thisSigEvtErr = d_signal_rateErrs[signalNameForFile][selectionNameSyst]
-                    thisSigSystUp = deltaOverNominalUp*thisSigEvts
-                    thisSigSystDown = deltaOverNominalDown*thisSigEvts
-                    d_systNominals[signalNameForFile][syst][selectionNameSyst] = thisSigEvts
-                    d_systNominalErrs[signalNameForFile][syst][selectionNameSyst] = thisSigEvtErr
-                    d_systUpDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystUp
-                    d_systDownDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystDown
-                    if EntryIsValid(systEntry):
-                        d_systematicsApplied[selectionName][signalNameForFile].append(syst)
-                        line += str(systEntry) + " "
-                    else:
-                        line += "- "
-                else:
-                    line += "- "
-                for ibkg, background_name in enumerate(background_names):
-                    if background_name not in d_systematicsApplied[selectionName]:
-                        d_systematicsApplied[selectionName][background_name] = []
-                    if background_name not in list(d_systNominals.keys()):
-                        d_systNominals[background_name] = {}
-                        d_systNominalErrs[background_name] = {}
-                        d_systUpDeltas[background_name] = {}
-                        d_systDownDeltas[background_name] = {}
-                    if syst not in list(d_systNominals[background_name].keys()):
-                        d_systNominals[background_name][syst] = {}
-                        d_systNominalErrs[background_name][syst] = {}
-                        d_systUpDeltas[background_name][syst] = {}
-                        d_systDownDeltas[background_name][syst] = {}
-                    systEntry, deltaOverNominalUp, deltaOverNominalDown = GetSystematicEffectAbs(syst, background_name, selectionNameSyst, d_background_systs)
-                    thisBkgEvts = d_background_rates[background_name][selectionNameSyst]
-                    thisBkgEvtErr = d_background_rateErrs[background_name][selectionNameSyst]
-                    thisBkgSystUp = deltaOverNominalUp*thisBkgEvts
-                    thisBkgSystDown = deltaOverNominalDown*thisBkgEvts
-                    d_systNominals[background_name][syst][selectionNameSyst] = thisBkgEvts
-                    d_systNominalErrs[background_name][syst][selectionNameSyst] = thisBkgEvtErr
-                    d_systUpDeltas[background_name][syst][selectionNameSyst] = thisBkgSystUp
-                    d_systDownDeltas[background_name][syst][selectionNameSyst] = thisBkgSystDown
-                    if EntryIsValid(systEntry):
-                        d_systematicsApplied[selectionName][background_name].append(syst)
-                        line += str(systEntry) + " "
-                    else:
-                        line += "- "
-                    # if "ZJet" in background_name and "800" in selectionNameSyst and "EES" in syst:
-                    try:
-                        if float(systEntry) < 0:
-                             print("INFO: For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
-                                     background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
-                    except ValueError:
-                        continue
-                if selectionName != "preselection":
-                    card_file.write(line + "\n")
-
-        if selectionName != "preselection":
-            card_file.write("\n\n\n")
-        if not doMassPointLoop:
-            break
-
-card_file.close()
+WriteDatacard(datacard_filePath)
 print("Done")
 
 table_file = open(tables_filePath, "w")
@@ -1384,11 +1439,11 @@ if doSystematics:
         for syst in systematicsNamesBackground:
             print("INFO: total syst table for selection {}".format(selectionName))
             selectionNameSyst = selectionName
-            if selectionName != "preselection":
+            if selectionName != "preselection" and selectionName != "trainingSelection":
                 massPoint = selectionName.replace("LQ", "")
                 if int(massPoint) > maxLQSelectionMass:
                     selectionNameSyst = "LQ"+str(maxLQSelectionMass)
-            if syst in systematicsNamesSignal and selectionName != "preselection":
+            if syst in systematicsNamesSignal and selectionName != "preselection" and selectionName != "trainingSelection":
                 for i_signal_name, signal_name in enumerate(signal_names):
                     fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
                     thisEntry, sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown = GetSystematicEffectAbs(syst, signalNameForFile, selectionNameSyst, d_signal_systs)
@@ -1451,7 +1506,7 @@ if doSystematics:
             thisBkgTotalSystOverNomSqr = 0
             for syst in systematicsNamesBackground:
                 selectionNameSyst = selectionName
-                if selectionName != "preselection":
+                if selectionName != "preselection" and selectionName != "trainingSelection":
                     massPoint = selectionName.replace("LQ", "")
                     if int(massPoint) > maxLQSelectionMass:
                         selectionNameSyst = "LQ"+str(maxLQSelectionMass)
@@ -1466,7 +1521,7 @@ if doSystematics:
                 otherBkgTotalDeltaXOverXSqr += thisBkgSystOverNom*thisBkgSystOverNom
         d_totalSystDeltaXOverX[selectionName]["otherBackgrounds"] = math.sqrt(otherBkgTotalDeltaXOverXSqr)
         for i_signal_name, signal_name in enumerate(signal_names):
-            if selectionName == "preselection":
+            if selectionName == "preselection" and selectionName != "trainingSelection":
                 d_totalSystDeltaXOverX[selectionName][signalNameForFile] = 0.0
                 continue
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
@@ -1516,7 +1571,7 @@ if doSystematics:
             upVariation = []
             downVariation = []
             sortedSelectionDict = sorted(
-                    iter(d_systNominals[sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0")))
+                    iter(d_systNominals[sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")))
             thisSystTableHeaders = ["% at "+sName[0] for sName in sortedSelectionDict]
             if len(tableHeaders) == 1:
                 tableHeaders.extend(thisSystTableHeaders)
@@ -1539,7 +1594,7 @@ if doSystematics:
                     fillVal = max(100*float(d_systUpDeltas[sampleName][syst][selection])/value,
                                   100*float(d_systDownDeltas[sampleName][syst][selection])/value)
                     # tableRow.append(fillVal)
-                    if selection != "preselection":
+                    if selection != "preselection" and selection != "trainingSelection":
                         mass = float(selection.replace("LQ", ""))
                         systHist.Fill(mass, fillVal)
                 tableRow.append(fillVal)
@@ -1619,6 +1674,8 @@ if doSystematics:
                 continue  # skip other signals besides the one corresponding to this selection
             if selection == "preselection":
                 massList.append(0.0)
+            elif selectionName != "trainingSelection":
+                massList.append(1.0)
             else:
                 massList.append(float(selection.replace("LQ", "")))
             nominals.append(0.0)
@@ -1675,15 +1732,15 @@ latexRowsAN = []
 latexRowsPaper = []
 t = PrettyTable(columnNames)
 t.float_format = "4.3"
-selectionNames = ["preselection"]
-selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
+# selectionNames = ["preselection"]
+# selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
 for i_signal_name, signal_name in enumerate(signal_names):
     for i_sel_name, selectionName in enumerate(selectionNames):
         # signal events
         thisSigEvts = "-"
         thisSigEvtsErrUp = "-"
         thisSigEvtsErrDown = "-"
-        if selectionName != "preselection":
+        if selectionName != "preselection" and selectionName != "trainingSelection":
             massPoint = selectionName.replace("LQ", "")
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
             thisSigEvts = d_signal_rates[signalNameForFile][selectionName]
@@ -1827,7 +1884,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
             else:
                 latexRowPaper[i] += " \\\\ "
         latexRowsPaper.append("".join(latexRowPaper))
-        if selectionName == "preselection":
+        if selectionName == "preselection" or selectionName == "trainingSelection":
             latexRowsAN.append("\\hline")
             latexRowsPaper.append("\\hline")
 print(t)
@@ -1871,5 +1928,8 @@ print()
 table_file.write("\n")
 
 table_file.close()
-print("datacard written to {}".format(card_file_path))
+
+# acc * eff
+plotSignalEfficiencyTimesAcceptance(dataMC_filepath, [int(m) for m in mass_points])
+print("datacard written to {}".format(datacard_filePath))
 print("tables written to {}".format(tables_filePath))

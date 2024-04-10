@@ -1673,8 +1673,10 @@ def GetXSecTimesIntLumi(sampleNameFromDataset):
 
 def GetFinalSelection(selectionPoint, doEEJJ):
     # min_M_ej_LQ300 for eejj
-    selection = "preselection"
-    if "preselection" not in selectionPoint:
+    selectionsToKeep = ["preselection", "trainingSelection"]
+    if any(selectionPoint == sel for sel in selectionsToKeep):
+        return selectionPoint
+    else:
         if doEEJJ:
             if selectionPoint.isdigit():
                 selection = finalSelectionName+"_LQ"+selectionPoint
@@ -1756,7 +1758,6 @@ def GetRatesAndErrors(
     #  print 'EXIT'
     #  exit(-1)
     # rate = mejHist.Integral()
-
     scaledHistName = "profile1D__"+sampleName+"__"+histName
     scaledHist = combinedRootFile.Get(scaledHistName)
     if not scaledHist or scaledHist.ClassName() != "TProfile":
@@ -1771,6 +1772,50 @@ def GetRatesAndErrors(
     # raw events (without weights or any kind of scaling) will always be the BinEntries in a TProfile, even if scaling/weights are applied
     rawEventsAtSelection = scaledHist.GetBinEntries(selectionBin)
     return rate, rateErr, rawEventsAtSelection
+
+
+def GetFailingRatesAndErrors(
+        combinedRootFile,
+        sampleName,
+        selection,
+        trainingSelectionCutName,
+        doEEJJ=True,
+        isDataOrQCD=False,
+        isTTBarFromData=False,
+        ):
+    verbose = False
+    if verbose or isTTBarFromData:
+        print("GetFailingRatesAndErrors(", combinedRootFile.GetName(), sampleName, selection, doEEJJ, isDataOrQCD, isTTBarFromData, ")")
+    histName = "EventsPassingCuts"
+    scaledHistName = "profile1D__"+sampleName+"__"+histName
+    scaledHist = combinedRootFile.Get(scaledHistName)
+    if not scaledHist or scaledHist.ClassName() != "TProfile":
+        raise RuntimeError("Could not find TProfile named '{}' in file: {}".format(scaledHistName, combinedRootFile.GetName()))
+    selection = GetFinalSelection(selection, doEEJJ)
+    selectionBin = scaledHist.GetXaxis().FindFixBin(selection)
+    if selectionBin < 1:
+        raise RuntimeError("Could not find requested selection name '{}' in hist {} in file {}".format(
+            selection, scaledHistName, combinedRootFile.GetName()))
+    prevSelectionBin = scaledHist.GetXaxis().FindFixBin(trainingSelectionCutName)
+    if prevSelectionBin < 1:
+        raise RuntimeError("Could not find requested selection name '{}' in hist {} in file {}".format(
+            trainingSelectionCutName, scaledHistName, combinedRootFile.GetName()))
+    passRate = scaledHist.GetBinContent(selectionBin)*scaledHist.GetBinEntries(selectionBin)
+    prevRate = scaledHist.GetBinContent(prevSelectionBin)*scaledHist.GetBinEntries(prevSelectionBin)
+    failRate = prevRate - passRate
+    passRateErr = math.sqrt(scaledHist.GetSumw2().At(selectionBin))
+    prevRateErr = math.sqrt(scaledHist.GetSumw2().At(prevSelectionBin))
+    failRateErr = math.sqrt(pow(passRateErr, 2) + pow(prevRateErr, 2))
+    # raw events (without weights or any kind of scaling) will always be the BinEntries in a TProfile, even if scaling/weights are applied
+    rawEventsAtSelection = scaledHist.GetBinEntries(selectionBin)
+    rawEventsAtPrevSelection = scaledHist.GetBinEntries(prevSelectionBin)
+    rawEventsAtFailSelection = rawEventsAtPrevSelection - rawEventsAtSelection
+    if verbose:
+        print("\tselectionBin={}, prevSelectionBin={}".format(selectionBin, prevSelectionBin))
+        print("\tpassRate={}, prevRate={}, failRate={}".format(passRate, prevRate, failRate))
+        print("\tpassRateErr={}, prevRateErr={}, failRateErr={}".format(passRateErr, prevRateErr, failRateErr))
+        print("\trawEventsAtPrevSel={}, rawEventsAtSel={}, rawEventsAtFailSel={}".format(rawEventsAtPrevSelection, rawEventsAtSelection, rawEventsAtFailSelection))
+    return failRate, failRateErr, rawEventsAtFailSelection
 
 
 def IsHistEmpty(hist):
@@ -1969,14 +2014,15 @@ def SeparateDatacards(txtFilePath, cardIndex, dirPath):
         if match is not None:
             if len(cardContent) > 0:
                 tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
-                tmpFileByMass[mass] = tmpFile
+                tmpFileByMass[int(mass)] = tmpFile
+                massList.append(int(mass))
             cardContent = []
             mass = match.group(1)
-            massList.append(mass)
         else:
             cardContent.append(line)
     if len(cardContent) > 0:
         tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
-        tmpFileByMass[mass] = tmpFile
+        tmpFileByMass[int(mass)] = tmpFile
+        massList.append(int(mass))
     print("INFO: Wrote tmp datacards obtained from {} for masses {} to {}".format(txtFilePath, massList, dirPath), flush=True)
     return massList, tmpFileByMass
