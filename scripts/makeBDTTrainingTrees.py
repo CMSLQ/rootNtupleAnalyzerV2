@@ -207,19 +207,30 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
                 inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 ],
-            #"ZJet_powhegminnlo" : [
-            #    inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-            #    ],
+            "ZJet_powhegminnlo" : [
+                inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                ],
+            "ZJet_HT_LO"  :  [
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-100to200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-200to400_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-400to600_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-600to800_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-800to1200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-1200to2500_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-2500toInf_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-70to100_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8.txt",
+                 ],
             "TTbar_powheg" : [
                 inputListBkgBase+"TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8.txt",
                 inputListBkgBase+"TTToHadronic_TuneCP5_13TeV-powheg-pythia8.txt",
@@ -344,10 +355,10 @@ branchesToSave = [
         "run",
         "ls",
         "event",
-        # "Weight",
-        # "PrefireWeight",
-        # "puWeight",
-        # "EventTriggerScaleFactor",
+        "Weight",
+        "PrefireWeight",
+        "puWeight",
+        "EventTriggerScaleFactor",
         # "ZVtxSF",
         # "Ele1_RecoSF",
         # "Ele2_RecoSF",
@@ -404,11 +415,11 @@ parallelize = True
 date = "9oct2023"
 includeQCD = True
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/preselOnly"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/aprSkims/trainingTreeInputs/preselOnly"
 inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/singleFR/"
 inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/"+str(year)+"/febSkims_amcatnloDY"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/"+str(year)+"/aprSkims_allDY"
 signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
 
 if __name__ == "__main__":

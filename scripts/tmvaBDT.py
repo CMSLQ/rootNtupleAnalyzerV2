@@ -7,6 +7,7 @@ from array import array
 from collections import OrderedDict
 import sys
 import os
+import shutil
 import math
 import multiprocessing
 import traceback
@@ -15,7 +16,7 @@ import numpy as np
 import ctypes
 import time
 from optparse import OptionParser
-
+from tabulate import tabulate
 from combineCommon import ParseXSectionFile, lookupXSection
 
 import ROOT
@@ -93,14 +94,78 @@ def LoadChainFromTxtFile(txtFile, console=None):
     #     print(logString)
     return ch
 
+def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainingSample, testOutputTree, trainOutputTree, lqMass, eosDir):
+    ROOT.DisableImplicitMT() #I need rdataframe Range, which doesn't work with implicit mt
+    if not os.path.isdir(eosDir+"/perSampleTrainingTrees"):
+        os.mkdir(eosDir+"/perSampleTrainingTrees")
+    if not os.path.isdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)):
+        os.mkdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass))
+    
+    if "ZJet" in key and "amcatnlo" in key and not "amcatnlo" in ZJetTrainingSample: #amcatnlo DY goes in testing if we train with a different DY sample. If we train with amcatnlo, then we need to use the later code where we split the tree instead of using half the weight
+        print("Use weight/2 for dataset "+datasetName)
+        print("Add NEvents {} from {} dataset {} with weight/2 = {} to TESTING".format(tchain.GetEntries(), key, datasetName, weight/2))
+        df = RDataFrame(tchain) 
+        df = df.Define("perSampleWeight", str(weight)) 
+        df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"  
+        df.Snapshot("testTree",filename)
+        testOutputTree.Add(filename)
+    elif ZJetTrainingSample in key and not "amcatnlo" in ZJetTrainingSample: #DY for training. See above comment about training with amcatnlo
+        print("Use weight/2 for dataset "+datasetName)
+        print("Add NEvents {} from {} dataset {} with weight/2 = {} to TRAINING".format(tchain.GetEntries(), key, datasetName, weight/2))
+        df = RDataFrame(tchain)
+        df = df.Define("perSampleWeight", str(weight))
+        df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_train"+str(lqMass)+".root"
+        df.Snapshot("trainTree", filename)
+        trainOutputTree.Add(filename)
+ 
+    elif "QCDFakes" in key: #QCD always goes only in testing
+        print("Use weight/2 for dataset "+datasetName)
+        print("Add NEvents {} from {} dataset {} with weight/2 = {} to TESTING".format(tchain.GetEntries(), key, datasetName, weight/2))
+        df = RDataFrame(tchain)
+        df = df.Define("perSampleWeight", str(weight))
+        df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"
+        df.Snapshot("testTree",filename)
+        testOutputTree.Add(filename)
+    else: #everything else goes in both. Also, amcatnlo should end up going through this part if we train with amcatnlo DY
+        tchain.SetWeight(weight,"global")
+        df = RDataFrame(tchain)
+        df = df.Define("perSampleWeight", str(weight))
+        df = df.Define("fullWeight","perSampleWeight * EventWeight")
+        dfTrain = df.Range(0,0,2) #even entries
+        dfTest = df.Range(1,0,2) #odd entries
+        filenameTrain = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_train"+str(lqMass)+".root"
+        filenameTest = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"
+        nTrain = dfTrain.Count()
+        nTest = dfTest.Count()
+        dfTrain.Snapshot("trainTree", filenameTrain)
+        print("Add NEvents {} from {} dataset {} with weight = {} to TRAINING".format(nTrain.GetValue(), key, datasetName, tchain.GetWeight()))
+        trainOutputTree.Add(filenameTrain)
+        dfTest.Snapshot("testTree",filenameTest)
+        print("Add NEvents {} from {} dataset {} with weight {} to TESTING".format(nTest.GetValue(), key, datasetName, tchain.GetWeight()))
+        testOutputTree.Add(filenameTest)
+    ROOT.EnableImplicitMT(6) #Turn this back on when we're done
 
-def LoadDatasets(datasetDict, neededBranches, signal=False, loader=None, year=None, lqMass=None, nLQPoints=1):
+def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", signal=False, loader=None, year=None, lqMass=None, nLQPoints=1):
+    #print("loadDatasets for dict: ")
+    #print(datasetDict)
     nTotEvents = 0
     nTotSumWeights = 0
+    if signal:
+        testTreeSig = TChain("testTree","testSig")
+        trainTreeSig = TChain("trainTree","trainSig")
+    else:
+        testTreeBkg = TChain("testTree","testBkg")
+        trainTreeBkg = TChain("trainTree", "trainBkg")
     cut = mycuts if signal else mycutb
     if loader is None:
         totalTChain = TChain("rootTupleTree/tree")
     for key, value in datasetDict.items():
+        if "ZJet" in key and not "amcatnlo" in key:
+            if not key==ZJetTrainingSample:
+                continue #we have three DY samples and we only need at most two of them. We always need amcatnlo DY but not necessarily the others.
         print("Loading tree for dataset={}; signal={}".format(key, signal))
         if isinstance(value, list):
             nSampleTotEvents = 0
@@ -120,11 +185,15 @@ def LoadDatasets(datasetDict, neededBranches, signal=False, loader=None, year=No
                 nSampleSumWeights = GetSumWeightsInChain(ch, cut, weight)
                 print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
                 if loader is not None:
-                    if signal:
-                        loader.AddSignalTree    ( ch, weight )
-                    else:
-                        loader.AddBackgroundTree( ch, weight/nLQPoints )
+                #    if signal:
+                #        loader.AddSignalTree    ( ch, weight )
+                #    else:
+                #        loader.AddBackgroundTree( ch, weight/nLQPoints )
                     print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
+                    if signal:
+                        PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeSig, trainTreeSig, lqMass, eosDir)
+                    else:
+                        PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeBkg, trainTreeBkg, lqMass, eosDir)
                 else:
                     totalTChain.Add(ch)
             print("Loaded tree for sample {} with {} entries; sumWeights={}.".format(key, nSampleTotEvents, nSampleSumWeights))
@@ -147,9 +216,13 @@ def LoadDatasets(datasetDict, neededBranches, signal=False, loader=None, year=No
             print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
             if loader is not None:
                 if signal:
-                    loader.AddSignalTree    ( ch, weight )
+                    PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeSig, trainTreeSig, lqMass, eosDir)
                 else:
-                    loader.AddBackgroundTree( ch, weight/nLQPoints )
+                    PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName,ZJetTrainingSample, testTreeBkg, trainTreeBkg, lqMass, eosdir)
+            #    if signal:
+            #        loader.AddSignalTree    ( ch, weight )
+            #    else:
+            #        loader.AddBackgroundTree( ch, weight/nLQPoints )
                 print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
             else:
                 totalTChain.Add(ch)
@@ -160,13 +233,26 @@ def LoadDatasets(datasetDict, neededBranches, signal=False, loader=None, year=No
     sys.stdout.flush()
     if loader is None:
         return totalTChain
-
+    else:
+        #loader.AddSignalTree(trainTreeSig, 1, "Training")
+        #loader.AddSignalTree(testTreeSig, 1, "Testing")
+        if not signal:
+            loader.AddBackgroundTree(trainTreeBkg, 1, "Training")
+            loader.AddBackgroundTree(testTreeBkg, 1, "Testing")
+            nEntriesTrainBkg = trainTreeBkg.GetEntries()
+            return nEntriesTrainBkg
+        else:
+            loader.AddSignalTree(trainTreeSig, 1, "Training")
+            loader.AddSignalTree(testTreeSig, 1, "Testing")
+            nEntriesTrainSig = trainTreeSig.GetEntries()
+            return nEntriesTrainSig
 
 def TrainBDT(args):
     lqMassToUse = args[0]
     year = args[1]
     normVars = args[2]
     eosDir = args[3]
+    ZJetTrainingSample = args[4]
     # just one use the single LQ signal specified by mass just above
     try:
         signalDatasetsDict = {}
@@ -180,14 +266,15 @@ def TrainBDT(args):
         factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
         
         loader = TMVA.DataLoader("dataset")
-        LoadDatasets(backgroundDatasetsDict, neededBranches, signal=False, loader=loader, lqMass=lqMassToUse, year=year)
-        LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=loader, lqMass=lqMassToUse, year=year)
+        nEntriesTrainBkg = LoadDatasets(backgroundDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=False, loader=loader, lqMass=lqMassToUse, year=year)
+        nEntriesTrainSig = LoadDatasets(signalDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=True, loader=loader, lqMass=lqMassToUse, year=year)
         
         #  Set individual event weights (the variables must exist in the original TTree)
         # if(analysisYear < 2018 && hasBranch("PrefireWeight") && !isData()) --> prefire weight
-        loader.SetBackgroundWeightExpression( eventWeightExpression )
-        loader.SetSignalWeightExpression( eventWeightExpression )
-        
+        #loader.SetBackgroundWeightExpression( eventWeightExpression )
+        #loader.SetSignalWeightExpression( eventWeightExpression )
+        loader.SetBackgroundWeightExpression("fullWeight")
+        loader.SetSignalWeightExpression("fullWeight")
         # define variables
         #loader.AddVariable( "myvar1 := var1+var2", 'F' )
         #loader.AddVariable( "myvar2 := var1-var2", "Expression 2", "", 'F' )
@@ -209,10 +296,11 @@ def TrainBDT(args):
         #
         # If no numbers of events are given, half of the events in the tree are used
         # for training, and the other half for testing:
+        loader.PrepareTrainingAndTestTree( mycuts, mycutb, "nTrain_Signal="+str(nEntriesTrainSig)+":nTrain_Background="+str(nEntriesTrainBkg)+":SplitMode=Block:NormMode=NumEvents:!V")
         # loader.PrepareTrainingAndTestTree( mycuts, mycutb, "V:SplitMode=random:NormMode=None:VerboseLevel=Debug" )
         # loader.PrepareTrainingAndTestTree( mycuts, mycutb, "!V:SplitMode=random:NormMode=NumEvents" )
         # loader.PrepareTrainingAndTestTree( mycuts, mycutb, "V:SplitMode=random:NormMode=EqualNumEvents:VerboseLevel=Debug" )
-        loader.PrepareTrainingAndTestTree( mycuts, mycutb, "V:SplitMode=random:NormMode=EqualNumEvents" )
+        #loader.PrepareTrainingAndTestTree( mycuts, mycutb, "V:SplitMode=random:NormMode=EqualNumEvents" )
         # To also specify the number of testing events, use:
         # loader.PrepareTrainingAndTestTree( mycut,
         #                                         "NSigTrain=3000:NBkgTrain=3000:NSigTest=3000:NBkgTest=3000:SplitMode=Random:!V" )
@@ -224,7 +312,12 @@ def TrainBDT(args):
         #         "V:NTrees=400:MinNodeSize=2.5%:MaxDepth=3:BoostType=AdaBoost:AdaBoostBeta=0.5:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20" )
         # factory.BookMethod(loader,TMVA.Types.kBDT, "BDT",
         #         "!V:NTrees=800:MinNodeSize=2.5%:MaxDepth=2:BoostType=Grad:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20" )
-        factory.BookMethod(loader, TMVA.Types.kBDT, "BDTG",
+        if "amcatnlo" in ZJetTrainingSample:
+            optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+        else:
+            optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+
+        factory.BookMethod(loader, TMVA.Types.kBDT, "BDTG", optionString)
                 # "!H:!V:NTrees=400:MinNodeSize=2.5%:MaxDepth=1:BoostType=Grad:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20:NegWeightTreatment=Pray" )
                 # "!H:!V:NTrees=400:MinNodeSize=2.5%:MaxDepth=1:BoostType=Grad:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20:NegWeightTreatment=IgnoreNegWeightsInTraining" )
                 # "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=850:MinNodeSize=2.5%:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" )  # LQ2
@@ -234,8 +327,11 @@ def TrainBDT(args):
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=125:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2:CreateMVAPdfs:NbinsMVAPdf=20" ) #try using few trees for high MLQ, more trees for low MLQ
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #  use bigger nodes, more depth
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=10%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #  use medium size nodes, more depth, ignore neg weights
-                "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #large node size, no neg weights    
-    
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #large node size, no neg weights    
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=InverseBoostNegWeights:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #Use decreaseBoostWeight, keep large node size and more depth
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=PairNegWeightsGlobal:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #Use annihilation method
+                #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20" )#comparing negative weight options with smaller nodes, more depth
+
         factory.TrainAllMethods()
         factory.TestAllMethods()
         factory.EvaluateAllMethods()
@@ -407,7 +503,7 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
 
-        binsToUse = 500 #100 # 10000
+        binsToUse = 100 # 10000
         hname = "hsig_" + name + "_" + str(lqMassToUse)
         htitle = "Classifier Output on signal for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
         hsig = TH1D(hname,htitle,binsToUse,-1.001,1.001)
@@ -429,16 +525,21 @@ def OptimizeBDTCut(args):
         histName = "BDTOutput{}LQM" + str(lqMassToUse)
         bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1.001, 1.001)
         bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1.001, 1.001)
+        bkgTotalNegWeightsOnly = TH1D(histName.format("TotalBackground")+"NegWeightsOnly",histTitle.format("all")+" (negative weight events only", binsToUse, -1.001,1.001)
         bkgHists = dict()
         bkgHistsUnweightedUnscaled = dict()
+        bkgHistsNegWeights = dict()
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
         for sample in backgroundDatasetsDict.keys():
+            if "ZJet" in sample and not "amcatnlo" in sample:
+                continue #use only amcatnlo DY for optimization
             bkgSampleIntegralOverCut = 0
             bkgSampleIntegral = 0
             bkgSampleIntegralHist = 0
             bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1.001, 1.001)
             bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
+            bkgHistsNegWeights[sample] = TH1D(histName.format(sample)+"_negWeightsOnly", histTitle.format(sample)+", negative weight events", binsToUse, -1.001, 1.001)
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
                 #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
@@ -468,6 +569,8 @@ def OptimizeBDTCut(args):
                 histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), "BDT", "eventWeight")
                 hbkgUnweighted =  TH1D(histName+"_unweighted", histName+"_unweighted", binsToUse, -1.001, 1.001)
                 histBkgUnweighted = df.Histo1D(ROOT.RDF.TH1DModel(hbkgUnweighted), "BDT")
+                hbkNegWeights = TH1D(histName+"_negWeights", histName+"_negWeights", binsToUse, -1.001, 1.001)
+                histBkgNegWeights = df.Filter('eventWeight < 0').Histo1D(ROOT.RDF.TH1DModel(hbkNegWeights),"BDT")
                 #bkgWeight = backgroundDatasetsWeightsTimesOneThousand[os.path.basename(txtFile).replace(".txt", "")]/1000.0
                 #bkgWeight = FindWeight(os.path.basename(txtFile).replace(".txt", ""), backgroundDatasetsWeightsTimesOneThousand)/1000.0
                 datasetName = os.path.basename(txtFile).replace(".txt", "")
@@ -480,9 +583,11 @@ def OptimizeBDTCut(args):
                 histBkg.Scale(bkgWeight)
                 bkgHists[sample].Add(histBkg)
                 bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted.GetValue())
+                bkgHistsNegWeights[sample].Add(histBkgNegWeights.GetValue())
                 bkgTotal.Add(histBkg)
                 #bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
                 bkgTotalUnweighted.Add(histBkgUnweighted.GetValue())
+                bkgTotalNegWeightsOnly.Add(histBkgNegWeights.GetValue())
                 #h = df.Histo1D(hbkg, "BDT", "eventWeight")
                 #h.Draw()
                 bkgIntegral = df.Sum("eventWeight").GetValue()*bkgWeight
@@ -577,6 +682,7 @@ def OptimizeBDTCut(args):
         #totalSignalEventsUnscaled = GetSignalTotalEvents(lqMassToUse)
         #sumWeights = GetSignalSumWeights(lqMassToUse)
         fomValueToCutInfoDict = {}
+        unusedFOMs = []
         fomList = []
         nSList = []
         effList = []
@@ -603,8 +709,9 @@ def OptimizeBDTCut(args):
                 nBThisProcess = hist.IntegralAndError(iBin, hist.GetNbinsX(), nBThisProcessErr)
                 nBThisProcessErr = nBThisProcessErr.value
                 if nBThisProcess < 0:
-                    skipFOMCalc = True
-                    break
+                    nBThisProcess = 0
+                    #skipFOMCalc = True
+                    #break
                 nB += nBThisProcess
                 nBErr += nBThisProcessErr*nBThisProcessErr
             if includeQCD:
@@ -626,6 +733,8 @@ def OptimizeBDTCut(args):
                     #     cutVal, -1*limit*qcd1FRYield, qcd2FRDataYield, qcd1FRDataYield, qcd1FRDYJYield, qcd1FRYield, -1*limit*qcd1FRYield, qcd1FRYield, -1*limit*qcd1FRYield+qcd1FRYield))
                     qcd2FRDataYield = -1*limit*qcd1FRYield
                 nB += qcd2FRDataYield+qcd1FRYield
+                if nB<0: #after we're done adding things to nB, if it's still negative then we need to not do the FOM calc.
+                    skipFOMCalc = True
                 nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
                 nBErr = math.sqrt(nBErr)
             # if nB < 3:
@@ -640,13 +749,16 @@ def OptimizeBDTCut(args):
             #     print("Evaluate figure of merit for nS={}, nB={}, unweightedNs={}, unweightedNb={}".format(nS, nB, unweightedNs, unweightedNb), flush=True)
             #     exit(0)
             # require at least one background event expected
-            if nB > 1.0 and not skipFOMCalc:
+            if nB > 0.5 and not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zbi")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "ssb")
             else:
+                #we want to know if we could have cut tighter without the minimum bkg requirement
+                unusedFOM = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
+                unusedFOMs.append(unusedFOM)
                 fom = 0.0
             fomValueToCutInfoDict[iBin] = [fom, cutVal, nS, efficiency, nB]
             fomList.append(fom)
@@ -657,6 +769,7 @@ def OptimizeBDTCut(args):
             nSErrList.append(nSErr.value)
             nBErrList.append(nBErr)
             effErrList.append(effErr)
+
         # sort by FOM
         sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
         # now the max FOM value should be the first entry
@@ -671,8 +784,13 @@ def OptimizeBDTCut(args):
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
         valList = [maxVal[0]]
         valList.extend(maxVal[1])
+        if len(unusedFOMs)>0 and max(unusedFOMs) > valList[1]:
+            unusedVal = max(unusedFOMs)
+            valList.append("yes")
+        else:
+            valList.append("no")
         sharedOptValsDict[lqMassToUse] = valList
-        sharedOptHistsDict[lqMassToUse] = [histSig.GetValue(), bkgTotal, histSigUnweighted.GetValue(), bkgTotalUnweighted]
+        sharedOptHistsDict[lqMassToUse] = [histSig.GetValue(), bkgTotal, histSigUnweighted.GetValue(), bkgTotalUnweighted, bkgTotalNegWeightsOnly]
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
         sharedFOMInfoDict[lqMassToUse]["nS"] = nSList
         sharedFOMInfoDict[lqMassToUse]["eff"] = effList
@@ -728,14 +846,13 @@ def OptimizeBDTCut(args):
 
 
 def DoROCAndBDTPlots(args):
-    rootFileName, bdtWeightFileName, lqMassToUse, year = args
-    startTime = time.time()
-    timeMakingHistos = 0
+    rocAndBDTPlots, bdtWeightFileName, lqMassToUse, year = args
+#    rootFile, bdtWeightFileName, lqMassToUse, year = args
     try:
-        rootFile = TFile.Open(rootFileName, "update")
-        rootFile.cd()
-        rootFile.mkdir("LQM{}".format(lqMassToUse))
-        rootFile.cd("LQM{}".format(lqMassToUse))
+        #rootFile = TFile.Open(rootFileName, "update")
+        #rootFile.cd()
+        #rootFile.mkdir("LQM{}".format(lqMassToUse))
+        #rootFile.cd("LQM{}".format(lqMassToUse))
         signalDatasetsDict = {}
         signalDatasetName = signalNameTemplate.format(lqMassToUse)
         signalDatasetsDict[signalDatasetName] = allSignalDatasetsDict[signalDatasetName]
@@ -761,6 +878,8 @@ def DoROCAndBDTPlots(args):
                 continue
             varHistsBkg[var] = TH1D(var+"_bkg", var+" bkg", *variableHistInfo[var])            
         for sample in backgroundDatasetsDict.keys():
+            if "ZJet" in sample and not "amcatnlo" in sample:
+                continue #use only amcatnlo DY in BDTPlots step
             for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
                 txtFile = txtFile.format(year, lqMassToUse)
                 #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
@@ -795,10 +914,9 @@ def DoROCAndBDTPlots(args):
                     bkgWeight = 1.0
                 df = df.Define("datasetWeight", str(bkgWeight))
                 df = df.Redefine("eventWeight", "eventWeight*datasetWeight")
-                bkgMvaValues.extend(df.Take["float"]("BDT").GetValue())
-                bkgWeights.extend(df.Take["double"]("eventWeight").GetValue())
+                temp_bkgMvaValues = df.Take["float"]("BDT")
+                temp_bkgWeights = df.Take["double"]("eventWeight")
                 
-                st = time.time()
                 histosToRun = []
                 hbkg = {}
                 histBkg = {}
@@ -811,19 +929,27 @@ def DoROCAndBDTPlots(args):
                     # histBkg.Scale(bkgWeight)
                     histosToRun.append(histBkg[var])
                 ROOT.RDF.RunGraphs(histosToRun)
+
+                bkgMvaValues.extend(temp_bkgMvaValues.GetValue())
+                bkgWeights.extend(temp_bkgWeights.GetValue())
+
                 for var in variableList+["BDT"]:
                     if var == "LQCandidateMass":
                         continue
                     varHistsBkg[var].Add(histBkg[var].GetPtr())
-                et = time.time()
-                timeMakingHistos += et - st    
-        rootFile.cd("LQM{}".format(lqMassToUse))
+        plotDict = {}
+        plotDict[str(lqMassToUse)] = {}
+        plotDict[str(lqMassToUse)]["bkg"] = {}
+        for var in variableList+["BDT"]:
+            if var == "LQCandidateMass":
+                continue
+            plotDict[str(lqMassToUse)]["bkg"][var] = varHistsBkg[var]        
+        #rocAndBDTPlots.update(plotDict)
+        #rootFile.cd("LQM{}".format(lqMassToUse))
 
-        st = time.time()
-        for varHist in varHistsBkg.values():
-            varHist.Write()
-        et = time.time()
-        timeMakingHistos+= et - st
+        #for varHist in varHistsBkg.values():
+         #   varHist.Write()
+
         # signal
         tchainSig = LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=None, lqMass=lqMassToUse, year=year)
         dfSig = RDataFrame(tchainSig)
@@ -846,21 +972,29 @@ def DoROCAndBDTPlots(args):
         signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
         dfSig = dfSig.Define("datasetWeight", str(signalWeight))
         dfSig = dfSig.Redefine("eventWeight", "eventWeight*datasetWeight")
+        takeBDTSig = dfSig.Take["float"]("BDT")
+        takeEventWeightSig = dfSig.Take["double"]("eventWeight")
         # vars
-        rootFile.cd("LQM{}".format(lqMassToUse))
-        st = time.time()
+        #rootFile.cd("LQM{}".format(lqMassToUse))
+        sigHists = {}
         for var in variableList+["BDT"]:
             if var == "LQCandidateMass":
                 continue
             hsig = TH1D(var+"_LQ{}".format(lqMassToUse), var+" LQ{}".format(lqMassToUse), *variableHistInfo[var])
             histSig = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), var, "eventWeight")
-            histSig.Scale(signalWeight)
-            histSig.Write()
-        et = time.time()
-        timeMakingHistos += et - st
+            sigHists[var] = histSig
+            #histSig.Scale(signalWeight)
+            #histSig.Write()
+        plotDict[str(lqMassToUse)]["sig"] = {}
+        for var in variableList+["BDT"]:
+            if var == "LQCandidateMass":
+                continue
+            #histSig = histSig.GetPtr()
+            sigHists[var].Scale(signalWeight)
+            plotDict[str(lqMassToUse)]["sig"][var] = sigHists[var].GetPtr()
+
         # ROC
-        startROCcode = time.time()
-        rocCurve = TMVA.ROCCurve(dfSig.Take["float"]("BDT").GetValue(), bkgMvaValues, dfSig.Take["double"]("eventWeight").GetValue(), bkgWeights)
+        rocCurve = TMVA.ROCCurve(takeBDTSig.GetValue(), bkgMvaValues, takeEventWeightSig.GetValue(), bkgWeights)
         rocGraph = rocCurve.GetROCCurve(500)
         c = TCanvas("rocLQ"+str(lqMassToUse))
         c.cd()
@@ -869,22 +1003,21 @@ def DoROCAndBDTPlots(args):
         if not os.path.isdir("dataset/plots"):
             os.mkdir("dataset/plots")
         c.Print("dataset/plots/"+"rocLQ"+str(lqMassToUse)+".png")
-        rootFile.cd("LQM{}".format(lqMassToUse))
-        rocGraph.Write()
+       # rootFile.cd("LQM{}".format(lqMassToUse))
+        plotDict[str(lqMassToUse)]["ROC"] = rocGraph
+        plotDict[str(lqMassToUse)]["ROC"] = rocGraph
+#        rocGraph.Write()
         rocAUC = rocCurve.GetROCIntegral(500)
         print("For lqMass={}, got ROC AUC = {}".format(lqMassToUse, rocAUC))
+        #print(plotDict)
+        rocAndBDTPlots[str(lqMassToUse)].update(plotDict[str(lqMassToUse)])
+        #rocAndBDTPlots[str(lqMassToUse)] = plotDict[str(lqMassToUse)]
 
-        rootFile.Close()
+        #rootFile.Close()
     except Exception as e:
         print("ERROR: exception in DoROCAndBDTPlots for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
         raise e
-    endTime = time.time()
-    ROCTime = endTime - startROCcode
-    totTime = endTime - startTime
-    print("total time = ", totTime)
-    print("time spent making and writing histograms = ", timeMakingHistos)
-    print("time to make ROC curve = ", ROCTime)
     return True
 
 @ROOT.Numba.Declare(["int"], "float")
@@ -893,11 +1026,27 @@ def GetMassFloat(mass):
 
 
 def PrintBDTCuts(optValsDict, parametrized):
-    for mass, valList in optValsDict.items():
-        valListFormatted = ["{:0.4f}".format(i) for i in valList]
-        print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
-    sortedDict = OrderedDict(sorted(optValsDict.items(), key=lambda t: float(t[1][2])))
-    for mass, valList in sortedDict.items():
+    sortedDictMass = OrderedDict(sorted(optValsDict.items()))
+    dataForTable = []
+    headers = ["mass", "bin", "max FOM", "cut value", "nS", "eff", "nB", "min. bkg limited"]
+    for mass, valList in sortedDictMass.items():
+        valListFormatted = []
+        for i in range(6):
+            valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
+        valListFormatted.append(valList[6])
+        #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
+        l = [mass]+valListFormatted
+        dataForTable.append(l)
+    table = tabulate(dataForTable, headers, tablefmt="pretty")
+    print(table)
+    tableLaTex = tabulate(dataForTable, headers, tablefmt="latex")
+    print(114*"-")
+    print("Table in LaTex format:")
+    print(tableLaTex)
+    print(114*"-")
+    print("data for cutfiles:")
+    sortedDictCutVal = OrderedDict(sorted(optValsDict.items(), key=lambda t: float(t[1][2])))
+    for mass, valList in sortedDictCutVal.items():
         print("#"+114*"-")
         print("# LQ M {} optimization".format(mass))
         print("#"+114*"-")
@@ -989,6 +1138,10 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
         bkgUnweightedHist.SetLineWidth(2)
         bkgUnweightedHist.SetLineColor(backgroundColor)
         bkgUnweightedHist.Write()
+        bkgNegWeightHist = optHistsList[4]
+        bkgNegWeightHist.SetLineColor(backgroundColor)
+        bkgNegWeightHist.SetLineWidth(2)
+        bkgNegWeightHist.Write()
         # now make overlay canvas
         signalHist.Rebin(rebinFactor)
         bkgHist.Rebin(rebinFactor)
@@ -1060,19 +1213,30 @@ def GetBackgroundDatasets(inputListBkgBase):
                 inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 ],
-            #"ZJet_powhegminnlo" : [
-                #inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+            "ZJet_powhegminnlo" : [
+                inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
                 #inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                # inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                #],
+                #inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+                ],
+            "ZJet_HTLO" : [
+                 inputListBkgBase+"DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-70to100_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-100to200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-200to400_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-400to600_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-600to800_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-800to1200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-1200to2500_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 inputListBkgBase+"DYJetsToLL_M-50_HT-2500toInf_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
+                 ],
             "TTbar_powheg" : [
                 inputListBkgBase+"TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8.txt",
                 #inputListBkgBase+"TTToHadronic_TuneCP5_13TeV-powheg-pythia8.txt",
@@ -1293,6 +1457,7 @@ if __name__ == "__main__":
     # Apply additional cuts on the signal and background samples (can be different)
     mycuts = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1")
     mycutb = mycuts
+    #mycutb = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1 && sT_eejj < 4000 && Meejj <  5000")
     # mycuts = TCut("M_e1e2 > 200 && sT_eejj > 400 && PassTrigger==1")
     # mycutb = TCut("M_e1e2 > 200 && sT_eejj > 400 && PassTrigger==1")
     # mycuts = TCut("M_e1e2 > 220 && PassTrigger==1")
@@ -1341,6 +1506,14 @@ if __name__ == "__main__":
         help="make ROC plots",
         metavar="ROC",
     )
+    parser.add_option(
+        "-d",
+        "--dir",
+        dest="eosDir",
+        help="output dir for TMVAClassificationOutput files",
+        metavar="EOSDIR"
+    )
+
     (options, args) = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
@@ -1349,37 +1522,41 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_amcatnloDY/{}/QCDFakes_DATA_2FR/"
-    eosDir = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/"+str(year)+"/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/QCDFakes_DATA_2FR/"
+    ZJetTrainingSample = "ZJet_amcatnlo_ptBinned"
+    eosDir = options.eosDir
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
-    xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_13feb2024.txt"
-    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
-    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
+    #xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_4apr2024_dyjPowhegMiNNLO.txt"
+#    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
+#    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
+    xsectionFiles["2016postVFP"] = "xsection_withSF_allDY_4apr2024_2016postVFP.txt"
+    xsectionFiles["2016preVFP"] = "xsection_withSF_allDY_4apr2024_2016preVFP.txt"
     train = options.train
     optimize = options.optimize
     roc = options.roc
     parallelize = True
     parametrized = False
-    includeQCD = False
+    includeQCD = True
     normalizeVars = False
     # normTo = "Meejj"
     #lqMassesToUse = [2700]#,1100,1200]
-    #lqMassesToUse = list(range(1000, 2100, 100))
+    #lqMassesToUse = list(range(1200, 2000, 100))
     #lqMassesToUse = list(range(600, 1100, 100))
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
-    lqMassesToUse = list(range(300, 1600, 100))
+    #lqMassesToUse = list(range(300, 700, 100))
     #lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = list(range(800,1100,100))
-    #lqMassesToUse = [3000]#,400,500,600]
+    lqMassesToUse = [400]#,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(1500)+"_APV_BDTG.weights.xml"
-    optimizationPlotFile = os.path.abspath(os.getcwd())+"/optimizationPlots.root"
+    #optimizationPlotFile = os.path.abspath(os.getcwd())+"/optimizationPlots.root"
+    optimizationPlotFile = eosDir+"/optimizationPlots.root"
     bdtPlotFile = os.path.abspath(os.getcwd())+"/bdtPlots.root"
 
     if not parametrized:
@@ -1427,7 +1604,7 @@ if __name__ == "__main__":
                 jobCount = 0
                 for mass in lqMassesToUse:
                     try:
-                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir]], callback=log_result)
+                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir, ZJetTrainingSample]], callback=log_result)
                         jobCount += 1
                     except KeyboardInterrupt:
                         print("\n\nCtrl-C detected: Bailing.")
@@ -1449,7 +1626,7 @@ if __name__ == "__main__":
                     raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
             else:
                 for mass in lqMassesToUse:
-                    TrainBDT([mass, year, normalizeVars, eosDir])
+                    TrainBDT([mass, year, normalizeVars, eosDir, ZJetTrainingSample])
         print("INFO: Training {} done.".format("parametrized BDT" if parametrized else "BDT"))
     
     if optimize:
@@ -1467,6 +1644,7 @@ if __name__ == "__main__":
                 if not parametrized:
                     signalDatasetName = signalNameTemplate.format(mass)
                     weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
+                    #weightFile = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/febSkims/negWeightComparison/include/dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
                 dictOptFOMInfo[mass] = manager.dict()
                 try:
                     pool.apply_async(OptimizeBDTCut, [[weightFile.format(mass), mass, dictOptValues, dictOptHists, dictOptFOMInfo, year]], callback=log_result)
@@ -1498,39 +1676,70 @@ if __name__ == "__main__":
 
     if roc:
         print("INFO: Do ROC and BDT plots.")
-        if os.path.isfile(bdtPlotFile):
-            os.unlink(bdtPlotFile)
-        # if parallelize:
-        #     ncores = 4  # only use 4 parallel jobs to be nice
-        #     pool = multiprocessing.Pool(ncores)
-        #     jobCount = 0
-        #     for mass in lqMassesToUse:
-        #         try:
-        #             pool.apply_async(DoROCAndBDTPlots, [[bdtPlotFile, weightFile.format(mass), mass, year]], callback=log_result)
-        #             jobCount += 1
-        #         except KeyboardInterrupt:
-        #             print("\n\nCtrl-C detected: Bailing.")
-        #             pool.terminate()
-        #             exit(-1)
-        #         except Exception as e:
-        #             print("ERROR: caught exception in job for LQ mass: {}; exiting".format(mass))
-        #             traceback.print_exc()
-        #             exit(-2)
-        #     
-        #     # now close the pool and wait for jobs to finish
-        #     pool.close()
-        #     sys.stdout.write(logString.format(jobCount, len(lqMassesToUse)))
-        #     sys.stdout.write("\t"+str(len(result_list))+" jobs done")
-        #     sys.stdout.flush()
-        #     pool.join()
-        #     # check results?
-        #     if len(result_list) < jobCount:
-        #         raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
-        # else:
-        #     for mass in lqMassesToUse:
-        #         DoROCAndBDTPlots([bdtPlotFile, weightFile.format(mass), mass, year])
+        #if not os.path.isfile(bdtPlotFile):
+        rootFile = TFile.Open(bdtPlotFile, "recreate")
+        #rootFile.Close() 
+        manager = multiprocessing.Manager()
+        rocAndBDTPlots = manager.dict()
         for mass in lqMassesToUse:
-            if not parametrized:
-                signalDatasetName = signalNameTemplate.format(mass)
-                weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
-            DoROCAndBDTPlots([bdtPlotFile, weightFile, mass, year])
+            rootFile.mkdir("LQM{}".format(mass))  
+            rocAndBDTPlots[str(mass)] = manager.dict()
+            rocAndBDTPlots[str(mass)]["sig"] = manager.dict()
+            rocAndBDTPlots[str(mass)]["bkg"] = manager.dict()
+            #for var in variableList+["BDT"]:
+            #    if var == "LQCandidateMass":
+            #        continue
+            #    rocAndBDTPlots[str(mass)]["sig"][var] = {}
+            #    rocAndBDTPlots[str(mass)]["bkg"][var] = {}
+        if parallelize:
+            ncores = 4  # only use 4 parallel jobs to be nice
+            pool = multiprocessing.Pool(ncores)
+            jobCount = 0
+            for mass in lqMassesToUse:
+                try:
+                    if not parametrized:
+                        signalDatasetName = signalNameTemplate.format(mass)
+                        weightFileToUse = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
+                    else:
+                        weightFileToUse = "dataset/weights/TMVAClassification_BDTG.weights.xml"
+                    #rootFile.cd()
+                    #rootFile.cd("LQM{}".format(mass))
+                    pool.apply_async(DoROCAndBDTPlots, [[rocAndBDTPlots, weightFileToUse, mass, year]], callback=log_result)
+                    #pool.apply_async(DoROCAndBDTPlots, [[rootFile, weightFileToUse, mass, year]], callback=log_result)
+                    jobCount += 1
+                except KeyboardInterrupt:
+                    print("\n\nCtrl-C detected: Bailing.")
+                    pool.terminate()
+                    exit(-1)
+                except Exception as e:
+                    print("ERROR: caught exception in job for LQ mass: {}; exiting".format(mass))
+                    traceback.print_exc()
+                    exit(-2)
+            
+            # now close the pool and wait for jobs to finish
+            pool.close()
+            sys.stdout.write(logString.format(jobCount, len(lqMassesToUse)))
+            sys.stdout.write("\t"+str(len(result_list))+" jobs done")
+            sys.stdout.flush()
+            pool.join()
+            # check results?
+            if len(result_list) < jobCount:
+                raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
+        else:
+            for mass in lqMassesToUse:
+                if not parametrized:
+                    signalDatasetName = signalNameTemplate.format(mass)
+                    weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
+                DoROCAndBDTPlots([rocAndBDTPlots, weightFile, mass, year])
+        for mass in lqMassesToUse:
+        #    print(rocAndBDTPlots)
+            print("write hists for mass ", mass)
+            rootFile.cd()
+            rootFile.cd("LQM{}".format(mass))
+            for var in variableList+["BDT"]:
+                if var=="LQCandidateMass":
+                    continue
+                rocAndBDTPlots[str(mass)]["sig"][var].Write()
+                rocAndBDTPlots[str(mass)]["bkg"][var].Write()
+            rocAndBDTPlots[str(mass)]["ROC"].Write()
+        rootFile.Close()

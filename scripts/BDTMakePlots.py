@@ -36,7 +36,7 @@ maxMLQ = int(sys.argv[2])
 parameterized = False
 #parameterized = True
 moreVars = True
-folderName = str(minMLQ)+"To"+str(maxMLQ)+"GeV"
+folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
 if parameterized==True:
     if moreVars==True:
@@ -51,9 +51,9 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016preVFP/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins"
-        bdtPlotFile = "$LQDATAEOS/BDT_amcatnlo/2016preVFP/febSkims/dedicated_mass/maxDepth3/lowMassMoreBins/bdtPlots.root"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_mixed/2016preVFP/powheg-amcatnlo"
+        optimizationFile = base_folder+"/optimizationPlots.root"
+        bdtPlotFile = base_folder+"/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
         optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"
@@ -72,6 +72,7 @@ if not os.path.isdir(pdf_folder):
 outFile = TFile(outFileName,"recreate")
 variables = ["sT_eejj", "PFMET_Type1_Pt", "M_e1e2", "M_e1j1", "M_e1j2", "M_e2j1", "M_e2j2", "Ele1_Pt", "Ele2_Pt", "MejMin", "MejMax", "Meejj","Jet1_Pt", "Jet2_Pt", "Jet3_Pt"]
 LQmasses = list(range(minMLQ,maxMLQ+1,100))
+#LQmasses = [1300, 2000, 2200, 2300]
 print(LQmasses)
 for mass in LQmasses:
     path = pdf_folder+"/"+str(mass)
@@ -118,14 +119,15 @@ FOMVsMLQPlot.Write()
 c2.Print(pdf_folder+"/maxFOMvsMLQ.pdf")
 
 #Plot Ns and Nb vs BDT cut for each mass
-c = TCanvas()
-c.SetLogy()
-c.SetGridy()
 for mass in LQmasses:
+    c = TCanvas()
+    c.SetLogy()
+    c.SetGridy()
     NsPlot = optTFile.Get("LQM"+str(mass)+"/nSigVsBDTCutGraphLQM"+str(mass))
     NsPlot.GetYaxis().SetTitle("")
     NsPlot.SetTitle("")
     NbPlot = optTFile.Get("LQM"+str(mass)+"/nBkgVsBDTCutGraphLQM"+str(mass))
+    #print("use Nb plot ", NbPlot.GetName())
     NsList = np.array(NsPlot.GetY())
     NbList = np.array(NbPlot.GetY())
     NsMin = np.min(NsList[np.nonzero(NsList)])
@@ -134,31 +136,30 @@ for mass in LQmasses:
     NsMax = max(NsList)
     NbMax = max(NbList)
     plotMax = 2*max(NsMax,NbMax)
-    print(plotMin, plotMax)
     NbPlot.SetMarkerColor(kRed)
     NbPlot.SetLineColor(kRed)
     NsPlot.SetLineColor(kBlue)
     NbPlot.GetYaxis().SetTitle("")
-    NbPlot.SetTitle("yield vs optimal BDT cut")
-    NbPlot.GetYaxis().SetRangeUser(plotMin,plotMax)
+    NbPlot.SetTitle("yield vs BDT cut")
+    #NbPlot.GetYaxis().SetRangeUser(plotMin,plotMax)
     NbPlot.GetXaxis().SetTitle("opt. BDT cut")
     NsPlot.GetYaxis().SetRangeUser(plotMin,plotMax)
     NbPlot.SetMarkerSize(0.5)
     NsPlot.SetMarkerSize(0.5)
-    NbPlot.Draw("XAP")
-    NsPlot.Draw("XP")
+    NbPlot.Draw("AP")
+    #NsPlot.Draw("P")
     l = TLegend(0.9,0.8,0.99,0.9)
     l.AddEntry(NsPlot,"signal","p")
     l.AddEntry(NbPlot,"background", "p")
-    l.Draw("same")
+    #l.Draw("same")
     optCut = cutValues[str(mass)]
     line = TLine(optCut,plotMin,optCut,plotMax)
     line.SetLineColor(kAzure+8)
     line.Draw("same")
-    c.Print(pdf_folder+"/"+str(mass)+"/NvsBDTCutMLQ"+str(mass)+".pdf")
+    c.Print(pdf_folder+"/"+str(mass)+"/NBvsBDTCutMLQ"+str(mass)+".pdf")
 
-    c = TCanvas()
-    c.SetGridy()
+    cEff = TCanvas()
+    cEff.SetGridy()
     line = TLine(optCut, -0.1, optCut, 1.1)
     line.SetLineColor(kAzure+8)
     #signal efficiency and bkg rejection vs BDT cut
@@ -178,7 +179,7 @@ for mass in LQmasses:
     sigEff.Draw("XP")
     l.Draw("same")
     line.Draw("same")
-    c.Print(pdf_folder+"/"+str(mass)+"/EffVsBDTCutMLQ"+str(mass)+".pdf")
+    cEff.Print(pdf_folder+"/"+str(mass)+"/EffVsBDTCutMLQ"+str(mass)+".pdf")
 
 #signal and background BDT output for each mass
 c4 = TCanvas()
@@ -237,6 +238,7 @@ for i,mass in enumerate(LQmasses):
     l.AddEntry(bkgPlotRebin, "BDT output on background", "lp")
     l.AddEntry(line, "opt. cut value", "l")
     bkgPlotRebin.GetYaxis().SetRangeUser(0.2*plotMin,5*plotMax)
+    #bkgPlotRebin.GetYaxis().SetRangeUser(-0.2,1)
     bkgPlotRebin.SetStats(0)
     bkgPlotRebin.GetXaxis().SetTitle("BDT output")
     bkgPlotRebin.GetXaxis().SetRangeUser(-1.1,1.1)
@@ -253,7 +255,8 @@ for i,mass in enumerate(LQmasses):
     bkgPlotRebin.Draw("Same")
     sigPlotRebin.Draw("same")
     cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputMLQ"+str(mass)+".pdf")
-    
+    #cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputZoomMLQ"+str(mass)+".pdf")    
+
     c = TCanvas()
     c.SetGridy()
     bkgPlotNormalized = bkgPlotRebin.DrawNormalized()
@@ -386,24 +389,27 @@ c3.Print(pdf_folder+"/1-rocaucVsMLQ.pdf")
 c5 = TCanvas()
 c5.SetLogy()
 for i,mass in enumerate(LQmasses):
+    TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     for var in variables:
-       bkgPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_bkg")
-       sigPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_LQ"+str(mass))
+       #bkgPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_bkg")
+       #sigPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_LQ"+str(mass))
+       bkgPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Background_Id".format(var))
+       sigPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Signal_Id".format(var))
        if parameterized == False: #we're going to store these in the dedicated mass root file. The inputs are the same for all models
            outFile.cd()
            sigPlot.Write()
            if i==1:
                bkgPlot.Write() #these are all the same, we only need to make one for each var
 
-       if not "Pt" in var and not "MET" in var and not "Mej" in var:
-           bkgPlot.Rebin(25)
-           sigPlot.Rebin(25)
-       elif "Mej" in var:
-           bkgPlot.Rebin(10)
-           sigPlot.Rebin(10)
-       else:
-           bkgPlot.Rebin(5)
-           sigPlot.Rebin(5)
+    #   if not "Pt" in var and not "MET" in var and not "Mej" in var:
+    #       bkgPlot.Rebin(25)
+    #       sigPlot.Rebin(25)
+    #   elif "Mej" in var:
+    #       bkgPlot.Rebin(10)
+    #       sigPlot.Rebin(10)
+    #   else:
+    #       bkgPlot.Rebin(5)
+    #       sigPlot.Rebin(5)
        bkgPlot.SetLineColor(kRed)
        bkgPlot.SetFillColor(kRed)
        bkgPlot.SetFillStyle(3004)
@@ -417,6 +423,8 @@ for i,mass in enumerate(LQmasses):
        plotMax = 2*bkgPlot.GetMaximum()
        plotMin = min(bkgPlot.GetMinimum(0), sigPlot.GetMinimum(0))
        bkgPlot.GetYaxis().SetRangeUser(0.5*plotMin,2*plotMax)
+       #bkgPlot.GetYaxis().SetRangeUser(0.1,1e5)
+       #bkgPlot.GetXaxis().SetRangeUser(400,4700)
        bkgPlot.GetXaxis().SetTitle(var)
        bkgPlot.SetTitle("signal and bkg for "+var+", MLQ="+str(mass)+" GeV")
        bkgPlot.Draw("hist")
