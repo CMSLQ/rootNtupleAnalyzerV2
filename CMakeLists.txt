@@ -70,12 +70,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:${CXX_WARNING}>)
 #endforeach()
 
+# LCG sets this to 20 for EL9, and it defaults to 17 for EL7 anyway, so no need to explicitly set the C++ standard.
+#if(CMAKE_SYSTEM_VERSION MATCHES "el9")
+#  message("
+#  Found el9 host system, so building for c++20.
+#")
+#  set(CMAKE_CXX_STANDARD 20)
+##elseif(CMAKE_SYSTEM_VERSION MATCHES "el7")
+##  message("
+##  Found el7 host system, so building for c++17.
+##")
+##  set(CMAKE_CXX_STANDARD 17)
+#endif()
+
 #add_compile_options(-fno-omit-frame-pointer -fsanitize=address,undefined,leak)
 #add_link_options(-fsanitize=address,undefined,leak)
 add_compile_options(-DSAVE_ALL_HISTOGRAMS)
 add_compile_options(-DUSE_FULL_NTUPLE)
 add_compile_options(-O2)
-add_compile_options(-std=c++17)
 #add_compile_options(-DUSE_EXAMPLE)
 #add_compile_options(-g)
 #add_compile_options(-pg)
