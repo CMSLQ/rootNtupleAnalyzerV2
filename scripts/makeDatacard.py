@@ -1004,38 +1004,19 @@ doRPV = False  # to do RPV, set doEEJJ and doRPV to True
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
 cc.finalSelectionName = "BDTOutput"
 trainingSelectionCutName = "trainingSelection"
-# signalNameTemplate = "LQToUE_M-{}_BetaOne"
-signalNameTemplate = "LQToDEle_M-{}_pair"
+# signalNameTemplate = "LQToDEle_M-{}_pair"
+signalNameTemplate = "LQToBEle_M-{}_pair"
+if len(sys.argv) < 4:
+    print("ERROR: need to specify year, qcdPath, dataMCPath")
+    print("Example: makeDatacard.py 2016preVFP root://path/to/qcdSubtracted_plots.root root://path/to/analysisClass_lq_eejj_plots.root")
+    exit(-1)
+
 year = sys.argv[1]
+qcdPath = sys.argv[2]
+dataMCPath = sys.argv[3]
 
 sampleListForMerging = "$LQANA/config/sampleListForMerging_13TeV_eejj_{}.yaml"
-#
 sampleListsForMergingQCD = "$LQANA/config/sampleListForMerging_13TeV_QCD_dataDriven_{}.yaml"
-#
-qcdFilePaths = {}
-#qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_10oct2023_heepFR_finalSels_paramBDT/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-#qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_10oct2023_heepFR_finalSels_paramBDT/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-# qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_10oct2023_heepFR_finalSels_dedicatedMassBDTs/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-# qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_10oct2023_heepFR_finalSels_dedicatedMassBDTs/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-#qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_23oct2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-#qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_23oct2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-#qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_8nov2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-#qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_8nov2023_heepFR_finalSels_paramBDTExpandedTrainingRange/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-qcdFilePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/qcd_eejj_heepFR_bdt_8mar2024/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-qcdFilePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/qcd_eejj_heepFR_bdt_8mar2024/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-
-filePaths = {}
-#filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_10oct2023_heep_finalSels_paramBDT/output_cutTable_lq_eejj_BDT/"
-#filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_10oct2023_heep_finalSels_paramBDT/output_cutTable_lq_eejj_BDT/"
-# filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_10oct2023_heep_finalSels_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT_dedicatedMasses/"
-# filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_10oct2023_heep_finalSels_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT_dedicatedMasses/"
-#filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_23oct2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-#filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_23oct2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-#filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_8nov2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-#filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_8nov2023_heep_finalSels_paramBDTExpandedTrainingRange/output_cutTable_lq_eejj_BDT/"
-filePaths["2016preVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_8mar2024_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT/"
-filePaths["2016postVFP"] = "root://eoscms//store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016postVFP/eejj_8mar2024_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT/"
-
 
 if doEEJJ:
     sampleListForMerging = os.path.expandvars(sampleListForMerging.format(year))
@@ -1045,8 +1026,9 @@ if doEEJJ:
     # )
     if doQCD:
         sampleListForMergingQCD = os.path.expandvars(sampleListsForMergingQCD.format(year))
-        qcdFilePath = os.path.expandvars(qcdFilePaths[year])
-    filePath = os.path.expandvars(filePaths[year])
+        qcdFilePath = os.path.expandvars(qcdPath)
+    filePath = os.path.expandvars(dataMCPath)
+    dataMC_filepath = filePath
     # ttbarFilePath = (
     #     os.environ["LQDATA"]
     #     + "/2016ttbar/mar17_emujj_fixMuons/output_cutTable_lq_ttbar_emujj_correctTrig/"
@@ -1091,11 +1073,6 @@ else:
 # this has the TopPtReweight+updatedSF and the Z+jets St corrections at final selections
 # filePath = os.environ["LQDATA"] + '/RunII/eejj_analysis_zJetsStCorrectionFinalSelections_21jul/output_cutTable_lq_eejj/'
 
-dataMC_filepath = filePath + (
-    "analysisClass_lq_eejj_plots.root"
-    if doEEJJ
-    else "analysisClass_lq_enujj_MT_plots.root"
-)
 if doEEJJ:
     # ttbar_data_filepath = ttbarFilePath + "analysisClass_lq_ttbarEst_plots.root"
     # SIC 6 Jul 2020 remove
@@ -1930,6 +1907,6 @@ table_file.write("\n")
 table_file.close()
 
 # acc * eff
-plotSignalEfficiencyTimesAcceptance(dataMC_filepath, [int(m) for m in mass_points])
+plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points])
 print("datacard written to {}".format(datacard_filePath))
 print("tables written to {}".format(tables_filePath))
