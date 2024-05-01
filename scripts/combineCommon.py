@@ -2005,24 +2005,30 @@ def WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath="/tmp"):
     return tmpCardFileName
 
 
-def SeparateDatacards(txtFilePath, cardIndex, dirPath):
+def SeparateDatacards(txtFilePath, cardIndex, dirPath, writeCards=True, verbose=False):
     massList = []
     tmpFileByMass = {}
     cardContent = []
+    cardContentsByMass = {}
     for line in open(os.path.expandvars(txtFilePath)):
         match = re.match("LQ_M(\d+)\.txt", line)
         if match is not None:
             if len(cardContent) > 0:
-                tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
-                tmpFileByMass[int(mass)] = tmpFile
+                if writeCards:
+                    tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
+                    tmpFileByMass[int(mass)] = tmpFile
                 massList.append(int(mass))
+                cardContentsByMass[int(mass)] = cardContent
             cardContent = []
             mass = match.group(1)
         else:
             cardContent.append(line)
-    if len(cardContent) > 0:
-        tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
-        tmpFileByMass[int(mass)] = tmpFile
+    if len(cardContent) > 0:  # write the last card
+        if writeCards:
+            tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
+            tmpFileByMass[int(mass)] = tmpFile
         massList.append(int(mass))
-    print("INFO: Wrote tmp datacards obtained from {} for masses {} to {}".format(txtFilePath, massList, dirPath), flush=True)
-    return massList, tmpFileByMass
+        cardContentsByMass[int(mass)] = cardContent
+    if verbose and writeCards:
+        print("INFO: Wrote tmp datacards obtained from {} for masses {} to {}".format(txtFilePath, massList, dirPath), flush=True)
+    return massList, tmpFileByMass, cardContentsByMass

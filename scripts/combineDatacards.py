@@ -26,9 +26,9 @@ parser = OptionParser(
 
 (options, args) = parser.parse_args()
 if not args:
-    raise RuntimeError("No input datacards specified.")
+    parser.error("No input datacards specified.")
 if len(args)%2 != 0:
-    raise RuntimeError("Odd number of arguments specified; must specify number of labels equal to number of datacards")
+    parser.error("Odd number of arguments specified; must specify number of labels equal to number of datacards")
 
 #FIXME: change this so that it uses the combineCards format of label1=card1 label2=card2
 datacards = args[:len(args)//2]
@@ -41,7 +41,7 @@ massListByCombinedDatacard = {}
 allTmpFilesByMass = {}
 for index, combinedDatacard in enumerate(datacards):
     #FIXME add dirpath option to SeparateDatacards
-    massList, tmpFilesByMass = SeparateDatacards(combinedDatacard, index, dirPath=os.getcwd())
+    massList, tmpFilesByMass, _ = SeparateDatacards(combinedDatacard, index, dirPath=os.getcwd())
     massListByCombinedDatacard[combinedDatacard] = massList
     for mass, tmpFile in tmpFilesByMass.items():
         if mass not in allTmpFilesByMass:
