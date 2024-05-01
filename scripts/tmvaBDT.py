@@ -20,8 +20,12 @@ from tabulate import tabulate
 from combineCommon import ParseXSectionFile, lookupXSection
 
 import ROOT
-from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad, RooStats
+from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad, RooStats, TColor, TPaveText, gStyle
 ROOT.EnableImplicitMT(6)
+
+
+#drawnObjs = []
+
 
 class Sample:
     def __init__(self, name, subSampleList, subSampleWeights):
@@ -37,6 +41,12 @@ def log_result(result):
     sys.stdout.write("\r"+logString.format(jobCount, len(lqMassesToUse)))
     sys.stdout.write("\t"+str(len(result_list))+" jobs done")
     sys.stdout.flush()
+
+
+def MakeArray(myList, datatype="float"):
+    if datatype == "int":
+        return array("i", myList)  # FIXME: workaround for bug, fixed in root 6.28: https://github.com/root-project/root/issues/9846
+    return np.array(myList, dtype=datatype)
 
 
 def CalcWeight(fullDatasetName, intLumi, sumWeights):
@@ -253,6 +263,7 @@ def TrainBDT(args):
     normVars = args[2]
     eosDir = args[3]
     ZJetTrainingSample = args[4]
+    drawTrees = args[5]
     # just one use the single LQ signal specified by mass just above
     try:
         signalDatasetsDict = {}
@@ -263,7 +274,11 @@ def TrainBDT(args):
         outputFile = TFile.Open(eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".root", "RECREATE")
         
         TMVA.Tools.Instance()
-        factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
+        if drawTrees:
+            factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification:ModelPersistence=False")
+            print("WARN: Drawing BDT training trees for mass {}; no model XML files can be written.".format(lqMassToUse))
+        else:
+            factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
         
         loader = TMVA.DataLoader("dataset")
         nEntriesTrainBkg = LoadDatasets(backgroundDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=False, loader=loader, lqMass=lqMassToUse, year=year)
@@ -331,16 +346,74 @@ def TrainBDT(args):
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=InverseBoostNegWeights:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #Use decreaseBoostWeight, keep large node size and more depth
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=PairNegWeightsGlobal:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=20%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" ) #Use annihilation method
                 #"!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20" )#comparing negative weight options with smaller nodes, more depth
-
         factory.TrainAllMethods()
-        factory.TestAllMethods()
-        factory.EvaluateAllMethods()
-        
-        c1 = factory.GetROCCurve(loader)
-        # c1.Draw()
-        c1.Write("rocCurve_lqm"+str(lqMassToUse)+".png")
+        if not drawTrees:
+            factory.TestAllMethods()
+            factory.EvaluateAllMethods()
+            
+            c1 = factory.GetROCCurve(loader)
+            # c1.Draw()
+            c1.Write("rocCurve_lqm"+str(lqMassToUse)+".png")
         
         outputFile.Close()
+
+        if drawTrees:
+            methodBDT = factory.GetMethod("dataset", "BDTG")
+            forest = methodBDT.GetForest()
+            trainingDataset = loader.GetDefaultDataSetInfo().GetDataSet()
+            trainingDataset.SetCurrentType(TMVA.Types.kTraining)
+            trainingDatasetEvents = trainingDataset.GetEventCollection(TMVA.Types.kTraining)
+            print("Training dataset events size: {} ({})".format(trainingDatasetEvents.size(), len(trainingDatasetEvents)), flush=True)
+            pdfNames = []
+            for iTree in range(0, min(len(forest), 100)):
+                treeToDraw = forest[iTree]
+                pdfName, hadNegBkgNode = DrawTree(treeToDraw, iTree, lqMassToUse)
+                pdfNames.append(pdfName)
+                if hadNegBkgNode:
+                    # treeToDraw.ClearTree()
+                    negWeightEventsSignal = 0
+                    negWeightEventsSignalSumWeight = 0
+                    negWeightEventsSignalSumOrigWeight = 0
+                    negWeightEventsSignalSumBoostWeight = 0
+                    posWeightEventsSignal = 0
+                    posWeightEventsSignalSumWeight = 0
+                    posWeightEventsSignalSumOrigWeight = 0
+                    posWeightEventsSignalSumBoostWeight = 0
+                    totalBkgEvents = 0
+                    totalBkgEventWeights = 0
+                    totalBkgEventOrigWeights = 0
+                    totalBkgEventBoostWeights = 0
+                    for event in trainingDatasetEvents:
+                        if loader.GetDefaultDataSetInfo().IsSignal(event):
+                            continue
+                        totalBkgEvents += 1
+                        totalBkgEventWeights += event.GetWeight()
+                        totalBkgEventOrigWeights += event.GetOriginalWeight()
+                        totalBkgEventBoostWeights += event.GetBoostWeight()
+                        inSignalNode = True if treeToDraw.CheckEvent(event, True) > 0 else False
+                        if inSignalNode:
+                            if event.GetWeight() < 0:
+                                negWeightEventsSignal += 1
+                                negWeightEventsSignalSumWeight += event.GetWeight()
+                                negWeightEventsSignalSumOrigWeight += event.GetOriginalWeight()
+                                negWeightEventsSignalSumBoostWeight += event.GetBoostWeight()
+                            else:
+                                posWeightEventsSignal += 1
+                                posWeightEventsSignalSumWeight += event.GetWeight()
+                                posWeightEventsSignalSumOrigWeight += event.GetOriginalWeight()
+                                posWeightEventsSignalSumBoostWeight += event.GetBoostWeight()
+                    print("INFO: Tree idx={}.\n\tFor neg weight events in signal leaf node: events={}, sumWeight={}, sumOrigWeight={}, sumBoostWeight={}".format(
+                        iTree, negWeightEventsSignal, negWeightEventsSignalSumWeight, negWeightEventsSignalSumOrigWeight, negWeightEventsSignalSumBoostWeight))
+                    print("\tFor pos weight events in signal leaf node: events={}, sumWeight={}, sumOrigWeight={}, sumBoostWeight={}".format(
+                        iTree, posWeightEventsSignal, posWeightEventsSignalSumWeight, posWeightEventsSignalSumOrigWeight, posWeightEventsSignalSumBoostWeight))
+                    print("\tFor all events in signal leaf node: events={}, sumWeight={}, sumOrigWeight={}, sumBoostWeight={}".format(
+                        iTree, posWeightEventsSignal+negWeightEventsSignal, posWeightEventsSignalSumWeight+negWeightEventsSignalSumWeight, posWeightEventsSignalSumOrigWeight+negWeightEventsSignalSumOrigWeight, posWeightEventsSignalSumBoostWeight+negWeightEventsSignalSumBoostWeight))
+                    print("\ttotal bkg events={}, sumWeights={}, sumOrigWeights={}, sumBoostWeights={}".format(totalBkgEvents, totalBkgEventWeights, totalBkgEventOrigWeights, totalBkgEventBoostWeights))
+                    # SIC Mar. 15: I don't understand this output, as it doesn't seem to agree with what's in the drawn trees
+                    # pdfName, hadNegBkgNode = DrawTree(treeToDraw, iTree, lqMassToUse, "_negWeightEvents")
+                    # pdfNames.append(pdfName)
+            os.system("pdfunite "+" ".join(pdfNames)+" dataset/plots/BDTG_trainingTrees_lqm{}.pdf".format(lqMassToUse))
+
     except Exception as e:
         print("ERROR: exception in TrainBDT for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -1199,6 +1272,130 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
     rootFile.Close()
 
 
+def DrawNode(itree, n, x, y, xscale, yscale, varList, fColorOffset, canvas, drawnObjs):
+    negNodeInTree = False
+    xsize=xscale*1.5
+    ysize=yscale/3
+    if xsize>0.15:
+        xsize=0.1
+    if n.GetLeft():
+        a1 = TLine(x-xscale/4,y-ysize,x-xscale,y-ysize*2)
+        a1.SetLineWidth(2)
+        a1.Draw()
+        drawnObjs.append(a1)
+        negNode = DrawNode(itree, n.GetLeft(), x-xscale, y-yscale, xscale/2, yscale, varList, fColorOffset, canvas, drawnObjs)
+        negNodeInTree = negNode
+    if n.GetRight():
+        a1 = TLine(x+xscale/4,y-ysize,x+xscale,y-ysize*2)
+        a1.SetLineWidth(2)
+        a1.Draw()
+        drawnObjs.append(a1)
+        negNode = DrawNode(itree, n.GetRight(), x+xscale, y-yscale, xscale/2, yscale, varList, fColorOffset, canvas, drawnObjs)
+        negNodeInTree = negNode
+
+    t = TPaveText(x-xsize,y-ysize,x+xsize,y+ysize, "NDC")
+    t.SetBorderSize(1)
+    t.SetFillStyle(1001)
+    pur = n.GetPurity()
+    fillColor = fColorOffset+int(pur*100)
+    t.SetFillColor(fillColor)
+    if fillColor > fColorOffset+75 and n.GetNBkgEvents() > 0:
+        t.SetTextColor( TMVA.getSigColorT() )
+
+
+    if n.GetNEvents()>0:
+        t.AddText("N={}".format(n.GetNEvents()))
+        t.AddText("Nbkg={}".format(n.GetNBkgEvents()))
+        if n.GetNBkgEvents() < 0:
+            print("INFO: tree idx={} has negative background yield {} and purity {} (fill color is {})".format(itree, n.GetNBkgEvents(), pur, fillColor))
+            negNodeInTree = True
+        t.AddText("Nbkg_unweighted={}".format(n.GetNBkgEvents_unweighted()))
+    t.AddText("S/(S+B)={:4.3f}".format(pur))
+
+    if n.GetNodeType() == 0:
+        if n.GetCutType():
+            t.AddText(varList[n.GetSelector()] + ">" + "{:5.3g}".format(n.GetCutValue()))
+        else:
+            t.AddText(varList[n.GetSelector()] + "<" + "{:5.3g}".format(n.GetCutValue()))
+    # print("\tINFO: Draw Node with purity = {} and NEvts = {} at ({:.2f}, {:.2f}, {:.2f}, {:.2f})".format(pur, n.GetNEvents(), x-xsize, y-ysize, x+xsize, y+ysize), flush=True)
+    t.Draw()
+    drawnObjs.append(t)
+    return negNodeInTree
+ 
+
+def DrawTree(d, itree, lqMass, fileNameStr=""):
+    depth = d.GetTotalTreeDepth()
+    ystep = 1.0/(depth + 1.0)
+ 
+    # print("--- Tree depth:", depth)
+ 
+    TMVAStyle = gROOT.GetStyle("Plain") # our style is based on Plain
+ 
+    r    = MakeArray([1., 0.])
+    g    = MakeArray([0., 0.])
+    b    = MakeArray([0., 1.])
+    stop = MakeArray([0., 1.0])
+    fColorOffset = TColor.CreateGradientColorTable(2, stop, r, g, b, 100)
+ 
+    MyPalette = []
+    for i in range(0, 100): MyPalette.append(fColorOffset+i)
+    TMVAStyle.SetPalette(100,  MakeArray(MyPalette, "int"))
+    gStyle.SetPalette(100, MakeArray(MyPalette, "int"))
+ 
+    canvasColor = TMVAStyle.GetCanvasColor() # backup
+ 
+    fCanvas = TCanvas( "c{}_lqm{}".format(itree, lqMass), "c{}_lqm{}".format(itree, lqMass), 200, 0, 1000, 600 )
+    fCanvas.Draw()
+    fCanvas.cd()
+
+    drawnObjs = []
+    hadNegBkgNode = DrawNode(itree, d.GetRoot(), 0.5, 1.-0.5*ystep, 0.25, ystep, variableList, fColorOffset, fCanvas, drawnObjs)
+    fCanvas.Update()
+ 
+    # make the legend
+    yup=0.99
+    ydown=yup-ystep/2.5
+    dy= ystep/2.5 * 0.2
+ 
+    whichTree = TPaveText(0.85,ydown,0.98,yup, "NDC")
+    whichTree.SetBorderSize(1)
+    whichTree.SetFillStyle(1001)
+    whichTree.SetFillColor( TColor.GetColor( "#ffff33" ) )
+    whichTree.AddText("M_{{LQ}} = {} GeV".format(lqMass))
+    tbuffer = "Decision Tree no.: {}".format(itree)
+    whichTree.AddText( tbuffer )
+    whichTree.Draw()
+ 
+    signalleaf = TPaveText(0.02,ydown ,0.15,yup, "NDC")
+    signalleaf.SetBorderSize(1)
+    signalleaf.SetFillStyle(1001)
+    signalleaf.SetFillColor( TMVA.getSigColorF() )
+    signalleaf.AddText("Pure Signal Nodes")
+    signalleaf.SetTextColor( TMVA.getSigColorT() )
+    signalleaf.Draw()
+ 
+    ydown = ydown - ystep/2.5 -dy
+    yup   = yup - ystep/2.5 -dy
+    backgroundleaf = TPaveText(0.02,ydown,0.15,yup, "NDC")
+    backgroundleaf.SetBorderSize(1)
+    backgroundleaf.SetFillStyle(1001)
+    backgroundleaf.SetFillColor( TMVA.getBkgColorF() )
+    backgroundleaf.AddText("Pure Backgr. Nodes")
+    backgroundleaf.SetTextColor( TMVA.getBkgColorT() )
+    backgroundleaf.Draw()
+ 
+    fCanvas.Update()
+    # fname = "dataset/plots/BDTG_training_mlq{}_{}".format(lqMass, itree)
+    # print("--- Creating image:", fname)
+    # TMVA.TMVAGlob.imgconv( fCanvas, fname )
+    TMVAStyle.SetCanvasColor( canvasColor )
+    if not os.path.isdir("dataset/plots"):
+        os.mkdir("dataset/plots")
+    fName = "dataset/plots/BDTG_training_mlq{}_{}{}.pdf".format(lqMass, itree, fileNameStr)
+    fCanvas.Print(fName)
+    return fName, hadNegBkgNode
+
+
 def GetBackgroundDatasets(inputListBkgBase):
     # preselection-skimmed background datasets
     #FIXME: comment out datasets with zero events; should handle this a bit better
@@ -1537,10 +1734,11 @@ if __name__ == "__main__":
     train = options.train
     optimize = options.optimize
     roc = options.roc
-    parallelize = True
+    parallelize = False
     parametrized = False
     includeQCD = True
     normalizeVars = False
+    drawTrainingTrees = False
     # normTo = "Meejj"
     #lqMassesToUse = [2700]#,1100,1200]
     #lqMassesToUse = list(range(1200, 2000, 100))
@@ -1604,7 +1802,7 @@ if __name__ == "__main__":
                 jobCount = 0
                 for mass in lqMassesToUse:
                     try:
-                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir, ZJetTrainingSample]], callback=log_result)
+                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir, ZJetTrainingSample, drawTrainingTrees]], callback=log_result)
                         jobCount += 1
                     except KeyboardInterrupt:
                         print("\n\nCtrl-C detected: Bailing.")
@@ -1626,7 +1824,7 @@ if __name__ == "__main__":
                     raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
             else:
                 for mass in lqMassesToUse:
-                    TrainBDT([mass, year, normalizeVars, eosDir, ZJetTrainingSample])
+                    TrainBDT([mass, year, normalizeVars, eosDir, ZJetTrainingSample, drawTrainingTrees])
         print("INFO: Training {} done.".format("parametrized BDT" if parametrized else "BDT"))
     
     if optimize:
