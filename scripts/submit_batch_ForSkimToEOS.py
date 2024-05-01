@@ -114,6 +114,8 @@ def WriteSubmitFile(condorFileName):
             # require CentOS7
             condorFile.write('MY.WantOS = "el7"\n')
             condorFile.write('transfer_output_files = ""\n')
+            if os.getenv("LQINPUTS") is not None:
+                condorFile.write('environment = "LQINPUTS={}"\n'.format(os.getenv("LQINPUTS")))
         # make sure the job finishes with exit code 0
         # condorFile.write('on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)\n')
         condorFile.write('max_retries = 3\n')
