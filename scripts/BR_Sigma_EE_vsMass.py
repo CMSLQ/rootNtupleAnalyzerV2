@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-from ROOT import gROOT, gStyle, gPad, TCanvas, TH2F, TGraph, kBlue, kCyan, kGreen, kYellow, kBlack, TPolyLine, TLegend
-import CMS_lumi
-from tdrstyle import setTDRStyle, tdrStyle
+from ROOT import gROOT, gStyle, gPad, TCanvas, TH2F, TGraph, kBlue, kCyan, kGreen, kYellow, kBlack, TPolyLine, TLegend, TColor
 import math
 import numpy
 import os
+import cmsstyle as CMS
 
 
 def ReadXSecFile(filename):
@@ -34,6 +33,7 @@ def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expecte
     xsThFilename = "$LQANA/config/xsection_theory_13TeV_scalarPairLQ.txt"
     mTh, xsTh, y_pdf, yPDFDown = ReadXSecFile(xsThFilename)
     nTH = len(mTh)
+    massPoints = len(mData)
     x_pdf = mTh
     x_pdf.extend(list(reversed(mTh)))
     y_pdf.extend(list(reversed(yPDFDown)))
@@ -43,13 +43,11 @@ def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expecte
     fileName3 = dirName+"/BR_Sigma_EE.png"
     fileName1 = dirName+"/BR_Sigma_EE.eps"
 
-    # axes labels for the final plot
-    title = ";M_{LQ} (GeV);#sigma #times #beta^{2} (pb)"
-    # string title = ";M_{LQ} (GeV);#sigma#times2#beta(1-#beta) (pb)";
-
     # integrated luminosity
-    lint = "35.9 fb^{-1}"
-    # lint = "41.5 fb^{-1}"
+    CMS.SetLumi("35.9")
+    CMS.SetExtraText("Preliminary")
+    CMS.ResetAdditionalInfo()
+    # CMS.cmsGrid(True)
 
     #mData = [1400.0 , 1500.0 , 1600.0 , 1700.0 , ]
     #x_shademasses = [1400.0 , 1500.0 , 1600.0 , 1700.0 , 1700.0 , 1600.0 , 1500.0 , 1400.0 , ]
@@ -62,53 +60,59 @@ def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expecte
     if len(xsUp_observed) > 0:
         doObserved = True
 
-    # turn on/off batch mode
     gROOT.SetBatch(True)
-
-    massPoints = len(mData)
-    # set ROOT style
-    setTDRStyle()
-    gStyle.SetPadLeftMargin(0.14)
-    gROOT.ForceStyle()
-
-    c = TCanvas("c", "", 850, 800)
-    c.SetBottomMargin(0.13)
-    c.SetLeftMargin(0.14)
-    c.SetRightMargin(0.07)
-    c.SetLogy()
-    c.cd()
 
     plotLow = 0.00001
     plotHigh = 30.
 
-    bg = TH2F("bg", title, 800, 200., 1800., 500, plotLow, plotHigh)
-    # bg = TH2F("bg", title, 900, 0., 1800., 500, plotLow, plotHigh)
-    bg.GetXaxis().CenterTitle()
-    bg.GetYaxis().CenterTitle()
-    bg.SetStats(False)
-    bg.SetTitleOffset(1., "X")
-    bg.SetTitleOffset(1.25, "Y")
-    bg.SetTitleSize(0.05, "X")
-    bg.SetTitleSize(0.05, "Y")
-    bg.SetLabelSize(0.04, "X")
-    bg.SetLabelSize(0.04, "Y")
-    bg.Draw()
+    c = CMS.cmsCanvas('c', 300, 2000, plotLow, plotHigh, 'M_{LQ} (GeV)', '#sigma #times #beta^{2} (pb)', True, 0, extraSpace=0.025)
+    # c.SetBottomMargin(0.13)
+    # c.SetLeftMargin(0.14)
+    c.SetRightMargin(0.06)
+    c.SetLogy()
+    # c.cd()
+    # c.SetGridx()
+    # c.SetGridy()
+    # CMS.cmsStyle.SetPadGridX(True)
+    # CMS.cmsStyle.SetPadGridY(True)
+    # CMS.UpdatePad()
+    gPad.SetGridx()
+    gPad.SetGridy()
+    gPad.RedrawAxis("g")
+
+    CMS.GetcmsCanvasHist(c).SetLabelSize(0.04, "X")
+    CMS.GetcmsCanvasHist(c).SetLabelSize(0.04, "Y")
+    # CMS.UpdatePad()
+    # c.RedrawAxis()
+    # c.GetFrame().Draw()
+    # bg = TH2F("bg", title, 800, 200., 1800., 500, plotLow, plotHigh)
+    # # bg = TH2F("bg", title, 900, 0., 1800., 500, plotLow, plotHigh)
+    # bg.GetXaxis().CenterTitle()
+    # bg.GetYaxis().CenterTitle()
+    # bg.SetStats(False)
+    # bg.SetTitleOffset(1., "X")
+    # bg.SetTitleOffset(1.25, "Y")
+    # bg.SetTitleSize(0.05, "X")
+    # bg.SetTitleSize(0.05, "Y")
+    # bg.SetLabelSize(0.04, "X")
+    # bg.SetLabelSize(0.04, "Y")
+    # bg.Draw()
 
     xsTh_vs_m = TGraph(nTH, numpy.array(mTh, dtype="f"), numpy.array(xsTh, dtype="f"))
-    xsTh_vs_m.SetLineWidth(2)
-    xsTh_vs_m.SetLineColor(kBlue)
-    xsTh_vs_m.SetFillColor(kCyan-6)
-    xsTh_vs_m.SetMarkerSize(0.00001)
-    xsTh_vs_m.SetMarkerStyle(22)
-    xsTh_vs_m.SetMarkerColor(kBlue)
+    # xsTh_vs_m.SetLineWidth(2)
+    # xsTh_vs_m.SetLineColor(kBlue)
+    # xsTh_vs_m.SetFillColor(kCyan-6)
+    # xsTh_vs_m.SetMarkerSize(0.00001)
+    # xsTh_vs_m.SetMarkerStyle(22)
+    # xsTh_vs_m.SetMarkerColor(kBlue)
 
     xsData_vs_m_expected = TGraph(massPoints, numpy.array(mData, dtype="f"), numpy.array(xsUp_expected, dtype="f"))
-    xsData_vs_m_expected.SetMarkerStyle(0)
-    xsData_vs_m_expected.SetMarkerColor(kBlack)
-    xsData_vs_m_expected.SetLineColor(kBlack)
-    xsData_vs_m_expected.SetLineWidth(2)
-    xsData_vs_m_expected.SetLineStyle(7)
-    xsData_vs_m_expected.SetMarkerSize(0.001)
+    # xsData_vs_m_expected.SetMarkerStyle(0)
+    # xsData_vs_m_expected.SetMarkerColor(kBlack)
+    # xsData_vs_m_expected.SetLineColor(kBlack)
+    # xsData_vs_m_expected.SetLineWidth(2)
+    # xsData_vs_m_expected.SetLineStyle(7)
+    # xsData_vs_m_expected.SetMarkerSize(0.001)
 
     xsData_vs_m_observed = TGraph()
     if doObserved:
@@ -174,75 +178,84 @@ def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expecte
    #  }
    #  std::cout<<"## LLJJ expected limit +2 sigma: "<<exlim<<" GeV"<<std::endl
 
-    #  region excluded by Tevatron limits
-    # x_shaded[5] = {1000,1080,1080,1000,1000}// CHANGED FOR LQ2
-    x_shaded = [200, 1080, 1080, 200, 200]  # CHANGED FOR LQ2
-    y_shaded = [plotLow, plotLow, plotHigh, plotHigh, plotLow]  # CHANGED FOR LQ2
+    # #  region excluded by Tevatron limits
+    # # x_shaded[5] = {1000,1080,1080,1000,1000}// CHANGED FOR LQ2
+    # x_shaded = [200, 1080, 1080, 200, 200]  # CHANGED FOR LQ2
+    # y_shaded = [plotLow, plotLow, plotHigh, plotHigh, plotLow]  # CHANGED FOR LQ2
 
-    x_shaded2 = [200, 1000, 1000, 200, 200]  # CHANGED FOR LQ2
-    y_shaded2 = [plotLow, plotLow, plotHigh, plotHigh, plotLow]  # CHANGED FOR LQ2
+    # x_shaded2 = [200, 1000, 1000, 200, 200]  # CHANGED FOR LQ2
+    # y_shaded2 = [plotLow, plotLow, plotHigh, plotHigh, plotLow]  # CHANGED FOR LQ2
 
-    # x_shaded3 = [840, obslim, obslim, 840, 840]  # CHANGED FOR LQ2
-    x_shaded3 = [1080, obslim, obslim, 1080, 1080]  # CHANGED FOR LQ2
-    y_shaded3 = [plotLow, plotLow, plotHigh, plotHigh, plotLow]  # CHANGED FOR LQ2
+    # # x_shaded3 = [840, obslim, obslim, 840, 840]  # CHANGED FOR LQ2
+    # x_shaded3 = [1080, obslim, obslim, 1080, 1080]  # CHANGED FOR LQ2
+    # y_shaded3 = [plotLow, plotLow, plotHigh, plotHigh, plotLow]  # CHANGED FOR LQ2
 
-    p2 = TPolyLine(5, numpy.array(x_shaded2, dtype="f"), numpy.array(y_shaded2, dtype="f"), "")
-    #  pl.SetFillStyle(3001)
-    p2.SetFillColor(8)
-    p2.SetFillStyle(3345)
-    p2.SetLineColor(8)   # CHANGED FOR LQ2
-    # p2.Draw()
-    # p2.Draw("F")
+    # p2 = TPolyLine(5, numpy.array(x_shaded2, dtype="f"), numpy.array(y_shaded2, dtype="f"), "")
+    # #  pl.SetFillStyle(3001)
+    # p2.SetFillColor(8)
+    # p2.SetFillStyle(3345)
+    # p2.SetLineColor(8)   # CHANGED FOR LQ2
+    # # p2.Draw()
+    # # p2.Draw("F")
 
-    pl = TPolyLine(5, numpy.array(x_shaded, dtype="f"), numpy.array(y_shaded, dtype="f"), "")
-    #  pl.SetFillStyle(3001)
-    pl.SetLineColor(14)
-    pl.SetFillColor(14)
-    # pl.SetFillStyle(3344)
-    pl.SetFillStyle(3354)
-    # pl.Draw()
-    # pl.Draw("F")
+    # pl = TPolyLine(5, numpy.array(x_shaded, dtype="f"), numpy.array(y_shaded, dtype="f"), "")
+    # CMS.ResetAdditionalInfo()
+    # #  pl.SetFillStyle(3001)
+    # pl.SetLineColor(14)
+    # pl.SetFillColor(14)
+    # # pl.SetFillStyle(3344)
+    # pl.SetFillStyle(3354)
+    # # pl.Draw()
+    # # pl.Draw("F")
 
-    p3 = TPolyLine(5, numpy.array(x_shaded3, dtype="f"), numpy.array(y_shaded3, dtype="f"), "")
-    p3.SetLineColor(46)
-    p3.SetFillColor(46)
-    # p3.SetFillStyle(3354)
-    p3.SetFillStyle(3345)
-    # p3.Draw()
-    # p3.Draw("F")
+    # p3 = TPolyLine(5, numpy.array(x_shaded3, dtype="f"), numpy.array(y_shaded3, dtype="f"), "")
+    # p3.SetLineColor(46)
+    # p3.SetFillColor(46)
+    # # p3.SetFillStyle(3354)
+    # p3.SetFillStyle(3345)
+    # # p3.Draw()
+    # # p3.Draw("F")
 
     exshade1 = TGraph(2*massPoints, numpy.array(x_shademasses, dtype="f"), numpy.array(y_1sigma, dtype="f"))
-    exshade1.SetFillColor(kGreen)
+    #exshade1.SetFillColor(kGreen)
+    # exshade1.SetFillColor(TColor.GetColor("#607641"))
     exshade2 = TGraph(2*massPoints, numpy.array(x_shademasses, dtype="f"), numpy.array(y_2sigma, dtype="f"))
-    exshade2.SetFillColor(kYellow)
+    #exshade2.SetFillColor(kYellow)
+    # exshade2.SetFillColor(TColor.GetColor("#F5BB54"))
 
-    exshade2.Draw("f")
-    exshade1.Draw("f")
+    # exshade2.Draw("f")
+    # exshade1.Draw("f")
+    CMS.cmsDraw(exshade2, "f", fcolor=TColor.GetColor("#F5BB54"))
+    CMS.cmsDraw(exshade1, "f", fcolor=TColor.GetColor("#607641"))
 
-    gPad.RedrawAxis()
+    # gPad.RedrawAxis()
 
     grshade = TGraph(2*nTH, numpy.array(x_pdf, dtype="f"), numpy.array(y_pdf, dtype="f"))
-    grshade.SetFillColor(kCyan-6)
-    grshade.SetFillStyle(3001)
-    grshade.Draw("f")
+    # grshade.SetFillColor(kCyan-6)
+    # grshade.SetFillStyle(3001)
+    # grshade.Draw("f")
+    CMS.cmsDraw(grshade, "f", fcolor=kCyan-6, fstyle=3001)
 
-    xsTh_vs_m.Draw("L")
-    xsData_vs_m_expected.Draw("LP")
+    # xsTh_vs_m.Draw("L")
+    CMS.cmsDraw(xsTh_vs_m, "l", fcolor=kCyan-6, lwidth=2, lcolor=kBlue, msize=0.00001, marker=22, mcolor=kBlue)
+    # xsData_vs_m_expected.Draw("LP")
+    CMS.cmsDraw(xsData_vs_m_expected, "lp", marker=0, mcolor=kBlack, lcolor=kBlack, lwidth=2, lstyle=7, msize=0.001)
     if doObserved:
         xsData_vs_m_observed.Draw("LP")
 
-    grshade.SetFillStyle(1001)
+    # grshade.SetFillStyle(1001)
 
-    legXSize = 0.48
+    legXSize = 0.5
     legYSize = 0.27
     legXStart = 0.4
-    legYStart = 0.65
-    legend = TLegend(legXStart, legYStart, legXStart+legXSize, legYStart+legYSize)
+    legYStart = 0.62
+    # legend = TLegend(legXStart, legYStart, legXStart+legXSize, legYStart+legYSize)
+    legend = CMS.cmsLeg(legXStart, legYStart, legXStart+legXSize, legYStart+legYSize, textSize=0.036, textFont=42)
     legend.SetBorderSize(1)
     legend.SetFillColor(0)
     legend.SetFillStyle(1001)
-    legend.SetTextSize(.036)
-    legend.SetTextFont(42)
+    # legend.SetTextSize(.036)
+    # legend.SetTextFont(42)
     legend.SetMargin(0.15)
     legend.SetHeader("Scalar LQ #bar{LQ} #rightarrow eejj")
     # legend.AddEntry(p2,"ATLAS exclusion (20 fb^{-1}, 8TeV)","f")
@@ -255,24 +268,26 @@ def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expecte
     legend.AddEntry(xsData_vs_m_expected,  "Expected 95% CL upper limit", "lp")
     if doObserved:
         legend.AddEntry(xsData_vs_m_observed,  "Observed 95% CL upper limit", "lp")
-    legend.Draw()
+    # legend.Draw()
 
-    c.Modified()
-    c.Update()
-    # draw the lumi text on the canvas
-    CMS_lumi.lumi_13TeV = lint
-    CMS_lumi.writeExtraText = 1
-    CMS_lumi.extraText = "Preliminary"
-    CMS_lumi.lumiTextSize = 0.7
-    CMS_lumi.relPosX = 0.1  # control position of extraText
-    CMS_lumi.hOffset = 0.0
-    iPos = 0
-    CMS_lumi.CMS_lumi(c, 4, iPos)
+    # c.Modified()
+    # c.Update()
+    # # draw the lumi text on the canvas
+    # CMS_lumi.lumi_13TeV = lint
+    # CMS_lumi.writeExtraText = 1
+    # CMS_lumi.extraText = "Preliminary"
+    # CMS_lumi.lumiTextSize = 0.7
+    # CMS_lumi.relPosX = 0.1  # control position of extraText
+    # CMS_lumi.hOffset = 0.0
+    # iPos = 0
+    # CMS_lumi.CMS_lumi(c, 4, iPos)
 
-    c.SetGridx()
-    c.SetGridy()
-    c.RedrawAxis()
-    legend.Draw()
+    # c.SetGridx()
+    # c.SetGridy()
+    # c.RedrawAxis()
+    # legend.Draw()
+    # gStyle.SetPadGridX(True)
+    # gStyle.SetPadGridY(True)
 
     c.SaveAs(fileName1)
     c.SaveAs(fileName2)
