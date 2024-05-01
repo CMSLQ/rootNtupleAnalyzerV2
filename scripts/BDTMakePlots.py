@@ -526,8 +526,8 @@ for i,mass in enumerate(LQmasses):
        else:
            c5.Print(pdf_folder+"/allInputVars.pdf","pdf")
 
-           if mass==500 or mass==1500 or mass==2500:
-               c5.Print(plotsForAN,"pdf")
+       if mass==500 or mass==1500 or mass==2500:
+           c5.Print(plotsForAN,"pdf")
 
 for i,mass in enumerate(LQmasses):
     #Also get overtraining plots 
