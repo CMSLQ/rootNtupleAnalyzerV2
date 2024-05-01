@@ -327,10 +327,12 @@ def TrainBDT(args):
         #         "V:NTrees=400:MinNodeSize=2.5%:MaxDepth=3:BoostType=AdaBoost:AdaBoostBeta=0.5:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20" )
         # factory.BookMethod(loader,TMVA.Types.kBDT, "BDT",
         #         "!V:NTrees=800:MinNodeSize=2.5%:MaxDepth=2:BoostType=Grad:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20" )
-        if "amcatnlo" in ZJetTrainingSample:
-            optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
-        else:
-            optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+        #if "amcatnlo" in ZJetTrainingSample:
+        #    optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+        #else:
+        #    optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+
+        optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
 
         factory.BookMethod(loader, TMVA.Types.kBDT, "BDTG", optionString)
                 # "!H:!V:NTrees=400:MinNodeSize=2.5%:MaxDepth=1:BoostType=Grad:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20:NegWeightTreatment=Pray" )
@@ -715,7 +717,7 @@ def OptimizeBDTCut(args):
         # print("bkgIntegralOverCut={}".format(bkgIntegralOverCut), flush=True)
 
         # signal
-        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=None, lqMass=lqMassToUse, year=year)
+        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, year=year)
         dfSig = RDataFrame(tchainSig)
         dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
@@ -833,7 +835,7 @@ def OptimizeBDTCut(args):
                 unusedFOM = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 unusedFOMs.append(unusedFOM)
                 fom = 0.0
-            fomValueToCutInfoDict[iBin] = [fom, cutVal, nS, efficiency, nB]
+            fomValueToCutInfoDict[iBin] = [fom, cutVal, nS, nSErr.value, efficiency, nB, nBErr]
             fomList.append(fom)
             nSList.append(nS)
             effList.append(efficiency)
@@ -1024,7 +1026,7 @@ def DoROCAndBDTPlots(args):
          #   varHist.Write()
 
         # signal
-        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=None, lqMass=lqMassToUse, year=year)
+        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"", signal=True, loader=None, lqMass=lqMassToUse, year=year)
         dfSig = RDataFrame(tchainSig)
         dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
@@ -1101,12 +1103,17 @@ def GetMassFloat(mass):
 def PrintBDTCuts(optValsDict, parametrized):
     sortedDictMass = OrderedDict(sorted(optValsDict.items()))
     dataForTable = []
-    headers = ["mass", "bin", "max FOM", "cut value", "nS", "eff", "nB", "min. bkg limited"]
+    headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr", "min. bkg limited"]
     for mass, valList in sortedDictMass.items():
         valListFormatted = []
-        for i in range(6):
-            valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
-        valListFormatted.append(valList[6])
+        #print(valList)
+        for i in range(8):
+            #print("format entry ",valList[i])
+            if -0.0001 < valList[i] < 0.0001: #if something is too small to be displayed, use scientific notation
+                valListFormatted.append("{:0.4e}".format(valList[i]))
+            else:
+                valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
+        valListFormatted.append(valList[8])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
         l = [mass]+valListFormatted
         dataForTable.append(l)
@@ -1722,7 +1729,7 @@ if __name__ == "__main__":
     inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/"
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/QCDFakes_DATA_2FR/"
-    ZJetTrainingSample = "ZJet_amcatnlo_ptBinned"
+    ZJetTrainingSample = "ZJet_HTLO"
     eosDir = options.eosDir
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
@@ -1746,9 +1753,9 @@ if __name__ == "__main__":
     #lqMassesToUse = list(range(800, 1300, 100))
     #lqMassesToUse = list(range(300, 1000, 100))
     #lqMassesToUse = list(range(300, 700, 100))
-    #lqMassesToUse = list(range(300, 3100, 100))
+    lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = list(range(800,1100,100))
-    lqMassesToUse = [400]#,500,600]
+    #lqMassesToUse = [3000]#,500,600]
     signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"

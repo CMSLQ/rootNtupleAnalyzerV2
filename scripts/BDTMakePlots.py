@@ -51,7 +51,7 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_mixed/2016preVFP/powheg-amcatnlo"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_mixed/2016preVFP/HTLO-amcatnlo"
         optimizationFile = base_folder+"/optimizationPlots.root"
         bdtPlotFile = base_folder+"/bdtPlots.root"
         modelName = "dedicated_mass"
@@ -386,11 +386,11 @@ oneMaucVsMLQPlot.Write()
 c3.Print(pdf_folder+"/1-rocaucVsMLQ.pdf")
 
 #compare sig and bkg variable distributions for each mass
-c5 = TCanvas()
-c5.SetLogy()
 for i,mass in enumerate(LQmasses):
     TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     for var in variables:
+       c5 = TCanvas()
+       c5.SetLogy()
        #bkgPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_bkg")
        #sigPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_LQ"+str(mass))
        bkgPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Background_Id".format(var))
@@ -426,14 +426,103 @@ for i,mass in enumerate(LQmasses):
        #bkgPlot.GetYaxis().SetRangeUser(0.1,1e5)
        #bkgPlot.GetXaxis().SetRangeUser(400,4700)
        bkgPlot.GetXaxis().SetTitle(var)
+       bkgPlot.Draw()
+       bkgPlot.GetYaxis().SetRangeUser(1e-3,2e5)
+       plotMin = 0
+       if "Pt" in var:
+           plotMax = 700+100*i
+           #bkgPlot.GetXaxis().SetLimits(0,2000)
+           #sigPlot.GetXaxis().SetLimits(0,2000)
+       elif "sT_eejj" in var:
+           plotMax = 2400+150*i
+           plotMin = 400
+           #bkgPlot.GetXaxis().SetLimits(0,8000)
+           #sigPlot.GetXaxis().SetLimits(0,8000)
+       elif "Meejj" in var:
+           plotMax = 3500+200*i
+       elif "M_e1e2" in var:
+           plotMax = 1400+200*i
+           plotMin = 220
+       else:
+           plotMax = 1400+200*i
+           #bkgPlot.GetXaxis().SetLimits(0,5000)
+           #sigPlot.GetXaxis().SetLimits(0,5000)
+
+       fakeHist = TH1D("forRange"+var+str(mass),"",1,plotMin,plotMax)
+       fakeHist.SetTitle("signal and bkg for "+var+", MLQ="+str(mass)+" GeV")
+       fakeHist.SetStats(0)
+       fakeHist.GetYaxis().SetRangeUser(5e-3,2e5)
        bkgPlot.SetTitle("signal and bkg for "+var+", MLQ="+str(mass)+" GeV")
-       bkgPlot.Draw("hist")
+       fakeHist.Draw()
+       bkgPlot.GetXaxis().SetRangeUser(0,bkgPlot.GetXaxis().GetXmax())
+       bkgPlot.Draw("histSame")
        sigPlot.Draw("HISTsame") 
        l = TLegend(0.4,0.8,0.6,0.9)
        l.AddEntry(sigPlot,"signal","lp")
        l.AddEntry(bkgPlot,"background","lp")
        l.Draw("same")
        c5.Print(pdf_folder+"/"+str(mass)+"/"+var+"MLQ"+str(mass)+".pdf")
+       if mass == LQmasses[0] and var == variables[0]:
+           c5.Print(pdf_folder+"/allInputVars.pdf(","pdf")
+       elif mass == LQmasses[-1] and var == variables[-1]:
+           c5.Print(pdf_folder+"/allInputVars.pdf)","pdf")
+       else:
+           c5.Print(pdf_folder+"/allInputVars.pdf","pdf")
+
+for i,mass in enumerate(LQmasses):
+    #Also get overtraining plots 
+    #see https://root-forum.cern.ch/t/tmva-signal-vs-background-bdt-response-plot-generated-with-macro-radically-different-from-manually-generated-plot/34002/4
+    #cross-checked with the plots produced in the tmva gui and these are indeed the right plot names
+    TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
+    bkgTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_B")
+    bkgTest = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_B")
+    sigTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_S")
+    sigTest = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_S")
+
+    bkgTrain.SetLineColor(kRed)
+    bkgTrain.SetMarkerColor(kRed)
+    sigTrain.SetLineColor(kBlue)
+    sigTrain.SetMarkerColor(kBlue)
+    bkgTest.SetLineColor(kRed)
+    bkgTest.SetMarkerColor(kRed)
+    sigTest.SetLineColor(kBlue)
+    sigTest.SetMarkerColor(kBlue)
+
+    sigTrain.SetMarkerStyle(8)
+    sigTrain.SetMarkerSize(0.6)
+    bkgTrain.SetMarkerStyle(8)
+    bkgTrain.SetMarkerSize(0.6)
+
+    sigTest.SetFillStyle(3354)
+    sigTest.SetFillColor(kBlue)
+    bkgTest.SetFillStyle(3345)
+    bkgTest.SetFillColor(kRed)
+
+    legend = TLegend(0.4,0.7,0.6,0.9)
+    legend.AddEntry(sigTrain,"Training sample (sig)", "lp")
+    legend.AddEntry(bkgTrain, "Training sample (bkg)", "lp")
+    legend.AddEntry(sigTest, "Testing sample (sig)", "f")
+    legend.AddEntry(bkgTest, "Testing sample (bkg)", "f")
+
+    c = TCanvas()
+    c.SetGridy()
+    bkgTest.SetTitle("Overtraining check for MLQ = "+str(mass)+" GeV")
+    bkgTest.SetStats(0)
+    bkgTest.GetXaxis().SetTitle("BDT score")
+    bkgTest.GetYaxis().SetTitle("(1/N) dN/dx")
+    bkgTest.GetYaxis().SetRangeUser(0,21)
+    bkgTest.Draw("HIST")
+    sigTest.Draw("HISTSAME")
+    bkgTrain.Draw("PSAME][")
+    sigTrain.Draw("PSAME][")
+    legend.Draw("SAME")
+    c.Print(pdf_folder+"/"+str(mass)+"/BDTGOvertrainingPlot.pdf")
+    if mass == LQmasses[0]:
+        c.Print(pdf_folder+"/overtrainingPlots.pdf(","pdf")
+    elif mass == LQmasses[-1]:
+        c.Print(pdf_folder+"/overtrainingPlots.pdf)","pdf")
+    else:
+        c.Print(pdf_folder+"/overtrainingPlots.pdf","pdf")
 
 #correlation matrices
 if parameterized == True:
