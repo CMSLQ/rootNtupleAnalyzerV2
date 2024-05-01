@@ -1,5 +1,5 @@
-#ifdef __CINT__
+#ifdef __ROOTCLING__
  
-#pragma link C++ defined_in "include/rootNtupleClass.h";
+#pragma link C++ class TNotifyLink<TList> +;
 
 #endif

@@ -24,6 +24,7 @@
 #include <TH3F.h>
 #include <TProfile.h>
 #include <TTreeFormula.h>
+#include <TNotifyLink.h>
 
 #include <TMVA/Tools.h>
 #include <TMVA/RReader.hxx>
@@ -980,6 +981,7 @@ class baseClass {
     // systematics
     std::vector<Systematic> systematics_;
     TList systFormulas_;
+    TNotifyLink<TList>* systFormulaNotifier_;
     std::map<std::string, std::shared_ptr<cut>> systCutName_cut_;
     std::unique_ptr<TH2D> currentSystematicsHist_;
     bool restrictPDFWeights_ = false;

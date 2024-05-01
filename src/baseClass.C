@@ -242,9 +242,11 @@ void baseClass::init()
       if(syst.formula)
         systFormulas_.Add(syst.formula.get());
     }
-    tree_->SetNotify(&systFormulas_); // updates formulas in collection when needed
+    //tree_->SetNotify(&systFormulas_); // updates formulas in collection when needed
     // see: https://root-forum.cern.ch/t/ttreeformula-and-tchain/15155/
     // and: https://github.com/root-project/root/commit/5a918e25f8c5df4e51ad837e66d8fd23133dec38
+    systFormulaNotifier_ =  new TNotifyLink<TList>(&systFormulas_);
+    systFormulaNotifier_->PrependLink(*tree_);
   }
 
 

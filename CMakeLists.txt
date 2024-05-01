@@ -71,17 +71,18 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #endforeach()
 
 # LCG sets this to 20 for EL9, and it defaults to 17 for EL7 anyway, so no need to explicitly set the C++ standard.
-#if(CMAKE_SYSTEM_VERSION MATCHES "el9")
+# but the root dictionary generation goes back to C++17 for some reason...
+if(CMAKE_SYSTEM_VERSION MATCHES "el9")
+  message("
+  Found el9 host system, so building for c++20.
+")
+  set(CMAKE_CXX_STANDARD 20)
+#elseif(CMAKE_SYSTEM_VERSION MATCHES "el7")
 #  message("
-#  Found el9 host system, so building for c++20.
+#  Found el7 host system, so building for c++17.
 #")
-#  set(CMAKE_CXX_STANDARD 20)
-##elseif(CMAKE_SYSTEM_VERSION MATCHES "el7")
-##  message("
-##  Found el7 host system, so building for c++17.
-##")
-##  set(CMAKE_CXX_STANDARD 17)
-#endif()
+#  set(CMAKE_CXX_STANDARD 17)
+endif()
 
 #add_compile_options(-fno-omit-frame-pointer -fsanitize=address,undefined,leak)
 #add_link_options(-fsanitize=address,undefined,leak)
@@ -192,6 +193,9 @@ else()
   endif()
 endif()
 
+root_generate_dictionary(myapp_dict ${CMAKE_SOURCE_DIR}/include/baseClass.h LINKDEF ${CMAKE_SOURCE_DIR}/include/LinkDef.h)
+add_library(myapp_dict_lib SHARED myapp_dict)
+
 if(REDUCED_SKIM)
 target_link_libraries(main
   PUBLIC
@@ -204,6 +208,7 @@ target_link_libraries(main
   ROOT::TMVA
   correctionlib
   CMSJMECalculators
+  myapp_dict_lib
 )
 else()
   target_link_libraries(main
@@ -215,6 +220,7 @@ else()
     ROOT::TreePlayer
     ROOT::Physics
     ROOT::TMVA
+    myapp_dict_lib
     )
   if(HAS_QCD)
     target_link_libraries(mainQCD
@@ -226,6 +232,7 @@ else()
       ROOT::TreePlayer
       ROOT::Physics
       ROOT::TMVA
+      myapp_dict_lib
       )
   endif()
 endif()
