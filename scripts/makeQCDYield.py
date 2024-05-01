@@ -107,6 +107,7 @@ def DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, dyjSingleFRHistos):
                 binToUse, content, entries, content*entries))
         SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose)
         subHisto = singleFRHisto
+        CheckAndFixNegativeBinContents(subHisto)
         if verbose:
             content = subHisto.GetBinContent(binToUse)
             entries = subHisto.GetBinEntries(binToUse)
@@ -147,6 +148,15 @@ def SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose = False):
     if not singleFRHisto.Add(doubleFRHistoNew, -1):
         print("INFO: {} has {} xbins and {} has {} xbins".format(singleFRHisto.GetName(), singleFRHisto.GetNbinsX(), doubleFRHistoNew.GetName(), doubleFRHistoNew.GetNbinsX()))
         raise RuntimeError("Add failed for histos {} and {}".format(singleFRHisto.GetName(), doubleFRHistoNew.GetName()))
+
+
+def CheckAndFixNegativeBinContents(histo, verbose = False):
+    for globalBin in range(0, histo.GetNcells()+1):
+        singleBinContent = histo.GetBinContent(globalBin)
+        if singleBinContent < 0:
+            histo.SetBinContent(globalBin, 0)
+            if verbose:
+                print("INFO: for hist {}: limited bin {} from {} to {}".format(histo.GetName(), globalBin, singleBinContent, histo.GetBinContent(globalBin)), flush=True)
 
 
 def ParseDatFile(datFilename, sampleName):
@@ -282,8 +292,8 @@ def ScaleTable(inputTableOrig, scaleFactor, errScaleFactor):
 ####################################################################################################
 # RUN
 ####################################################################################################
-# zjetMCSampleName = "ZJet_amcatnlo_ptBinned_IncStitch"
-zjetMCSampleName = "ZJet_powhegminnlo"
+zjetMCSampleName = "ZJet_amcatnlo_ptBinned_IncStitch"
+# zjetMCSampleName = "ZJet_powhegminnlo"
 qcdSampleName = "QCDFakes_DATA"
 # ---Option Parser
 usage = "usage: %prog [options] \nExample: \n./makeQCDYield.py -s /my/dir/with/plotsAndTablesFor1FREstimate -d /my/dir/with/plotsAndTablesFor2FREstimate -o /my/test//data/output"
