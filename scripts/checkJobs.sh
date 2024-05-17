@@ -15,7 +15,8 @@ find $localdir -iname "*.err" -exec sh -c "grep -ivH \"no dict\" {} | grep -iv \
 echo "Done."
 
 echo "Checking .out files..."
-find $localdir -iname "*.out" -exec grep -iH "error" {} \;
+# find $localdir -iname "*.out" -exec grep -iH "error" {} \;
+find $localdir -iname "*.out" -exec sh -c "grep -iH 'error' {} | grep -v 'init: baseClass::init(): Had an error of code -2 when calling LoadTree(); entries = 0' " \;
 echo "Done."
 
 if [[ -z "$eosdir" ]]; then
