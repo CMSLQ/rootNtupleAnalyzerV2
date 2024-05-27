@@ -111,6 +111,7 @@ def ProcessDataset(args):
         tchainBkg = LoadChainFromTxtFile(txtFile)
         if tchainBkg is None:
             return True
+        nEntriesBeforeCut = tchainBkg.GetEntries()
         maxTrials = 5
         trials = 0
         redo = True
@@ -147,7 +148,12 @@ def ProcessDataset(args):
         eventCounterHistEntries = eventCounterHist.GetEntries()
         while redo and trials < maxTrials:
             #print("INFO: Writing snapshot to:", tfilepath)
+        #    if "TTToHadronic" in tfilepath:
+        #        print("columns for TTToHadronic sample")
+        #        df.Describe().Print()
+            #if expectedEvents > 0:
             df.Snapshot("rootTupleTree/tree", tfilepath, branchesToSave)
+            
             #if signalNameTemplate.format(mass) in tfilepath:
             #    eventCounterHist = GetTotalEventsHist(mass, allSignalDatasetsDict, signalNameTemplate)
             #    tfile = TFile(tfilepath, "update")
@@ -158,6 +164,8 @@ def ProcessDataset(args):
             tfile.cd()
             eventCounterHist.Write()
             tfile.Close()
+         #   else:
+        #    print("INFO: expectedEvents={} for txtFile={}, mass={}. Events before cut={}".format(expectedEvents,txtFile,mass,nEntriesBeforeCut))
             # check -- sometimes, for some reason, the snapshot or hist writing fails, so this should catch that
             # expectedEvents = expectedEvents.GetValue()
             if expectedEvents > 0:
@@ -207,19 +215,19 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
                 inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 inputListBkgBase+"DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 ],
-            "ZJet_powhegminnlo" : [
-                inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
-                ],
+ #           "ZJet_powhegminnlo" : [
+ #               inputListBkgBase+"DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               inputListBkgBase+"DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos.txt",
+ #               ],
             "ZJet_HT_LO"  :  [
                  inputListBkgBase+"DYJetsToLL_M-50_HT-100to200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
                  inputListBkgBase+"DYJetsToLL_M-50_HT-200to400_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8.txt",
@@ -233,7 +241,7 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
                  ],
             "TTbar_powheg" : [
                 inputListBkgBase+"TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"TTToHadronic_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"TTToHadronic_TuneCP5_13TeV-powheg-pythia8.txt",
                 inputListBkgBase+"TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8.txt",
                 ],
             "DIBOSON_nlo" : [
@@ -294,6 +302,7 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
     return backgroundDatasetsDict
 
 def GetQCDDatasetList(year):
+    year = str(year)
     qcdFakes = {
         "QCDFakes_DYJ" : [
             inputListQCD1FRBase+"DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
@@ -345,6 +354,37 @@ def GetQCDDatasetList(year):
                     inputListQCD2FRBase+"SinglePhoton_Run2016G-UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2016F-UL2016_MiniAODv2_NanoAODv9-v1.txt",
                     ]
+    elif year == "2017":
+        qcdFakes["QCDFakes_DATA"] = [
+                    inputListQCD1FRBase+"SinglePhoton_Run2017B-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017C-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017D-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017E-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017F-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    ]
+        qcdFakes["QCDFakes_DATA_2FR"] = [
+                    inputListQCD2FRBase+"SinglePhoton_Run2017B-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017C-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017D-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017E-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017F-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    ]
+    elif year == "2018":
+        qcdFakes["QCDFakes_DATA"] = [
+                    inputListQCD1FRBase+"EGamma_Run2018A-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"EGamma_Run2018B-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"EGamma_Run2018C-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"EGamma_Run2018D-UL2018_MiniAODv2_NanoAODv9-v3.txt",
+                    ]
+        qcdFakes["QCDFakes_DATA_2FR"] = [
+                    inputListQCD2FRBase+"EGamma_Run2018A-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"EGamma_Run2018B-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"EGamma_Run2018C-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"EGamma_Run2018D-UL2018_MiniAODv2_NanoAODv9-v3.txt",
+                    ]
+    else:
+        print("ERROR: did not find QCD fakes datasets for year {}".format(year))
+
     return qcdFakes
 
 
@@ -415,13 +455,13 @@ parallelize = True
 date = "9oct2023"
 includeQCD = True
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/aprSkims/trainingTreeInputs/preselOnly"
-inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/singleFR/"
-inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/febSkims/trainingTreeInputs/doubleFR/"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7maySkim/trainingTreeInputs/preselOnly"
+inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7maySkim/trainingTreeInputs/singleFR/"
+inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7maySkim/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/"+str(year)+"/aprSkims_allDY"
-signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
-
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/may7Skims"
+#signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
 if __name__ == "__main__":
     print("INFO: Using year = {}".format(year))
     print("INFO: Using signal name template: {}".format(signalNameTemplate))
@@ -448,6 +488,7 @@ if __name__ == "__main__":
         backgroundDatasetsDict.update(GetQCDDatasetList(year))
     massList = list(range(300, 3100, 100))
     massList.extend([3500, 4000])
+    #massList = [1200]
     for mass in massList:
         signalName = signalNameTemplate.format(mass)
         if not inputListSignalBase.endswith("/"):

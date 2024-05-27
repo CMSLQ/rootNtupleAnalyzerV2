@@ -33,6 +33,7 @@ import math
 
 minMLQ = int(sys.argv[1])
 maxMLQ = int(sys.argv[2])
+year = str(sys.argv[3])
 parameterized = False
 #parameterized = True
 moreVars = True
@@ -51,8 +52,9 @@ if parameterized==True:
         modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
 else:
     if moreVars==True:
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_mixed/2016preVFP/HTLO-amcatnlo"
-        optimizationFile = base_folder+"/optimizationPlots.root"
+        #base_folder = os.getenv("LQDATAEOS")+"/BDT_LQToBEle/HTLO/2016postVFP/depth3"
+        base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim/LQToDEle/correctedXsections/{}".format(year)
+        optimizationFile = base_folder+"/testing/optimizationPlots.root"
         bdtPlotFile = base_folder+"/bdtPlots.root"
         modelName = "dedicated_mass"
     else:
@@ -208,6 +210,7 @@ for ipoint in range(yieldAtCutSig.GetN()):
 sigEfficiency = TGraphErrors(len(LQmasses))
 bkgRejection = TGraphErrors(len(LQmasses))
 sigEffVsBkgRejMLQ = TGraph(len(LQmasses))
+rocAreas = {}
 for i,mass in enumerate(LQmasses):
     cBDTOutput = TCanvas()
     cBDTOutput.SetLogy()
@@ -257,6 +260,48 @@ for i,mass in enumerate(LQmasses):
     cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputMLQ"+str(mass)+".pdf")
     #cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputZoomMLQ"+str(mass)+".pdf")    
 
+    #Make an ROC curve/auc by hand
+    nBins = bkgPlot.GetNbinsX()
+    ROCCurve = TGraph()
+    ROCCurve.SetPointX(0,1.0)
+    ROCCurve.SetPointY(0,0.0)
+    for ibin in range(nBins): #zero negative bins out
+        nBThisBin = bkgPlot.GetBinContent(ibin+1)
+        if nBThisBin < 0:
+            bkgPlot.SetBinContent(ibin+1,0)
+    nSTot = sigPlot.Integral(1,bkgPlot.GetXaxis().GetLast())
+    nBTot = bkgPlot.Integral(1,sigPlot.GetXaxis().GetLast())
+    for ibin in range(nBins):
+        nB = bkgPlot.Integral(ibin+1, bkgPlot.GetXaxis().GetLast())
+        nS = sigPlot.Integral(ibin+1, sigPlot.GetXaxis().GetLast())
+        if nB > 0:
+            Y = 1.0 - nB/nBTot
+        else:
+            Y = 1.0
+        X = nS/nSTot
+        print("MLQ{}: ({}, {})".format(mass,X,Y))
+        ROCCurve.SetPointX(ibin,X)
+        ROCCurve.SetPointY(ibin,Y)
+        #print("X = {}/{} = {}".format(nS,nSTot,X))
+        #print("Y = 1 - {}/{} = {}".format(nB,nBTot,Y))
+
+    ROCCurve.SetPointX(nBins,0.0)
+    ROCCurve.SetPointY(nBins,1.0)
+    ROCToIntegrate = copy.deepcopy(ROCCurve)
+    ROCToIntegrate.AddPoint(0,0)
+    auc = ROCToIntegrate.Integral()
+    rocAreas[str(mass)] = auc
+    ROCCurve.SetTitle("ROC for MLQ = {} GeV, AUC = {}".format(mass,auc))
+    ROCCurve.GetXaxis().SetTitle("signal efficiency")
+    ROCCurve.GetYaxis().SetTitle("background rejection")
+    c = TCanvas()
+    c.SetGridx()
+    c.SetGridy()
+    ROCCurve.SetLineColor(kRed)
+    ROCCurve.SetLineWidth(2)
+    ROCCurve.Draw("AL")
+    c.Print(pdf_folder+"/"+str(mass)+"/ROCFromBDTPlot"+str(mass)+".pdf")
+
     c = TCanvas()
     c.SetGridy()
     bkgPlotNormalized = bkgPlotRebin.DrawNormalized()
@@ -299,11 +344,13 @@ cYield = TCanvas()
 cYield.SetGridy()
 cYield.SetLogy()
 yieldAtCutSig.SetMarkerStyle(8)
+yieldAtCutSig.SetMarkerSize(0.75)
 yieldAtCutSig.GetXaxis().SetTitle("MLQ")
 yieldAtCutSig.SetTitle("yield at opt. cut value vs LQ mass")
 yieldAtCutSig.SetName("SigYieldAtOptCut")
 yieldAtCutSig.SetMarkerColor(kBlue)
 yieldAtCutBkg.SetMarkerStyle(8)
+yieldAtCutBkg.SetMarkerSize(0.75)
 yieldAtCutBkg.SetMarkerColor(kRed)
 yieldAtCutBkg.SetName("BkgYieldAtOptCut")
 yieldAtCutSig.GetYaxis().SetRangeUser(1e-4,50000)
@@ -351,17 +398,18 @@ oneMaucVsMLQPlot.SetName("1-rocaucVsMLQ")
 for i, mass in enumerate(LQmasses):
     c3 = TCanvas()
     rocPlot = bdtTFile.Get("LQM"+str(mass)+"/Graph")
-    plotForIntegral = copy.deepcopy(rocPlot)
-    plotForIntegral.AddPoint(0,0)
-    rocauc = plotForIntegral.Integral()
+    #plotForIntegral = copy.deepcopy(rocPlot)
+    #plotForIntegral.AddPoint(0,0)
+#    rocauc = plotForIntegral.Integral()
+    rocauc = rocAreas[str(mass)]
     oneMauc = 1 - rocauc
     title = "ROC for MLQ = "+str(mass)+" (auc = "+str(rocauc)+")"
-    rocPlot.SetTitle(title)
-    rocPlot.SetName("ROC_MLQ"+str(mass))
-    rocPlot.Draw()
+#    rocPlot.SetTitle(title)
+#    rocPlot.SetName("ROC_MLQ"+str(mass))
+#    rocPlot.Draw()
     outFile.cd()
-    rocPlot.Write()
-    c3.Print(pdf_folder+"/"+str(mass)+"/rocMLQ"+str(mass)+".pdf")
+#    rocPlot.Write()
+#    c3.Print(pdf_folder+"/"+str(mass)+"/rocMLQ"+str(mass)+".pdf")
     rocaucVsMLQPlot.SetPoint(i,mass,rocauc)
     oneMaucVsMLQPlot.SetPoint(i,mass,oneMauc)
 rocaucVsMLQPlot.SetMarkerStyle(8)
@@ -387,7 +435,16 @@ c3.Print(pdf_folder+"/1-rocaucVsMLQ.pdf")
 
 #compare sig and bkg variable distributions for each mass
 for i,mass in enumerate(LQmasses):
-    TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
+    if "2016preVFP" in base_folder:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+    else:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     for var in variables:
        c5 = TCanvas()
        c5.SetLogy()
@@ -473,7 +530,16 @@ for i,mass in enumerate(LQmasses):
     #Also get overtraining plots 
     #see https://root-forum.cern.ch/t/tmva-signal-vs-background-bdt-response-plot-generated-with-macro-radically-different-from-manually-generated-plot/34002/4
     #cross-checked with the plots produced in the tmva gui and these are indeed the right plot names
-    TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
+    if "2016preVFP" in base_folder:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+    else:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     bkgTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_B")
     bkgTest = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_B")
     sigTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_S")
