@@ -10,6 +10,7 @@ from tabulate import tabulate
 from pathlib import Path
 from decimal import Decimal
 from termcolor import colored
+from bisect import bisect
 import numpy as np
 import ROOT as r
 import combineCommon as cc
@@ -1566,8 +1567,9 @@ if doSystematics:
         yieldTable = []
         table = []
         tableHeaders = ["systematic"]
-        systStack = r.THStack()
-        systStack.SetName("allSystsStack_"+sampleName)
+        systStacks = []
+        systStacks.append(r.THStack())
+        systStacks[-1].SetName("allSystsStack_"+sampleName)
         for iSyst, syst in enumerate(d_systNominals[sampleName].keys()):
             if not DoesSystematicApply(syst, sampleName):
                 continue
@@ -1576,19 +1578,38 @@ if doSystematics:
             if not "totalYield" in d_totalBkgSysts.keys():
                 d_totalBkgSysts["totalYield"] = {}
             tableRow = [d_systTitles[syst]]
+            sortedSelectionDict = sorted(
+                    iter(d_systNominals[sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")))
             systDir.cd()
             systDir.mkdir(syst, syst, True).cd()
             if "LQ" in sampleName:
                 signalMass = int(sampleName.split("-")[-1].split("_")[0])
-                systHist = r.TH1D(syst+"_uncertVsMassHist_{}".format(sampleName), syst+"_uncertVsMassHist_{}".format(sampleName), 2, signalMass-100, signalMass+100)
+                systHists = [r.TH1D(syst+"_uncertVsMassHist_{}".format(sampleName), syst, 2, signalMass-100, signalMass+100)]
+                massRanges = [signalMass-100, signalMass+100]
             else:
-                systHist = r.TH1D(syst+"_uncertVsMassHist_{}".format(sampleName), syst+"_uncertVsMassHist_{}".format(sampleName), 12, 250, 1450)
+                # split into 3 ranges
+                splitInto = 3
+                massPoints = [int(selection.replace("LQ", "")) for selection, _ in sortedSelectionDict if "selection" not in selection.lower()]
+                minMass = min(massPoints)
+                maxMass = max(massPoints)
+                subRange = math.ceil((maxMass+100-minMass) / (1000*splitInto))*1000
+                bins = int(subRange / 100)  # bins 100 GeV wide (one per mass point)
+                systHists = []
+                massRanges = []
+                if len(systStacks) < len(systHists):
+                    systStacks[0].SetName(systStacks[0].GetName().replace("Stack_", "Stack_MassRange1_"))
+                for idx in range(0, splitInto):
+                    minRange = idx*subRange+minMass-50
+                    maxRange = (idx+1)*subRange+minMass-50
+                    systHists.append(r.TH1D(syst+"_uncertVsMassHist{}_{}".format(idx, sampleName), syst, bins, minRange, maxRange))
+                    massRanges.append(minRange)
+                    if len(systStacks) < len(systHists) and idx > 0:
+                        systStacks.append(r.THStack())
+                        systStacks[-1].SetName("allSystsStack_MassRange{}_".format(idx+1)+sampleName)
             massList = []
             nominals = []
             upVariation = []
             downVariation = []
-            sortedSelectionDict = sorted(
-                    iter(d_systNominals[sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")))
             thisSystTableHeaders = ["% at "+sName[0] for sName in sortedSelectionDict]
             if len(tableHeaders) == 1:
                 tableHeaders.extend(thisSystTableHeaders)
@@ -1613,7 +1634,8 @@ if doSystematics:
                     # tableRow.append(fillVal)
                     if selection != "preselection" and selection != "trainingSelection":
                         mass = float(selection.replace("LQ", ""))
-                        systHist.Fill(mass, fillVal)
+                        idxToFill = bisect(massRanges, mass) - 1
+                        systHists[idxToFill].Fill(mass, fillVal)
                 tableRow.append(fillVal)
                 if sampleName in background_names:
                     toAdd = max(float(d_systUpDeltas[sampleName][syst][selection]), float(d_systDownDeltas[sampleName][syst][selection]))
@@ -1653,12 +1675,14 @@ if doSystematics:
             #         print "nominals:", nominals
             #         print "downVariation:", downVariation
             #         print "upVariation:", upVariation
-            systHist.GetXaxis().SetTitle("M_{LQ} [GeV]")
-            systHist.GetYaxis().SetTitle(syst+" Uncertainty [%]")
-            systHist.SetLineWidth(2)
-            systHist.SetBarWidth(0.08)
-            systHist.Write()
-            systStack.Add(systHist, "hist")
+            for idx, systHist in enumerate(systHists):
+                systHist.GetXaxis().SetTitle("M_{LQ} [GeV]")
+                systHist.GetYaxis().SetTitle(syst+" Uncertainty [%]")
+                systHist.SetLineWidth(2)
+                systHist.SetBarWidth(0.08)
+                systHist.Write()
+                print("Sample Name: {}; systHist name: {}; idx={}; nStacks={}; nSystHists={}".format(sampleName, systHist.GetName(), idx, len(systStacks), len(systHists)))
+                systStacks[idx].Add(systHist, "hist")
             table.append(tableRow)
         yieldTable.append(yieldRow)
         print("Sample Name: {}".format(sampleName))
@@ -1669,20 +1693,24 @@ if doSystematics:
         if len(totalBkgSystsHeaders) <= 0:
             totalBkgSystsHeaders = tableHeaders
         systDir.cd()
-        canvas = r.TCanvas("c", "c", 1200, 600)
-        canvas.SetName("allSystsCanvas_"+sampleName)
-        canvas.cd()
-        canvas.SetGridy()
-        r.gStyle.SetPaintTextFormat(".0f%")
-        systStack.Draw("pfc plc nostackb text")
-        systStack.GetXaxis().SetTitle("M_{LQ} [GeV]")
-        systStack.GetYaxis().SetTitle("Max. Syst. Uncertainty [%]")
-        systStack.SetMaximum(100)
-        systStack.SetTitle(sampleName)
-        systStack.Write()
-        canvas.BuildLegend(0.15, 0.55, 0.5, 0.85, "", "l")
-        # canvas.Write()
-        canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
+        for idx, systStack in enumerate(systStacks):
+            canvas = r.TCanvas("c", "c", 1200, 600)
+            canvas.SetName("allSystsCanvas{}_".format(idx+1)+sampleName)
+            canvas.cd()
+            canvas.SetGridy()
+            r.gStyle.SetPaintTextFormat(".0f%")
+            systStack.Draw("pfc plc nostackb text")
+            systStack.GetXaxis().SetTitle("M_{LQ} [GeV]")
+            systStack.GetYaxis().SetTitle("Max. Syst. Uncertainty [%]")
+            systStack.SetMaximum(100)
+            systStack.SetTitle(sampleName)
+            systStack.Write()
+            canvas.BuildLegend(0.15, 0.55, 0.5, 0.85, "", "l")
+            # canvas.Write()
+            if len(systStacks) > 1:
+                canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.pdf".format(idx+1, sampleName))
+            else:
+                canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
         massList = []
         nominals = []
         deltaXOverX = []
