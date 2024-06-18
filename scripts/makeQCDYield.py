@@ -17,7 +17,7 @@ from ROOT import TFile, gROOT, SetOwnership
 def FindFile(dirname, filename):
     fileList = glob.glob(os.path.abspath(dirname)+"/"+filename)
     if len(fileList) != 1:
-        raise RuntimeError("Could not find unique file with name {} in dir {}; found {} files instead.".format(filename, dirname, len(fileList)))
+        raise RuntimeError("Could not find unique file with name {} in dir {}; found {} files instead: {}.".format(filename, dirname, len(fileList), fileList))
     return fileList[0]
 
 
@@ -212,20 +212,25 @@ def SubtractTables(inputTable, tableToSubtractOrig, zeroNegatives=False, limitSu
     else:
         outputTable = copy.deepcopy(inputTable)
         tableToSubtract = copy.deepcopy(tableToSubtractOrig)
+        beyondEleIDRequirements = False
         for j, line in enumerate(tableToSubtract):
             # print 'outputTable[int(',j,')][N]=',outputTable[int(j)]['N'],'tableToSubtract[',j,']','[N]=',tableToSubtract[j]['N']
+            if tableToSubtract[j]["variableName"] == "PassIDRequirements":
+                beyondEleIDRequirements = True
             if limitSub:
                 # if abs(float(tableToSubtract[j]["N"])) > limit*abs(float(outputTable[int(j)]["N"])):
                 #     tableToSubtract[j]["N"]= limit*float(outputTable[int(j)]["N"])
                 #     print("INFO: limited N to {}%".format(100%limit))
                 if abs(float(tableToSubtract[j]["Npass"])) > limit*abs(float(outputTable[int(j)]["Npass"])):
-                    print("INFO: table: limiting Npass for {} to {:.2f}; originally {:.2f}, toSub {:.2f} = {:.2f}*Npass".format(
-                        tableToSubtract[j]["variableName"], limit*abs(float(outputTable[int(j)]["Npass"])), float(outputTable[int(j)]["Npass"]), float(tableToSubtract[j]["Npass"]), float(tableToSubtract[j]["Npass"])/float(outputTable[j]["Npass"]) ))
+                    # the QCD estimate itself is meaningless until the fake rate and the electron selection have been applied
+                    # therefore, while we do the limiting of the 2FR to limit*1FR in the printed table, we don't print out any warnings
+                    #  if the 2FR amount is limited in the cuts that happen before the electron selection ("PassIDRequirements")
+                    if beyondEleIDRequirements:
+                        print("WARN: table: limiting Npass for {} to {:.2f}; originally {:.2f}, toSub {:.2f} = {:.2f}*Npass".format(
+                            tableToSubtract[j]["variableName"], limit*abs(float(outputTable[int(j)]["Npass"])), float(outputTable[int(j)]["Npass"]), float(tableToSubtract[j]["Npass"]), float(tableToSubtract[j]["Npass"])/float(outputTable[j]["Npass"]) ))
                     tableToSubtract[j]["Npass"] = limit*abs(float(outputTable[int(j)]["Npass"]))
             # newN = float(outputTable[int(j)]["N"]) - float(tableToSubtract[j]["N"])
-            newNpass = float(outputTable[int(j)]["Npass"]) - float(
-                tableToSubtract[j]["Npass"]
-            )
+            newNpass = float(outputTable[int(j)]["Npass"]) - float(tableToSubtract[j]["Npass"])
             # if newN < 0.0 and zeroNegatives:
             #     newN = 0.0
             if newNpass < 0.0 and zeroNegatives:
@@ -253,6 +258,8 @@ def SubtractTables(inputTable, tableToSubtractOrig, zeroNegatives=False, limitSu
                 "EffAbs": float(0),
                 "errEffAbs": float(0),
             }
+        if not beyondEleIDRequirements:
+            print("WARN: Something strange happened: didn't find the expected cut 'PassIDRequirements' in the table. This means that warnings about the 2FR subtraction being greater than {} x 1FR have been suppressed.".format(limit))
     return outputTable
 
 
