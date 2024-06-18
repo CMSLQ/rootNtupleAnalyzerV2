@@ -82,13 +82,18 @@ def FindInputFiles(inputList, analysisCode, inputDir, skipSimilarDatasets=True):
             print("ERROR: could not find root file for dataset:", dataset_fromInputList)
             print("ERROR: tried these full paths:", completeNamesTried)
             foundAllFiles = False
-        elif len(fileList) > 1:
-            print("ERROR: found {} root files for dataset: {}".format(len(fileList), dataset_fromInputList))
-            print("ERROR: considered these full paths: {}".format(completeNamesTried))
-            foundAllFiles = False
+        # elif len(fileList) > 1:
+        #     print("ERROR: found {} root files for dataset: {}".format(len(fileList), dataset_fromInputList))
+        #     print("ERROR: considered these full paths: {}".format(completeNamesTried))
+        #     foundAllFiles = False
+        # else:
+        #     sampleName = SanitizeDatasetNameFromInputList(dataset_fromInputList.replace("_tree", ""))
+        #     dictDatasetsFileNames[dataset_fromInputList] = fileList[0]
+        #     # print "for dataset {}, found files: {}".format(dataset_fromInputList, fileList[0])
+        #     datasetsHandled.append(sampleName)
         else:
             sampleName = SanitizeDatasetNameFromInputList(dataset_fromInputList.replace("_tree", ""))
-            dictDatasetsFileNames[dataset_fromInputList] = fileList[0]
+            dictDatasetsFileNames[dataset_fromInputList] = fileList
             # print "for dataset {}, found files: {}".format(dataset_fromInputList, fileList[0])
             datasetsHandled.append(sampleName)
     return foundAllFiles, dictDatasetsFileNames
@@ -371,11 +376,12 @@ def FillTableErrors(table, rootFileName, sampleName=""):
 
     for j, line in enumerate(table):
         iBin = j+1
-        # print "Table line {}: {}".format(j, table[j])
+        # print("Table line {}: {}".format(j, table[j]))
         # print "GetSumw2() in hist={} for iBin={}".format(eventsPassingHist.GetName(), iBin)
         # sys.stdout.flush()
         # errNpassSqr = eventsPassingHist.GetSumw2().At(iBin)
         errNpassSqr = eventsPassingHist.GetBinError(iBin)**2
+        # print("bin content = {}, errNPassSqr = {}, sqrt(sumw2) = {}".format(eventsPassingHist.GetBinContent(iBin), eventsPassingHist.GetBinError(iBin)**2, eventsPassingHist.GetSumw2().At(iBin)))
         if j > 0:
             # print "GetSumw2() in hist={} for iBin={}".format(eventsPassingHist.GetName(), iBin-1)
             # sys.stdout.flush()
@@ -402,15 +408,18 @@ def CreateWeightedTable(data, weight=1.0, xsection_X_intLumi=1.0):
                     "max1": "-",
                     "min2": "-",
                     "max2": "-",
-                    #"N": (Ntot * weight),
+                    "level": -1,
+                    # "N": (Ntot * weight),
                     #"errNSqr": int(0),
+                    "N": (float(data[j]["N"]) * weight) if "N" in data[j].keys() else 0.0,
                     "Npass": (float(data[j]["Npass"]) * weight),
                     "errNpassSqr": int(0),
                     }
 
         else:
             # print "data[{}]={}".format(j, data[j])
-            #N = float(data[j]["N"]) * weight
+            # N = float(data[j]["N"]) * weight
+            N = (float(data[j]["N"]) * weight) if "N" in data[j].keys() else 0.0
             ## errN = float(data[j - 1]["errEffAbs"]) * xsection_X_intLumi
             #errNSqr = pow(float(data[j]["errN"]) * weight, 2)
             # print data[j]['variableName']
@@ -445,7 +454,8 @@ def CreateWeightedTable(data, weight=1.0, xsection_X_intLumi=1.0):
                     "max1": data[j]["max1"],
                     "min2": data[j]["min2"],
                     "max2": data[j]["max2"],
-                    #"N": N,
+                    "level": data[j]["level"] if "level" in data[j].keys() else -2,
+                    "N": N,
                     #"errNSqr": errNSqr,
                     "Npass": Npass,
                     "errNpassSqr": errNpassSqr,
@@ -473,7 +483,8 @@ def UpdateTable(inputTable, outputTable):
                 "max1": inputTable[j]["max1"],
                 "min2": inputTable[j]["min2"],
                 "max2": inputTable[j]["max2"],
-                #"N": float(outputTable[int(j)]["N"]) + float(inputTable[j]["N"]),
+                "level": inputTable[j]["level"],
+                "N": float(outputTable[int(j)]["N"]) + float(inputTable[j]["N"]),
                 #"errNSqr": float(outputTable[int(j)]["errNSqr"]) + float(inputTable[j]["errNSqr"]),
                 "Npass": float(outputTable[int(j)]["Npass"]) + float(inputTable[j]["Npass"]),
                 "errNpassSqr": float(outputTable[int(j)]["errNpassSqr"]) + float(inputTable[j]["errNpassSqr"]),
@@ -597,6 +608,7 @@ def SquareTableErrorsForEfficiencyCalc(table):
 def CalculateEfficiency(table):
     newTable = {}
     # cutHists = []
+    tableRowForTotal = 0
     for j, line in enumerate(table):
         #errN = math.sqrt(table[j]["errNSqr"])
         errNpass = math.sqrt(table[j]["errNpassSqr"])
@@ -606,7 +618,8 @@ def CalculateEfficiency(table):
             "max1": table[int(j)]["max1"],
             "min2": table[int(j)]["min2"],
             "max2": table[int(j)]["max2"],
-            #"N": float(table[j]["N"]),
+            "level": table[int(j)]["level"],
+            "N": float(table[j]["N"]),
             #"errN": errN,
             "Npass": float(table[j]["Npass"]),
             "errNpass": errNpass,
@@ -634,6 +647,10 @@ def CalculateEfficiency(table):
         #     teffAbs = r.TEfficiency(cutHist, cutHists[0])
         #     newTable[j]["EffAbs"] = teffAbs.GetEfficiency(1)
         #     newTable[j]["errEffAbs"] = (teffAbs.GetEfficiencyErrorUp(1)+teffAbs.GetEfficiencyErrorLow(1))/2.
+        if newTable[j]["variableName"].lower() == "reweighting":
+            tableRowForTotal = j
+        totalEventYield = float(table[tableRowForTotal]["Npass"])
+        totalEventYieldErrSqr = float(table[tableRowForTotal]["errNpassSqr"])
 
         # manual
         confLevel = 0.683
@@ -658,11 +675,11 @@ def CalculateEfficiency(table):
                 newTable[j]["errEffRel"] = eff if eff-delta < 0 else delta
             else:
                 newTable[j]["errEffRel"] = -1
-            eff = float(newTable[j]["Npass"])/newTable[0]["Npass"]
-            tw2 = float(table[0]["errNpassSqr"])
-            tw = float(table[0]["Npass"])
-            newTable[j]["EffAbs"] = newTable[j]["Npass"]/newTable[0]["Npass"]
-            variance = (pw2 * (1. - 2 * eff) + tw2 * eff * eff) / (tw * tw)
+            eff = float(newTable[j]["Npass"])/totalEventYield if totalEventYield != 0 else 0.0
+            tw2 = totalEventYieldErrSqr
+            tw = totalEventYield
+            newTable[j]["EffAbs"] = newTable[j]["Npass"]/totalEventYield if totalEventYield != 0 else 0.0
+            variance = (pw2 * (1. - 2 * eff) + tw2 * eff * eff) / (tw * tw) if tw != 0 else 0.0
             if variance >= 0:
                 sigma = math.sqrt(variance)
                 delta = r.Math.normal_quantile_c(prob, sigma)
@@ -788,38 +805,53 @@ def CombineEfficiencies(tableList):
 # --- TODO: FIX TABLE FORMAT (NUMBER OF DECIMAL PLATES AFTER THE 0)
 
 
-def WriteTable(table, name, file, printToScreen=False):
+def WriteTable(table, name, file, printToScreen=False, writeErrNPass=True):
     print("### "+name, file=file)
-    print("#id".rjust(4, " "), end=' ', file=file)
+    print("#id".ljust(4, " "), end=' ', file=file)
     print("variableName".rjust(35), end=' ', file=file)
     print("min1".rjust(15), end=' ', file=file)
     print("max1".rjust(15), end=' ', file=file)
     print("min2".rjust(15), end=' ', file=file)
     print("max2".rjust(15), end=' ', file=file)
+    if not writeErrNPass:
+        print("level".rjust(15), end=' ', file=file)
+        print("N".rjust(17), end=' ', file=file)
     print("Npass".rjust(17), end=' ', file=file)
-    print("errNpass".rjust(17), end=' ', file=file)
+    if writeErrNPass:
+        print("errNpass".rjust(17), end=' ', file=file)
     print("EffRel".rjust(15), end=' ', file=file)
     print("errEffRel".rjust(15), end=' ', file=file)
     print("EffAbs".rjust(15), end=' ', file=file)
     print("errEffAbs".rjust(15), file=file)
 
     for j, line in enumerate(table):
-        print(str(j).rjust(4, " "), end=' ', file=file)
+        cutIdx = j
+        if not writeErrNPass:
+            cutIdx += 1
+        print(str(cutIdx).rjust(4, " "), end=' ', file=file)
         print(table[j]["variableName"].rjust(35), end=' ', file=file)
         print(table[j]["min1"].rjust(15), end=' ', file=file)
         print(table[j]["max1"].rjust(15), end=' ', file=file)
         print(table[j]["min2"].rjust(15), end=' ', file=file)
         print(table[j]["max2"].rjust(15), end=' ', file=file)
         ###
+        if not writeErrNPass:
+            print(table[j]["level"].rjust(15), end=' ', file=file)
+            if table[j]["N"] >= 0.1:
+                print(("%.04f" % table[j]["N"]).rjust(17), end=' ', file=file)
+            else:
+                print(("%.04e" % table[j]["N"]).rjust(17), end=' ', file=file)
+        ###
         if table[j]["Npass"] >= 0.1:
             print(("%.04f" % table[j]["Npass"]).rjust(17), end=' ', file=file)
         else:
             print(("%.04e" % table[j]["Npass"]).rjust(17), end=' ', file=file)
         ###
-        if table[j]["errNpass"] >= 0.1:
-            print(("%.04f" % table[j]["errNpass"]).rjust(17), end=' ', file=file)
-        else:
-            print(("%.04e" % table[j]["errNpass"]).rjust(17), end=' ', file=file)
+        if writeErrNPass:
+            if table[j]["errNpass"] >= 0.1:
+                print(("%.04f" % table[j]["errNpass"]).rjust(17), end=' ', file=file)
+            else:
+                print(("%.04e" % table[j]["errNpass"]).rjust(17), end=' ', file=file)
         ###
         if table[j]["EffRel"] >= 0.1:
             print(("%.04f" % table[j]["EffRel"]).rjust(15), end=' ', file=file)
@@ -1186,7 +1218,7 @@ def GetShortHistoName(histName):
         return histName
 
 
-def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeight=1.0, correlateLHESystematics=False, isData=False):
+def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeight=1.0, correlateLHESystematics=False, isData=False, isQCD=False):
     # print "INFO: UpdateHistoDict for sample {}".format(sample)
     # sys.stdout.flush()
     systNameToBranchTitleDict = {}
@@ -1195,7 +1227,7 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
         sampleSystHist = next((x for x in pieceHistoList if x.GetName() == "systematics"), None)
         if sampleSystHist is not None:
             systNameToBranchTitleDict = ExtractBranchTitles(sampleSystHist, sampleTMap)
-        else:
+        elif not isQCD:
             print("WARN: Did not find systematics hist for the sample {}, though it's not data.".format(sample))
     idx = 0
     for pieceHisto in pieceHistoList:
@@ -1448,11 +1480,15 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
         htemp.Scale(plotWeight)
         #r.gDebug = 3
         #r.gErrorIgnoreLevel = r.kPrint
-        #if "Mee_BkgControlRegion"==histoName:
-        #    print("SICINFO: adding hist named '{}' to {} of class {}; htemp class={}".format(histoName, dictFinalHistoAtSample[h].GetName(), dictFinalHistoAtSample[h].ClassName(), htemp.ClassName()))
-        #    print("SICINFO: adding hist named '{}' with {} xbins to hist with {} xbins; htemp has {} ybins and hist has {} ybins".format(histoName, htemp.GetNbinsX(), dictFinalHistoAtSample[h].GetNbinsX(), htemp.GetNbinsY(), dictFinalHistoAtSample[h].GetNbinsY()))
-        #    sys.stdout.flush()
+        # if "DR_Ele1Ele2_PASWithSystematics"==histoName:
+        #     #print("SICINFO: adding hist named '{}' to {} of class {}; htemp class={}".format(histoName, dictFinalHistoAtSample[h].GetName(), dictFinalHistoAtSample[h].ClassName(), htemp.ClassName()))
+        #     #print("SICINFO: adding hist named '{}' with {} xbins to hist with {} xbins; htemp has {} ybins and hist has {} ybins".format(histoName, htemp.GetNbinsX(), dictFinalHistoAtSample[h].GetNbinsX(), htemp.GetNbinsY(), dictFinalHistoAtSample[h].GetNbinsY()))
+        #     #sys.stdout.flush()
+        #     print("SICINFO: final hist named '{}' has bin 215 content={} bin 215 error={}".format(histoName, dictFinalHistoAtSample[h].GetBinContent(215), dictFinalHistoAtSample[h].GetBinError(215)))
+        #     print("SICINFO: adding hist named '{}' with bin 215 content={} bin 215 error={}".format(histoName, htemp.GetBinContent(215), htemp.GetBinError(215)))
         returnVal = dictFinalHistoAtSample[h].Add(htemp)
+        # if "DR_Ele1Ele2_PASWithSystematics"==histoName:
+        #     print("SICINFO: NOW, final hist named '{}' has bin 215 content={} bin 215 error={}".format(histoName, dictFinalHistoAtSample[h].GetBinContent(215), dictFinalHistoAtSample[h].GetBinError(215)))
         #r.gDebug = 0
         #r.gErrorIgnoreLevel = r.kError
     # if 'OptBinLQ60' in histoName:
@@ -1462,6 +1498,54 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
     if not returnVal:
         raise RuntimeError("ERROR: Failed adding hist named '{}' to {}".format(histoName, dictFinalHistoAtSample[h].GetName()))
     return dictFinalHistoAtSample
+
+
+def ScaleHistos(dictFinalHistoAtSample, plotWeight):
+    for idx in dictFinalHistoAtSample:
+        histo = dictFinalHistoAtSample[idx]
+        histoName = histo.GetName()
+        if "optimizerentries" in histoName.lower() or "noweight" in histoName.lower() or "unscaled" in histoName.lower():
+            continue
+        elif "TMap" in histo.ClassName():
+            continue
+        else:
+            histo.Scale(plotWeight)
+
+
+def MakeNewEfficiencyHist(eventCutsEfficHist, eventsPassingCutsProf):
+    eventCutsEfficHist.Reset()
+    noCuts = eventsPassingCutsProf.GetBinEntries(1)
+    for iBin in range(1,  eventsPassingCutsProf.GetNbinsX()+1):
+      sumw = eventsPassingCutsProf.GetBinContent(iBin)*eventsPassingCutsProf.GetBinEntries(iBin)
+      sqrtSumw2 = math.sqrt(eventsPassingCutsProf.GetSumw2().At(iBin))
+      # eventCutsHist_.GetXaxis().SetBinLabel(iBin, eventsPassingCutsProf.GetXaxis().GetBinLabel(iBin))
+      # checkOverflow(eventCutsHist_.get(), sumw)
+      # eventCutsHist_.SetBinContent(iBin, sumw)
+      # eventCutsHist_.SetBinError(iBin, sqrtSumw2)
+      binLabel = eventsPassingCutsProf.GetXaxis().GetBinLabel(iBin)
+      eventCutsEfficHist.GetXaxis().SetBinLabel(iBin, binLabel)
+      N = noCuts
+      p = sumw / N if N != 0 else 0.0
+      eventCutsEfficHist.SetBinContent(iBin, p)
+      q = 1-p
+      w = sumw / eventsPassingCutsProf.GetBinEntries(iBin) if eventsPassingCutsProf.GetBinEntries(iBin) != 0 else -1
+      # try:
+      #   effAbsErr = math.sqrt(p*q/N)*w
+      # except ValueError as e:
+      #     effAbsErr = -1.0
+      #     if binLabel.lower() != "reweighting":
+      #         raise RuntimeError("Got an error '{}' when trying to do sqrt({}*{}/{} for iBin={} [{}] with sumw={}".format(e, p, q, N, iBin, binLabel, sumw))
+      #     else:
+      #         noCuts = sumw
+      effAbsErrSqr = p*q/N if N != 0 else 0.0
+      if effAbsErrSqr > 0:
+          effAbsErr = math.sqrt(p*q/N)*w
+      else:
+          effAbsErr = -1.0
+      if binLabel.lower() == "reweighting":
+          noCuts = sumw
+      eventCutsEfficHist.SetBinError(iBin, effAbsErr)
+    return eventCutsEfficHist
 
 
 def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, verbose=False):
@@ -1555,6 +1639,8 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                 nbytes = systDiffsHist.Write()
                 histName = systDiffsHist.GetName()
         else:
+            if "TH1" in histo.ClassName() and "EfficiencyPassingCutsAllHist" in histo.GetName():
+                histo = MakeNewEfficiencyHist(histo, next(x for x in sampleHistoDict.values() if "EventsPassingCuts" in x.GetName() and x.ClassName() == "TProfile"))
             nbytes = histo.Write()
         if nbytes <= 0:
             raise RuntimeError("Error writing into the output file '{}': wrote {} bytes to file when writing object '{}'.".format(
@@ -2010,19 +2096,21 @@ def SeparateDatacards(txtFilePath, cardIndex, dirPath, writeCards=True, verbose=
     tmpFileByMass = {}
     cardContent = []
     cardContentsByMass = {}
-    for line in open(os.path.expandvars(txtFilePath)):
-        match = re.match("LQ_M(\d+)\.txt", line)
-        if match is not None:
-            if len(cardContent) > 0:
-                if writeCards:
-                    tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
-                    tmpFileByMass[int(mass)] = tmpFile
-                massList.append(int(mass))
-                cardContentsByMass[int(mass)] = cardContent
-            cardContent = []
-            mass = match.group(1)
-        else:
-            cardContent.append(line)
+    mass = None
+    with open(os.path.expandvars(txtFilePath)) as cardFile:
+        for line in cardFile:
+            matched = re.match("# LQ_M(\d+)\.txt", line)
+            if matched is not None:
+                if mass is not None:
+                    if writeCards:
+                        tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
+                        tmpFileByMass[int(mass)] = tmpFile
+                    massList.append(int(mass))
+                    cardContentsByMass[int(mass)] = cardContent
+                cardContent = []
+                mass = matched.group(1)
+            else:
+                cardContent.append(line)
     if len(cardContent) > 0:  # write the last card
         if writeCards:
             tmpFile = WriteTmpCard(txtFilePath, mass, cardIndex, cardContent, dirPath)
@@ -2032,3 +2120,14 @@ def SeparateDatacards(txtFilePath, cardIndex, dirPath, writeCards=True, verbose=
     if verbose and writeCards:
         print("INFO: Wrote tmp datacards obtained from {} for masses {} to {}".format(txtFilePath, massList, dirPath), flush=True)
     return massList, tmpFileByMass, cardContentsByMass
+
+
+def GetYearAndIntLumiFromDatacard(datacard):
+    with open(os.path.expandvars(datacard)) as cardFile:
+        for idx, line in enumerate(cardFile):
+            if idx == 0:
+                year = line.strip("# ").rstrip("\n")
+            elif idx == 1:
+                intLumi = float(line.strip("# "))
+            if idx > 1:
+                return year, intLumi

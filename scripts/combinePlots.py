@@ -119,24 +119,22 @@ def MakeCombinedSample(args):
             tablesThisSample = []
             sampleTable = {}
             piecesAdded = []
+            isQCD = "qcd" in tfileNameTemplate.lower()
 
             combineCommon.ParseXSectionFile(options.xsection)
             piecesToAdd = combineCommon.PartialExpand(pieceList)
             # print("For sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(sample, piecesToAdd, dictDatasetsFileNames))
             datasetsFileNamesCleaned = {combineCommon.SanitizeDatasetNameFromInputList(k): v for k, v in dictDatasetsFileNames.items()}
+            # print("For sample {}, datasetsFileNamesCleaned={}".format(sample, datasetsFileNamesCleaned))
 
             # ---Loop over datasets in the inputlist
             for currentPiece in piecesToAdd:
                 if currentPiece in datasetsFileNamesCleaned.keys():
                     matchingPiece = currentPiece
-                    rootFilename = datasetsFileNamesCleaned[currentPiece]
                 else:
                     raise RuntimeError("ERROR: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={}".format(sample, currentPiece, datasetsFileNamesCleaned))
 
-                # prepare to combine
-                print("\t[{}] found matching dataset:".format(sample), matchingPiece + " ... ", end=' ', flush=True)
-                inputDatFile = rootFilename.replace(".root", ".dat").replace("plots", "tables").replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
-                print("with file: {}".format(rootFilename), flush=True)
+                print("\t[{}] found matching dataset:".format(sample), matchingPiece + " ... ")
                 print("\t[{}] looking up xsection...".format(sample), end=' ', flush=True)
                 try:
                     xsection_val = combineCommon.lookupXSection(matchingPiece)
@@ -146,27 +144,80 @@ def MakeCombinedSample(args):
                     print("did not find xsection", flush=True)
                     xsectionFound = False
 
-                # print("INFO: TFilenameTemplate = {}".format(tfileNameTemplate.format(sample)))
-                if useInclusionList ==True:
-                    sampleHistos = GetHistosFromInclusionList(rootFilename, sample, histoNamesToUse, xsectionFound)
-                else:
-                    sampleHistos = combineCommon.GetSampleHistosFromTFile(rootFilename, sample, xsectionFound)
-                # print "inputDatFile="+inputDatFile
+                print("For sample {}, datasetsFileNamesCleaned[{}]={}".format(sample, currentPiece, datasetsFileNamesCleaned[currentPiece]))
+                sumWeights = 0
+                lhePdfWeightSumw = 0
+                Ntot = 0
+                thisPieceTable = {}
+                for rootFilename in datasetsFileNamesCleaned[currentPiece]:
+                    doWeightingThisFile = False
+                    if len(datasetsFileNamesCleaned[currentPiece]) == 1:
+                        doWeightingThisFile = True
+                    inputDatFile = rootFilename.replace(".root", ".dat").replace("plots", "tables").replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
+                    print("\tfile: {}".format(rootFilename), flush=True)
+                    # print("INFO: TFilenameTemplate = {}".format(tfileNameTemplate.format(sample)))
+                    if useInclusionList:
+                        sampleHistos = GetHistosFromInclusionList(rootFilename, sample, histoNamesToUse, xsectionFound)
+                    else:
+                        sampleHistos = combineCommon.GetSampleHistosFromTFile(rootFilename, sample, xsectionFound)
 
-                # ---Read .dat table for current dataset
-                data = combineCommon.ParseDatFile(inputDatFile)
-                Ntot = float(data[0]["Npass"])
-                sampleNameForHist = ""
+                    # ---Read .dat table
+                    data = combineCommon.ParseDatFile(inputDatFile)
+                    NtotThisFile = float(data[0]["Npass"])
+                    sampleNameForHist = ""
 
-                if xsectionFound:
-                    # ---Calculate weight
-                    sumWeights = 0
-                    lhePdfWeightSumw = 0
-                    for hist in sampleHistos:
-                        if "SumOfWeights" in hist.GetName():
-                            sumWeights = hist.GetBinContent(1) if "powhegMiNNLO" not in rootFilename else hist.GetBinContent(3)
-                        elif "LHEPdfSumw" in hist.GetName():
-                            lhePdfWeightSumw = hist.GetBinContent(1)  # sum[genWeight*pdfWeight_0]
+                    if xsectionFound:
+                        # ---Calculate weight
+                        sumWeightsThisFile = 0
+                        lhePdfWeightSumwThisFile = 0
+                        for hist in sampleHistos:
+                            if "SumOfWeights" in hist.GetName():
+                                sumWeightsThisFile = hist.GetBinContent(1) if "powhegMiNNLO" not in rootFilename else hist.GetBinContent(3)
+                            elif "LHEPdfSumw" in hist.GetName():
+                                lhePdfWeightSumwThisFile = hist.GetBinContent(1)  # sum[genWeight*pdfWeight_0]
+                        if doWeightingThisFile:
+                            doPDFReweight = False
+                            # if "2016" in inputRootFile:
+                            #     if "LQToBEle" in inputRootFile or "LQToDEle" in inputRootFile:
+                            #         doPDFReweight = doPDFReweight2016LQSignals
+                            weight, plotWeight, xsection_X_intLumi = CalculateWeight(
+                                NtotThisFile, xsection_val, options.intLumi, sumWeightsThisFile, matchingPiece, lhePdfWeightSumwThisFile, doPDFReweight
+                            )
+                            # print "xsection: " + xsection_val,
+                            print("\t[{}] weight(x1000): ".format(sample) + str(weight) + " = " + str(xsection_X_intLumi), "/", end=' ', flush=True)
+                            print(str(sumWeightsThisFile), flush=True)
+                        else:
+                            sumWeights += sumWeightsThisFile
+                            lhePdfWeightSumw += lhePdfWeightSumwThisFile
+                            plotWeight = 1.0
+                            Ntot += NtotThisFile
+                    elif rootFilename == tfileNameTemplate.format(matchingPiece):
+                        if not doWeightingThisFile:
+                            raise RuntimeError("this '{}' should be a file already scaled, but there are multiple files in the currentPiece '{}' of the sample '{}' {}:".format(
+                                rootFilename, currentPiece, sample, datasetsFileNamesCleaned[currentPiece]))
+                        print("\t[{}] histos taken from file already scaled".format(sample), flush=True)
+                        # xsection_val = 1.0
+                        weight = 1.0
+                        plotWeight = 1.0
+                        xsection_X_intLumi = NtotThisFile
+                        sampleNameForHist = matchingPiece
+                    else:
+                        raise RuntimeError("xsection not found")
+
+                    # ---Update table
+                    dataThisFile = combineCommon.FillTableErrors(data, rootFilename, sampleNameForHist)
+                    if doWeightingThisFile:
+                        data = combineCommon.CreateWeightedTable(dataThisFile, weight, xsection_X_intLumi)
+                        sampleTable = combineCommon.UpdateTable(data, sampleTable)
+                        tablesThisSample.append(data)
+                    else:
+                        thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
+
+                    if not options.tablesOnly:
+                        #print("INFO: updating histo dict for sample={}, corrLHESysts={}".format(sample, corrLHESysts), flush=True)
+                        histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+
+                if not doWeightingThisFile:
                     doPDFReweight = False
                     # if "2016" in inputRootFile:
                     #     if "LQToBEle" in inputRootFile or "LQToDEle" in inputRootFile:
@@ -174,28 +225,12 @@ def MakeCombinedSample(args):
                     weight, plotWeight, xsection_X_intLumi = CalculateWeight(
                         Ntot, xsection_val, options.intLumi, sumWeights, matchingPiece, lhePdfWeightSumw, doPDFReweight
                     )
-                    # print "xsection: " + xsection_val,
                     print("\t[{}] weight(x1000): ".format(sample) + str(weight) + " = " + str(xsection_X_intLumi), "/", end=' ', flush=True)
-                    print(str(sumWeights), flush=True)
-                elif rootFilename == tfileNameTemplate.format(matchingPiece):
-                    print("\t[{}] histos taken from file already scaled".format(sample), flush=True)
-                    xsection_val = 1.0
-                    weight = 1.0
-                    plotWeight = 1.0
-                    xsection_X_intLumi = Ntot
-                    sampleNameForHist = matchingPiece
-                else:
-                    raise RuntimeError("xsection not found")
-
-                # ---Update table
-                data = combineCommon.FillTableErrors(data, rootFilename, sampleNameForHist)
-                data = combineCommon.CreateWeightedTable(data, weight, xsection_X_intLumi)
-                sampleTable = combineCommon.UpdateTable(data, sampleTable)
-                tablesThisSample.append(data)
-
-                if not options.tablesOnly:
-                    #print("INFO: updating histo dict for sample={}, corrLHESysts={}".format(sample, corrLHESysts), flush=True)
-                    histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC)
+                    print(str(sumWeightsThisFile), flush=True)
+                    combineCommon.ScaleHistos(histoDictThisSample, plotWeight)
+                    data = combineCommon.CreateWeightedTable(thisPieceTable, weight, xsection_X_intLumi)
+                    sampleTable = combineCommon.UpdateTable(data, sampleTable)
+                    tablesThisSample.append(data)
                 piecesAdded.append(matchingPiece)
 
             # validation of combining pieces
@@ -243,6 +278,7 @@ def MakeCombinedSample(args):
             finalizedTasksQueue.put(None)
         finally:
             taskQueue.task_done()
+
 
 def GetHistosFromInclusionList(tfileName, sample, inclusionList, keepHistName=True):
     histNameToHistDict = {}
@@ -586,13 +622,13 @@ while ts.is_active():
     # print("Status of in-progress samples: ", flush=True)
     # pprint.pprint(queuedSamplesDict)
     # print("", flush=True)
-    dictDatasetsFileNames[sample] = sampleTFileNameTemplate.format(sample)
+    dictDatasetsFileNames[sample] = [sampleTFileNameTemplate.format(sample)]
     if dictSamples[sample]["save"]:
         # save all the individual objects in the file
         sampleFiles.append(dictDatasetsFileNames[sample])
     else:
         # save just the minimal set of objects to keep
-        sampleFiles.append(dictDatasetsFileNames[sample].replace("_plots.root", "_keep_plots.root"))
+        sampleFiles.append([filename.replace("_plots.root", "_keep_plots.root") for filename in dictDatasetsFileNames[sample]])
     ts.done(sample)
     finalizedTasksQueue.task_done()
 
@@ -614,7 +650,7 @@ if not options.tablesOnly:
     outputTFileNameHadd = tfileOutputPath + "/" + options.analysisCode + "_plots.root"
     # hadd -fk207 -j4 outputFileComb.root [inputFiles]
     args = ["hadd", "-fk207", "-j "+str(ncores), outputTFileNameHadd]
-    filesToHadd = [sampleFile.replace("_plots.root", "_plots_pruned.root") for sampleFile in sampleFiles]
+    filesToHadd = [sampleFile.replace("_plots.root", "_plots_pruned.root") for sampleFileList in sampleFiles for sampleFile in sampleFileList]
     # args.extend(sampleFiles)
     args.extend(filesToHadd)
     # print("INFO: run cmd: ", " ".join(args))
