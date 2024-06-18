@@ -4,17 +4,18 @@ import sys
 
 
 def ReadDatFile(datFilePath, weight=-1, rounding=-1, stopAtPreselection=True):
-    print "INFO: reading datFile:", datFilePath, "...",
+    print("INFO: reading datFile:", datFilePath, "...", end=' ')
     sys.stdout.flush()
     modLines = []
     colNames = []
     with open(datFilePath) as datFile:
+        lastLineForSampleReached = False
         for j, line in enumerate(datFile):
             line = line.strip()
             if not len(line):
                 continue
-            elif len(line.split()) == 1:
-                sample = line.split()[0]
+            elif len(line.strip("# ").split()) == 1:
+                sample = line.strip("# ").split()[0]
                 lastLineForSampleReached = False
             else:
                 if "variableName" in line:
@@ -34,6 +35,8 @@ def ReadDatFile(datFilePath, weight=-1, rounding=-1, stopAtPreselection=True):
                                     val = float(x) / 1000.0
                                 else:
                                     val = float(x) / weight
+                            elif idx==0:
+                                val = int(x)
                             else:
                                 val = float(x)
                             if rounding > 0:
@@ -43,11 +46,10 @@ def ReadDatFile(datFilePath, weight=-1, rounding=-1, stopAtPreselection=True):
                         except ValueError:
                             splitLine.append(x)
                     # splitLine = line.split(0) + splitLine
-                    # stop reading table for this sample after 'opt' vars
+                    # stop reading table for this sample after trainingSelection
                     if (
-                        "opt" in splitLine[0]
-                        and stopAtPreselection
-                        or "preselection" in splitLine[0]
+                        "trainingSelection" in splitLine[1]
+                        or "preselection" in splitLine[1]
                         and stopAtPreselection
                     ):
                         lastLineForSampleReached = True
@@ -56,5 +58,5 @@ def ReadDatFile(datFilePath, weight=-1, rounding=-1, stopAtPreselection=True):
                     lineToAdd = [sample] + splitLine
                     # modLines.append(tuple(sample+'\t'+line))
                     modLines.append(tuple(x for x in lineToAdd))
-    print "Done"
+    print("Done")
     return modLines, colNames

@@ -6,7 +6,7 @@ import sys
 import re
 import string
 import pandas as pd
-from StringIO import StringIO
+from io import StringIO
 import prettytable
 
 
@@ -16,8 +16,10 @@ import prettytable
 #datFilePath = os.environ["LQDATA"] + '/2016analysis/eejj_psk_feb20_newSingTop/output_cutTable_lq_eejj/analysisClass_lq_eejj_tables.dat'
 #datFilePath = os.environ["LQDATA"] + '/2016analysis/enujj_psk_mar5_removeTopPtReweight/output_cutTable_lq_enujj_MT/analysisClass_lq_enujj_MT_tables.dat'
 #datFilePath = os.environ["LQDATA"] + '/2016analysis/eejj_RSK_mar5_forCutFlow/output_cutTable_lq_eejj/analysisClass_lq_eejj_tables.dat'
-datFilePath = os.environ["LQDATA"] + '/2016ttbar/mar1_emujj_RedoRTrig/output_cutTable_lq_ttbar_emujj_correctTrig/analysisClass_lq_ttbarEst_tables.dat'
+#datFilePath = os.environ["LQDATA"] + '/2016ttbar/mar1_emujj_RedoRTrig/output_cutTable_lq_ttbar_emujj_correctTrig/analysisClass_lq_ttbarEst_tables.dat'
 #datFilePath = os.environ["LQDATA"] + '/2016analysis/enujj_RSK_mar5_forCutFlow/output_cutTable_lq_enujj_MT/analysisClass_lq_enujj_MT_tables.dat'
+# datFilePath = "/eos/cms/store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/2016preVFP/eejj_23may2024_dedicatedMassBDTs/output_cutTable_lq_eejj_BDT/analysisClass_lq_eejj_tables.dat"
+datFilePath = sys.argv[1]
 
 #print 'Parsing dat file:',datFilePath,'...',
 #sys.stdout.flush()
@@ -26,6 +28,8 @@ datFilePath = os.environ["LQDATA"] + '/2016ttbar/mar1_emujj_RedoRTrig/output_cut
 #print data.keys()[0]
 #print data[data.keys()[0]]
 toRound = 2
+
+samplesToUse = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "DIBOSON_nlo", "SingleTop", "LQToDEle_M-1000_pair", "LQToBEle_M-1000_pair"]
 
 # transform dat file format
 # Here we can unscale the sample if we want
@@ -48,10 +52,10 @@ toRound = 2
 # backgrounds
 #sampleToUse = 'WJet_amcatnlo_ptBinned'
 #sampleToUse = 'TTbar_powheg'
-sampleToUse = 'TTBarFromDATA'
-#sampleToUse = 'ZJet_amcatnlo_ptBinned'
+#sampleToUse = 'TTBarFromDATA'
+# sampleToUse = 'ZJet_amcatnlo_ptBinned_IncStitch'
 toRound=4
-weight = -1
+weight = -1  # this means we divide the numbers by 1000, so appropriate for MC
 #
 # slightly nasty since we apply the weight for one sample to the whole table; round to 2 decimal places
 modLines,colNames = datFileUtils.ReadDatFile(datFilePath,weight,rounding=toRound)
@@ -78,27 +82,25 @@ df.drop(['min1','min2','max1','max2'],axis=1,inplace=True)
 
 sampleList = df['sample'].unique()
 #sampleToUse = sampleList[0]
-print '#'*100
-print 'Cutflow for',sampleToUse
-print '#'*100
-dfPrint = df.loc[df['sample']==sampleToUse]
-dfPrint = dfPrint.drop(['sample','errEffRel','errEffAbs'],axis=1)
-#dfPrint = dfPrint.head(10)
-
-
-
-# print
-output = StringIO()
-dfPrint.to_csv(output,index=False)
-output.seek(0)
-pt = prettytable.from_csv(output)
-print pt
-
-print
-print '#'*100
-print 'latex table'
-print '#'*100
-print
-
-print dfPrint.to_latex(index=False)
-print
+for sampleToUse in samplesToUse:
+    print('#'*100)
+    print('Cutflow for',sampleToUse)
+    print('#'*100)
+    dfPrint = df.loc[df['sample']==sampleToUse]
+    dfPrint = dfPrint.drop(['sample','errEffRel','errEffAbs'],axis=1)
+    #dfPrint = dfPrint.head(10)
+    # print
+    output = StringIO()
+    dfPrint.to_csv(output,index=False)
+    output.seek(0)
+    pt = prettytable.from_csv(output)
+    print(pt)
+    
+    print()
+    print('#'*100)
+    print('latex table for', sampleToUse)
+    print('#'*100)
+    print()
+    
+    print(dfPrint.to_latex(index=False))
+    print()
