@@ -578,7 +578,7 @@ void baseClass::readCutFile()
           }
           string modelName = splitByCommas[0];
           if(!hasPreCut(splitByCommas[1]))
-            throw runtime_error("baseClass::readCutFile: TMVACut was specified in cut file, but no weight file was found among the precuts.");
+            throw runtime_error("baseClass::readCutFile: TMVACut was specified in cut file, but no weight file was found among the precuts; expected to find '"+splitByCommas[1]+"'.");
           string weightFile = getPreCutString1(splitByCommas[1]);
           string trainingSelection = splitByCommas[2];
           if(cutName_cut_.find(trainingSelection) == cutName_cut_.end()) {
@@ -2597,10 +2597,7 @@ bool baseClass::writeSkimTree()
 
   skim_file_->cd();
   skim_file_->cd("rootTupleTree");
-  if ( GetTreeEntries() == 0 )
-    tree_ -> CloneTree(0) -> Write("tree");
-  else
-    skim_tree_ -> Write("tree", TObject::kOverwrite);
+  skim_tree_ -> Write("tree", TObject::kOverwrite);
 
   // Any failure mode to implement?
   return ret;
