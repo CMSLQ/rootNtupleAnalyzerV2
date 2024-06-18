@@ -29,7 +29,7 @@ def ReadXSecFile(filename):
     return masses, xsTh, yPDF_up, yPDF_down
 
 
-def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expected = [], xsUp_observed = [], y_1sigma = [], y_2sigma = []):
+def BR_Sigma_EE_vsMass(dirName=".", intLumi="35.9", mData = [], x_shademasses = [], xsUp_expected = [], xsUp_observed = [], y_1sigma = [], y_2sigma = []):
     xsThFilename = "$LQANA/config/xsection_theory_13TeV_scalarPairLQ.txt"
     mTh, xsTh, y_pdf, yPDFDown = ReadXSecFile(xsThFilename)
     nTH = len(mTh)
@@ -44,7 +44,7 @@ def BR_Sigma_EE_vsMass(dirName=".", mData = [], x_shademasses = [], xsUp_expecte
     fileName1 = dirName+"/BR_Sigma_EE.eps"
 
     # integrated luminosity
-    CMS.SetLumi("35.9")
+    CMS.SetLumi(intLumi)
     CMS.SetExtraText("Preliminary")
     CMS.ResetAdditionalInfo()
     # CMS.cmsGrid(True)
