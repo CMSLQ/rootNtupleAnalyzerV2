@@ -16,7 +16,7 @@ from pathlib import Path
 from bisect import bisect
 from tabulate import tabulate
 from ROOT import TFile, TGraph, TSpline3
-from combineCommon import SeparateDatacards
+from combineCommon import SeparateDatacards, GetYearAndIntLumiFromDatacard
 from BR_Sigma_EE_vsMass import BR_Sigma_EE_vsMass
 from ComboPlotLQ1 import ComboPlot
 
@@ -234,9 +234,8 @@ def GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile
         cmd += ' --iterations 2'
         cmd += ' --rAbsAcc {}'.format(rAbsAcc)
     cmd += ' --clsAcc {}'.format(clsAcc)
-    if not batch:
-        cmd += ' --rMin {}'.format(rMin)
-        cmd += ' --rMax {}'.format(rMax)
+    cmd += ' --rMin {}'.format(rMin)
+    cmd += ' --rMax {}'.format(rMax)
     cmd += ' -T {}'.format(toys)
     cmd += ' -m {}'.format(mass)
     if not batch:
@@ -267,7 +266,7 @@ def SubmitHybridNewBatch(args):
         raise RuntimeError("Need to specify valid CMSSW area with combine checked out.")
     #cwd = os.getcwd()
     #os.chdir(condorDir)
-    cmdArgs = GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile, signalScaleFactor, True, rMin, rMax)
+    cmdArgs = GetHybridNewCommandArgs(workspace, mass, dirName, quantile, genAsimovToyFile, signalScaleFactor, True, rMin*0.9, rMax*1.1)
     cmd = "combine " + cmdArgs
     quantileStr = str(quantile).replace(".", "p")
     taskName = 'hybridNewLimits.M{}.{}'.format(mass, quantileStr)
@@ -357,11 +356,14 @@ def RunHybridNewInteractive(workspace, mass, dirName, quantile=-1, genAsimovToyF
 
 def RunAsymptotic(workspace, mass, dirName, batch, blinded=True, signalScaleFactor=1.0):
     rAbsAcc = 0.0001
+    rMax = 150
     cmd = 'combine'
     cmd += ' {}'.format(workspace)
     cmd += ' -v1'
     cmd += ' -M AsymptoticLimits'
     cmd += ' --seed -1'
+    cmd += ' --strict'
+    cmd += ' --rMax {}'.format(rMax)
     cmd += ' -m {}'.format(mass)
     cmd += ' --rAbsAcc {}'.format(rAbsAcc)
     cmd += commonCombineArgs.format(signalScaleFactor)
@@ -379,6 +381,7 @@ def ComputeLimitsFromGrid(workspace, mass, dirName, filename, quantile):
     cmd += ' {}'.format(workspace)
     # cmd += ' -v1'
     cmd += ' -M HybridNew'
+    cmd += ' --rMax 100'
     cmd += ' --LHCmode LHC-limits'
     cmd += ' --readHybridResults'
     cmd += ' --grid={}'.format(filename)
@@ -503,12 +506,23 @@ def GetBetaRangeToAttempt(mass):
 
 def CheckErrorFile(errFileName, throwException=True):
     # print("\tChecking error file {}...".format(errFileName), end = "", flush=True)
+    messagesToIgnore = ["[WARNING] Minimization finished with status 1 (covariance matrix forced positive definite), this could indicate a problem with the minimum!"]
+    typesOfIgnoredMessages = ["minimization status 1 warning"]
+    instancesOfIgnoredMessages = [0]
     with open(errFileName, "r") as errFile:
         for line in errFile:
+            # if any(msg in line for msg in messagesToIgnore):
             if len(line):
-                print(colored("Found unexpected content '{}' in {}".format(line, errFileName), "red"))
-                if throwException:
-                    raise RuntimeError("Found unexpected content '{}' in {}".format(line, errFileName))
+                for idx, msg in enumerate(messagesToIgnore):
+                    if msg in line:
+                        instancesOfIgnoredMessages[idx] += 1
+                    else:
+                        print(colored("Found unexpected content '{}' in {}".format(line, errFileName), "red"))
+                        if throwException:
+                            raise RuntimeError("Found unexpected content '{}' in {}".format(line, errFileName))
+    for idx, count in enumerate(instancesOfIgnoredMessages):
+        if count > 0:
+            print(colored("Found {} error message(s) of type {} in {}".format(count, typesOfIgnoredMessages[idx], errFileName), "red"))
     # print("OK")
 
 
@@ -517,8 +531,10 @@ def ReadBatchResults(massList, condorDir):
         rLimitsByMassAndQuantile[mass] = {}
         xsecLimitsByMassAndQuantile[mass] = {}
         signalScaleFactorsByMassAndQuantile[mass] = {}
-        cardFile = combinedDatacard if doShapeBasedLimits else dirName + "/datacards/tmpDatacard_m{}_card0_combCardFile.txt".format(mass)
-        cardWorkspace = FindCardWorkspace(cardFile, mass)
+        listOfWorkspaceFiles = sorted(glob.glob(dirName + "/datacards/*.m{}.root".format(mass)), key=os.path.getmtime)
+        if len(listOfWorkspaceFiles) != 1:
+            raise RuntimeError("Globbing for {} did not result in one file as expected, but {}".format(workspaceFileName, listOfWorkspaceFiles))
+        cardWorkspace = Path(listOfWorkspaceFiles[-1]).resolve()
         for quantileExp in quantilesExpected:
             quantile = "quant{:.3f}".format(quantileExp) if quantileExp > 0 else "."
             quantileStr = str(quantileExp).replace(".", "p")
@@ -734,9 +750,8 @@ if __name__ == "__main__":
     doShapeBasedLimits = False
     doAsymptoticLimits = False
     blinded = True
-    # massList = list(range(300, 3100, 100))
-    massList = list(range(300, 1900, 100))
-    # massList = list(range(1000, 2000, 100))
+    massList = list(range(300, 3100, 100))
+    # massList = list(range(300, 2000, 100))
     betasToScan = list(np.linspace(0.002, 1, 500))[:-1] + [0.9995]
     
     quantilesExpected = [0.025, 0.16, 0.5, 0.84, 0.975]
@@ -823,7 +838,7 @@ if __name__ == "__main__":
             Path(asimovToysDir).mkdir(exist_ok=True)
         
         if not doShapeBasedLimits:
-            massListFromCards, cardFilesByMass = SeparateDatacards(combinedDatacard, 0, separateDatacardsDir)
+            massListFromCards, cardFilesByMass, _ = SeparateDatacards(combinedDatacard, 0, separateDatacardsDir)
         for mass in massList:
             cardFile = combinedDatacard if doShapeBasedLimits else cardFilesByMass[mass]
             print("INFO: Computing limits for mass {}".format(mass), flush=True)
@@ -865,6 +880,12 @@ if __name__ == "__main__":
                         if quantileExp == 0.025 and mass > 800:  # adjust scan range upwards for lowest quantile and higher masses
                             rMax = rValuesByQuantile[quantileExp]*1.8
                             rMin = rValuesByQuantile[quantileExp]*0.8
+                        elif quantileExp == 0.016 and mass > 1000:
+                            rMax = rValuesByQuantile[quantileExp]*1.9
+                            rMin = rValuesByQuantile[quantileExp]*0.8
+                        # elif quantileExp == 0.975 and mass > 1500:  # adjust scan range downwards here
+                        #     rMax = rValuesByQuantile[quantileExp]*1.0
+                        #     rMin = rValuesByQuantile[quantileExp]*0.45
                         else:
                             rMax = rValuesByQuantile[quantileExp]*1.3
                             rMin = rValuesByQuantile[quantileExp]*0.75
@@ -959,13 +980,20 @@ if __name__ == "__main__":
             print(item)
 
     if not doBatch or options.readResults:
+        years, intLumi = GetYearAndIntLumiFromDatacard(combinedDatacard)
+        intLumi = intLumi/1000.0
+        if intLumi < 100:
+            intLumi = round(intLumi, 1)
+        else:
+            intLumi = round(intLumi, 0)
+        print("Found total int lumi = {}/fb for years = {}".format(intLumi, years))
         if options.readResults:
             condorDir = dirName.rstrip("/")+"/condor"
             print("INFO: Reading results from batch from {}...".format(condorDir), flush=True)
             xsecLimitsByMassAndQuantile, signalScaleFactorsByMassAndQuantile = ReadBatchResults(massList, condorDir)
             print("DONE", flush=True)
         masses, shadeMasses, xsMedExp, xsOneSigmaExp, xsTwoSigmaExp, xsObs = CreateArraysForPlotting(xsecLimitsByMassAndQuantile)
-        # print("mData =", list(masses))
+        print("mData =", list(masses))
         # print("x_shademasses =", list(shadeMasses))
         # print("xsUp_expected =", list(xsMedExp))
         # print("xsUp_observed =", list(xsObs))
@@ -978,7 +1006,7 @@ if __name__ == "__main__":
             execTimeStr = GetExecTimeStr(startTime, stopTime)
             print("Total limit calculation execution time:", execTimeStr)
         print("Make plot and calculate mass limit")
-        BR_Sigma_EE_vsMass(dirName, masses, shadeMasses, xsMedExp, xsObs, xsOneSigmaExp, xsTwoSigmaExp)
+        BR_Sigma_EE_vsMass(dirName, intLumi, masses, shadeMasses, xsMedExp, xsObs, xsOneSigmaExp, xsTwoSigmaExp)
         if options.doBetaScan:
             mainDirName = dirName
             betaDirName = dirName+"/betaScan"
