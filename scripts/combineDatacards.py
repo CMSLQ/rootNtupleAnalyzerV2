@@ -3,7 +3,7 @@ import os
 from optparse import OptionParser
 import subprocess
 import re
-from combineCommon import SeparateDatacards, DeleteTmpFiles
+from combineCommon import SeparateDatacards, DeleteTmpFiles, GetYearAndIntLumiFromDatacard
 
 
 def SeparateCombineCardsOutput(output):
@@ -39,15 +39,21 @@ for label in labels:
 
 massListByCombinedDatacard = {}
 allTmpFilesByMass = {}
+totalIntLumi = 0
+years = []
 for index, combinedDatacard in enumerate(datacards):
+    year, intLumi = GetYearAndIntLumiFromDatacard(combinedDatacard)
+    years.append(year)
+    totalIntLumi += intLumi
     #FIXME add dirpath option to SeparateDatacards
-    massList, tmpFilesByMass, _ = SeparateDatacards(combinedDatacard, index, dirPath=os.getcwd())
+    massList, tmpFilesByMass, cardContentsByMass = SeparateDatacards(combinedDatacard, index, dirPath=os.getcwd())
     massListByCombinedDatacard[combinedDatacard] = massList
     for mass, tmpFile in tmpFilesByMass.items():
         if mass not in allTmpFilesByMass:
             allTmpFilesByMass[mass] = []
         allTmpFilesByMass[mass].append(tmpFile)
 
+print("Found total int lumi = {}/pb for years = {}".format(totalIntLumi, years))
 #print(massListByCombinedDatacard)
 referenceMassList = []
 referenceDatacard = ""
@@ -62,6 +68,8 @@ for combinedCard, massList in massListByCombinedDatacard.items():
 
 combineCardsCommands = []
 with open(combinedOutputCardName, "w") as combCardFile:
+    combCardFile.write("# {}\n".format(years))
+    combCardFile.write("# {}\n".format(totalIntLumi))
     for mass in referenceMassList:
         cardsForMass = allTmpFilesByMass[mass]
         combineCardsArgs = [label+"="+card for label, card in zip(labels, cardsForMass)]
@@ -85,7 +93,7 @@ with open(combinedOutputCardName, "w") as combCardFile:
     #print("Wrote combined file for mass {} to {}".format(mass, "combCardFile_m{}.txt".format(mass)))
     combinedCardsPerMass = SeparateCombineCardsOutput(out.decode())
     for i, mass in enumerate(referenceMassList):
-        combCardFile.write("LQ_M{}.txt\n".format(mass))
+        combCardFile.write("# LQ_M{}.txt\n".format(mass))
         combCardFile.write(combinedCardsPerMass[i])
         combCardFile.write("\n\n")
     # combCardFile.write(out.decode())
