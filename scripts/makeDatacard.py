@@ -1284,10 +1284,10 @@ backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 selectionPoints = ["preselection", "trainingSelection"] + mass_points
 selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in selectionPoints]
 additionalBkgSystsDict = {}
-# QCDNorm is 0.60 [60% norm uncertainty for eejj = uncertaintyPerElectron*2]
+# QCDNorm is 0.50 [50% norm uncertainty for eejj = uncertaintyPerElectron*2]
 # lumi uncertainty from https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2#Combination_and_correlations
 if doEEJJ:
-    qcdNormDeltaXOverX = 0.60
+    qcdNormDeltaXOverX = 0.5
     if do2016:
         lumiDeltaXOverX = 0.01
         lumiCorrelatedDeltaXOverX = 0.006
