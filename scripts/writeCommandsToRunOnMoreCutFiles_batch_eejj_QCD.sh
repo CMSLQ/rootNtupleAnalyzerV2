@@ -26,83 +26,166 @@ fi
 
 #### INPUTS HERE ####
 #------------
-#ANANAME=qcdYield_eejj_9aug2021_oldOptFinalSels
-#ANANAME=qcd_eejj_btagMed_8jul2021
-#ANANAME=qcd_eejj_btagLoose_gtetwoBTags_13jul2021
-#ANANAME=qcd_eejj_loosenMee_addMasym_addMET_10aug2021
-#ANANAME=qcd_eejj_finalSelTestPunziAddMsym_3sep2021
-#ANANAME=qcd_eejj_optEGLooseFR_17jan2022
-#ANANAME=qcd_eejj_finalSels_EGLooseFR_19jan2022
-#ANANAME=qcd_eejj_BDTLQ1700parametrized_EGLooseFR_13may2022
-#ANANAME=qcd_eejj_preselOnly_EGLooseFR_6dec2022
-ANANAME=qcd_eejj_EGLooseFR_bdtParamFinalSels_7dec2022
+#ANANAME=qcd_eejj_bdt_18apr2024_MGHTLO
+#ANANAME=qcd_eejj_7may2024_preselOnly
+#ANANAME=qcd_eejj_bdt_8may2024_redoBDTs
+ANANAME=qcd_eejj_30may2024_dedicatedMassBDTs_LQToDEle_updateTrigMatch
 #------------
-#inputlist2016=config/oldInputLists/nanoV7/2016/nanoV7_2016_rskQCD_16oct2020_comb/inputList_dataOnly.txt
-#inputlist2016=config/nanoV7_2016_rskQCD_22mar2021_comb/inputList_dataOnly.txt
-#inputlist2016=config/nanoV7_2016_rskQCD_26nov2021_comb/inputList_dataOnly.txt
-#inputlist2016=config/nanoV7_2016_pskQCDEEJJ_egLoose_24mar2022_comb/inputList_dataOnly.txt
-#inputlist2017=config/nanoV7_2017_rskQCD_22apr2021/inputList_dataOnly.txt
-#inputlist2018=config/nanoV7_2018_rskQCD_22apr2021/inputList_dataOnly.txt
-inputlist2016pre=config/inputListsPSKQCD_egmloose_UL16preVFP_5dec2022/inputListAllCurrent.txt
-inputlist2016post=config/inputListsPSKQCD_egmloose_UL16postVFP_5dec2022/inputListAllCurrent.txt
+#inputlist2016pre_1FR=config/inputListsPSKQCD_heep_1FR_UL16preVFP_13feb2024/inputListAllCurrent.txt
+#inputlist2016post_1FR=config/inputListsPSKQCD_heep_1FR_UL16postVFP_13feb2024/inputListAllCurrent.txt
+#inputlist2016pre_2FR=config/inputListsPSKQCD_heep_2FR_UL16preVFP_13feb2024/inputListAllCurrent.txt
+#inputlist2016post_2FR=config/inputListsPSKQCD_heep_2FR_UL16postVFP_13feb2024/inputListAllCurrent.txt
+#inputlist2016pre_1FR=config/inputListsRSKQCD_heep_UL16preVFP_08feb24/inputListAllCurrent.txt
+#inputlist2016post_1FR=config/inputListsRSKQCD_heep_UL16postVFP_08feb24/inputListAllCurrent.txt
+#inputlist2016pre_2FR=config/inputListsRSKQCD_heep_UL16preVFP_08feb24/inputListAllCurrent.txt
+#inputlist2016post_2FR=config/inputListsRSKQCD_heep_UL16postVFP_08feb24/inputListAllCurrent.txt
+#inputlist2017_1FR=config/inputListsRSKQCD_heep_UL17_08feb24/inputListAllCurrent.txt
+#inputlist2017_2FR=config/inputListsRSKQCD_heep_UL17_08feb24/inputListAllCurrent.txt
+#inputlist2018_1FR=config/inputListsRSKQCD_heep_UL18_08feb24/inputListAllCurrent.txt
+#inputlist2018_2FR=config/inputListsRSKQCD_heep_UL18_08feb24/inputListAllCurrent.txt
+inputlist2016pre_1FR=config/inputListsRSKQCD_heep_UL16preVFP_08feb24/inputListAllCurrent.txt
+inputlist2016post_1FR=config/inputListsRSKQCD_heep_UL16postVFP_08feb24/inputListAllCurrent.txt
+inputlist2016pre_2FR=config/inputListsRSKQCD_heep_UL16preVFP_08feb24/inputListAllCurrent.txt
+inputlist2016post_2FR=config/inputListsRSKQCD_heep_UL16postVFP_08feb24/inputListAllCurrent.txt
+inputlist2017_1FR=config/inputListsRSKQCD_heep_UL17_08feb24/inputListAllCurrent.txt
+inputlist2017_2FR=config/inputListsRSKQCD_heep_UL17_08feb24/inputListAllCurrent.txt
+inputlist2018_1FR=config/inputListsRSKQCD_heep_UL18_08feb24/inputListAllCurrent.txt
+inputlist2018_2FR=config/inputListsRSKQCD_heep_UL18_08feb24/inputListAllCurrent.txt
+#------------
+xsection2016pre=config/xsection_13TeV_2022.txt
+xsection2016post=config/xsection_13TeV_2022.txt
+xsection2017=config/xsection_13TeV_2022.txt
+xsection2018=config/xsection_13TeV_2022.txt
+#xsection2016pre=$LQANA/versionsOfAnalysis/2016preVFP/eejj/eejj_22jan2024_heep_preselOnly_ewkCorr
+#xsection2016post=$LQANA/versionsOfAnalysis/2016postVFP/eejj/eejj_22jan2024_heep_preselOnly_ewkCorr
+#xsection2017=$LQANA/versionsOfAnalysis/2017/eejj/eejj_22jan2024_heep_preselOnly_ewkCorr
+#xsection2018=$LQANA/versionsOfAnalysis/2018/eejj/eejj_22jan2024_heep_preselOnly_ewkCorr
+#xsection2016post=$xsection2016post"/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
+#xsection2016pre=$xsection2016pre"/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
+#xsection2017=$xsection2017"/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
+#xsection2018=$xsection2018"/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets.txt"
+#xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_4apr2024_dyjAMCatNLO.txt
+#xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_4apr2024_dyjAMCatNLO.txt
 #------------
 CODENAME=analysisClass_lq_eejj_QCD
 #------------
 OUTDIRPATH=$LQDATA  # a subdir will be created for each cut file 
 # cut files
-#cutFileAna="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config${YEAR}/Analysis/cutTable_lq_eejj_QCD.txt"
-#cutFileAna="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleAnalyzerV2/cutTable_lq_eejj_BDT1400_QCD.txt"
-#cutFileAna="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleAnalyzerV2/cutTable_lq_eejj_BDT_parametrized_QCD.txt"
-#cutFileAna="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/cutTable_lq_eejj_QCD_MasymTest.txt"
 cutFileOpt="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config${YEAR}/Optimization/cutTable_lq_eejj_QCD_opt.txt"
-#cutFileOpt="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Optimization/cutTable_lq_eejj_QCD_oneBTag_opt.txt"
-#cutFileOpt="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Optimization/cutTable_lq_eejj_QCD_twoBTags_opt.txt"
+# preselection only
+#cutFileAna2016pre=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/cutTable_lq_eejj_QCD_singleFR_preselOnly.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/cutTable_lq_eejj_QCD_doubleFR_preselOnly.txt"
+#)
+#cutFileAna2016post=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/cutTable_lq_eejj_QCD_singleFR_preselOnly.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/cutTable_lq_eejj_QCD_doubleFR_preselOnly.txt"
+#)
+#cutFileAna2017=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/cutTable_lq_eejj_QCD_singleFR_preselOnly.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/cutTable_lq_eejj_QCD_doubleFR_preselOnly.txt"
+#)
+#cutFileAna2018=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/cutTable_lq_eejj_QCD_singleFR_preselOnly.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/cutTable_lq_eejj_QCD_doubleFR_preselOnly.txt"
+#)
 #
-#cutFileAna2016="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/cutTable_lq_eejj_QCD_preselOnly.txt"
+# final selections: LQToDEle
 #
-cutFileAna2016="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleAnalyzerV2/cutTable_lq_eejj_BDT1300_QCD.txt
-/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleAnalyzerV2/cutTable_lq_eejj_BDT1200_QCD.txt
-/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleAnalyzerV2/cutTable_lq_eejj_BDT1100_QCD.txt
-"
+cutFileAna2016pre=(
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
+)
+cutFileAna2016post=(
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
+)
+cutFileAna2017=(
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
+)
+cutFileAna2018=(
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
+)
+#
+# final selections: LQToBEle
+#
+#cutFileAna2016pre=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+#cutFileAna2016post=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+#cutFileAna2017=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+#cutFileAna2018=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+
+
+#cutFileAna2016pre=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/cutTable_lq_eejj_QCD_singleFR_dedicatedMasses.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/cutTable_lq_eejj_QCD_doubleFR_dedicatedMasses.txt"
+#)
+#cutFileAna2016post=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/cutTable_lq_eejj_QCD_singleFR_dedicatedMasses.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/cutTable_lq_eejj_QCD_doubleFR_dedicatedMasses.txt"
+#)
+
 # ilumi
-ilumi2016pre=19501.601622
+ilumi2016pre=19497.897120
 ilumi2016post=16812.151722
-ilumi2017=41540 #FIXME: this number is just from the Egamma twiki
-ilumi2018=59399
+ilumi2017=41477.877399
+ilumi2018=59827.449483
 QUEUEOPT=testmatch
 QUEUEANA=workday
+#QUEUEANA=tomorrow
 #------------
 if [ "$YEAR" = "2016preVFP" ]; then
   echo "Doing 2016preVFP!"
   ILUM=$ilumi2016pre
-  INPUTLIST=$inputlist2016pre
+  INPUTLIST1=$inputlist2016pre_1FR
+  INPUTLIST2=$inputlist2016pre_2FR
+  cutFileAna=( "${cutFileAna2016pre[@]}" )
+  XSECTION=$xsection2016pre
 elif [ "$YEAR" = "2016postVFP" ]; then
   echo "Doing 2016postVFP!"
   ILUM=$ilumi2016post
-  INPUTLIST=$inputlist2016post
+  INPUTLIST1=$inputlist2016post_1FR
+  INPUTLIST2=$inputlist2016post_2FR
+  cutFileAna=( "${cutFileAna2016post[@]}" )
+  XSECTION=$xsection2016post
 elif [ "$YEAR" = "2017" ]; then
   echo "Doing 2017!"
   ILUM=$ilumi2017
-  INPUTLIST=$inputlist2017
+  INPUTLIST1=$inputlist2017_1FR
+  INPUTLIST2=$inputlist2017_2FR
+  cutFileAna=( "${cutFileAna2017[@]}" )
+  XSECTION=$xsection2017
 elif [ "$YEAR" = "2018" ]; then
   echo "Doing 2018!"
   ILUM=$ilumi2018
-  INPUTLIST=$inputlist2018
+  INPUTLIST1=$inputlist2018_1FR
+  INPUTLIST2=$inputlist2018_2FR
+  cutFileAna=( "${cutFileAna2018[@]}" )
+  XSECTION=$xsection2018
 else
   die "year argument ${YEAR} not one of 2016preVFP, 2016postVFP, 2017, 2018"
 fi
 #------------
 if [ "$OPT" = "1" ]; then
   DIRSTR="opt"
-  files=$cutFileOpt
+  files=( "${cutFileOpt[@]}" )
   queue=$QUEUEOPT
-elif [[ "$YEAR" == *2016* ]]; then
-  DIRSTR="analysis"
-  files=$cutFileAna2016
-  queue=$QUEUEANA
 else
   DIRSTR="analysis"
-  files=$cutFileAna
+  files=( "${cutFileAna[@]}" )
   queue=$QUEUEANA
 fi
 SUBDIR=ultralegacy/${DIRSTR}/${YEAR}/$ANANAME
@@ -112,44 +195,111 @@ SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_QCD_dataDriven_${YEAR}.ya
 #------------
 FACTOR=1000 # numbers in final tables (but *not* in plots) will be multiplied by this scale factor (to see well the decimal digits)
 #------------
-EXE=build/main
+EXE=build/mainQCD
 #------------
-XSECTION=config/xsection_13TeV_2022.txt
+MAXJOBS=100
+#------------
+if [ -z "$XSECTION" ]; then
+  echo "No valid xsection specified"
+  exit 1
+fi
 #------------
 #### END OF INPUTS ####
 
 echo "" > $COMMANDFILE
 
-for file in $files
+cat >> $COMMANDFILE <<EOF
+####################################################
+#### launch, check and combine cmds for QCD 1FR+2FR####
+EOF
+
+for i in "${!files[@]}"
+do
+  file=${files[$i]}
+  suffix=$(basename $file)
+  j=$((i+1))
+suffix=${suffix%\.*}
+inputlist="INPUTLIST$j"
+cat >> $COMMANDFILE <<EOF
+python scripts/launchAnalysis_batch_ForSkimToEOS.py -i ${!inputlist} -o $OUTDIRPATH/$SUBDIR/condor_$suffix -c $file -q $queue -d $EOSDIR/$suffix -j ${MAXJOBS} -n rootTupleTree/tree -e $EXE
+EOF
+done
+
+cat >> $COMMANDFILE <<EOF
+
+####################################################
+#### check
+EOF
+
+for file in "${files[@]}"
 do
   suffix=$(basename $file)
 suffix=${suffix%\.*}
 cat >> $COMMANDFILE <<EOF
+./scripts/checkJobs.sh $OUTDIRPATH/$SUBDIR/condor_$suffix $EOSDIR/$suffix/condor
+EOF
+done
+
+cat >> $COMMANDFILE <<EOF
+
 ####################################################
-#### launch, check and combine cmds for $suffix ####
-# 1 job per dataset
-python scripts/launchAnalysis_batch_ForSkimToEOS.py -i $INPUTLIST -o $OUTDIRPATH/$SUBDIR/condor_$suffix -c $file -q $queue -d $EOSDIR/$suffix -j 1 -n rootTupleTree/tree
+#### combine
+EOF
 
-./scripts/checkJobs.sh $OUTDIRPATH/$SUBDIR/condor_$suffix $OUTDIRPATH/$SUBDIR/condor_$suffix
-
+for i in "${!files[@]}"
+do
+  file=${files[$i]}
+  suffix=$(basename $file)
+  j=$((i+1))
+suffix=${suffix%\.*}
+inputlist="INPUTLIST$j"
+cat >> $COMMANDFILE <<EOF
 mkdir -p $OUTDIRPATH/$SUBDIR/output_$suffix \
 && time  ./scripts/combinePlots.py \
-    -i $INPUTLIST \
+    -i ${!inputlist} \
     -c $CODENAME \
-    -d $OUTDIRPATH/$SUBDIR/condor_$suffix \
+    -d $EOSDIR/$suffix/condor \
     -l  $(echo "$ILUM*$FACTOR" | bc) \
     -x $XSECTION  \
-    -o $OUTDIRPATH/$SUBDIR/output_$suffix \
+    -o $EOSDIR/output_$suffix \
     -s $SAMPLELISTFORMERGING \
     | tee $OUTDIRPATH/$SUBDIR/output_$suffix/combineTablesAndPlots_${suffix}.log
-
 EOF
 done
 
 
+# assumes singleFB cutfile is always the first one!
+suffix1=$(basename ${files[0]})
+suffix1=${suffix1%\.*}
+suffix2=$(basename ${files[1]})
+suffix2=${suffix2%\.*}
+cat >> $COMMANDFILE <<EOF
+python scripts/makeQCDYield.py -s $EOSDIR/output_$suffix1 \
+    -d $EOSDIR/output_$suffix2 \
+    -o $EOSDIR/output_qcdSubtractedYield
+EOF
+
 echo "The set of commands to run on the cut files:" 
-for file in $files
+for file in "${files[@]}"
 do
 echo "  " $file
 done 
 echo "has been written to $COMMANDFILE"
+cat $COMMANDFILE
+echo "Submitting jobs"
+for i in "${!files[@]}"
+do
+  file=${files[$i]}
+  suffix=$(basename $file)
+  j=$((i+1))
+suffix=${suffix%\.*}
+inputlist="INPUTLIST$j"
+python scripts/launchAnalysis_batch_ForSkimToEOS.py -i ${!inputlist} -o $OUTDIRPATH/$SUBDIR/condor_$suffix -c $file -q $queue -d $EOSDIR/$suffix -j ${MAXJOBS} -n rootTupleTree/tree -e $EXE
+done
+echo "Reminder: The set of commands to run on the cut files:" 
+for file in "${files[@]}"
+do
+echo "  " $file
+done 
+echo "has been written to $COMMANDFILE"
+cat $COMMANDFILE
