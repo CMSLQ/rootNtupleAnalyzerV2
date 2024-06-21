@@ -90,15 +90,20 @@ def GetTFile(lfn):
     else:
         print("cmsSite is None; use default XRootD redirector {}".format(lfnPrefixDefault))
         return ROOT.TFile.Open(lfnPrefixDefault + lfn)
+    lfnToUse = lfnPrefixDefault + lfnTest
+    oldLevel = ROOT.gErrorIgnoreLevel
     try:
-        lfnToUse = lfnPrefixDefault + lfnTest
+        # we now suppress the error messages printed by TFile::Open for this test
+        ROOT.gErrorIgnoreLevel = 6001
         handle = ROOT.TFile.Open(lfnToUse + lfn)
         print("OK, use {}".format(lfnToUse))
-        return handle
     except OSError as ex:
         print("\tCaught exception:", ex)
-        print("ROOT.TFile.Open() returned nonzero with output/error above; use default XRootD redirector {}".format(lfnPrefixDefault))
-        return ROOT.TFile.Open(lfnPrefixDefault + lfn)
+        print("ROOT.TFile.Open() could not open the file for some reason; use default XRootD redirector {}".format(lfnPrefixDefault))
+        handle = ROOT.TFile.Open(lfnPrefixDefault + lfn)
+    finally:
+        ROOT.gErrorIgnoreLevel = oldLevel
+    return handle
 
 
 # if os.getenv("GLIDEIN_CMSSite").split("_")[1] == "US":

@@ -156,6 +156,7 @@ harmlessErrorMessages.append("tac: write error: Broken pipe")  # no idea what th
 harmlessErrorMessages.append("Info in <TCanvas::MakeDefCanvas>:  created default TCanvas with name c1")
 
 harmlessOutMessages = ["xrdfs locate"]
+harmlessOutMessages = ["use default XRootD redirector"]
 
 print("Checking that all events expected were processed from datasets in given inputList...", flush = True)
 fileToEventsDict = {}
