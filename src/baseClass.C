@@ -323,7 +323,7 @@ void baseClass::init()
 void baseClass::readInputList()
 {
 
-  std::shared_ptr<TChain> chain = std::shared_ptr<TChain>(new TChain(treeName_->c_str()));
+  tree_ = std::shared_ptr<TChain>(new TChain(treeName_->c_str()));
   char pName[500];
   skimWasMade_ = true;
   jsonFileWasUsed_ = false;
@@ -370,28 +370,39 @@ void baseClass::readInputList()
     STDOUT("baseClass::readInputList: Finished reading list: " << *inputList_ );
   }
   for(const auto& name : rootFileNames) {
-      //STDOUT("Adding file: " << name);
-      chain->Add(name.c_str());
+      tree_->Add(name.c_str());
+      tfileForReading_ = std::unique_ptr<TFile>(TFile::Open(name.c_str()));
+      if(!tfileForReading_)
+      {
+        STDOUT("File pointer for "<< name << " came back null. Quitting");
+        exit(-1);
+      }
+      if(!tfileForReading_->IsOpen())
+      {
+        STDOUT("File didn't open! Quitting");
+        exit(-1);
+      }
+      cachedEventCounterHist_.reset();
       NBeforeSkim = getGlobalInfoNstart(name);
       NBeforeSkim_ = NBeforeSkim_ + NBeforeSkim;
       STDOUT("Initial number of events (current file,runningTotal): NBeforeSkim, NBeforeSkim_ = "<<NBeforeSkim<<", "<<NBeforeSkim_);
-      tmpSumGenWeights = getSumGenWeights(name);
+      tmpSumGenWeights = isData() ? 0 : getSumGenWeights(name);
       sumGenWeights_ += tmpSumGenWeights;
-      tmpSumGenWeightSqrs = getSumGenWeightSqrs(name);
+      tmpSumGenWeightSqrs = isData() ? 0 : getSumGenWeightSqrs(name);
       sumGenWeightSqrs_ += tmpSumGenWeightSqrs;
       STDOUT("gen weight sum (current,total): = "<<tmpSumGenWeights<<"+/-"<<sqrt(tmpSumGenWeightSqrs)<<", "<<sumGenWeights_<<"+/-"<<sqrt(sumGenWeightSqrs_));
-      tmpSumSignGenWeights = getSumSignOnlyGenWeights(name);
+      tmpSumSignGenWeights = isData() ? 0 : getSumSignOnlyGenWeights(name);
       sumSignOnlyGenWeights_ += tmpSumSignGenWeights;
-      tmpSumSignGenWeightSqrs = getSumSignOnlyGenWeightSqrs(name);
+      tmpSumSignGenWeightSqrs = isData() ? 0 : getSumSignOnlyGenWeightSqrs(name);
       sumSignOnlyGenWeightSqrs_ += tmpSumSignGenWeightSqrs;
       STDOUT("sign only gen weight sum (current,total): = "<<tmpSumSignGenWeights<<"+/-"<<sqrt(tmpSumSignGenWeightSqrs)<<", "<<sumSignOnlyGenWeights_<<"+/-"<<sqrt(sumSignOnlyGenWeightSqrs_));
-      tmpSumTopPtWeights = getSumTopPtWeights(name);
+      tmpSumTopPtWeights = isData() ? 0 : getSumTopPtWeights(name);
       sumTopPtWeights_ += tmpSumTopPtWeights;
       //STDOUT("TopPt weight sum (current,total): = "<<tmpSumTopPtWeights<<", "<<sumTopPtWeights_);
-      saveLHEPdfSumw(name);
+      if(!isData())
+        saveLHEPdfSumw(name);
       saveEventsPassingCuts(name);
   }
-  tree_ = chain;
   treeEntries_ = tree_->GetEntries();
 }
 
@@ -441,7 +452,7 @@ void baseClass::readCutFile()
         }
         jsonFileName_ = v[1];
         STDOUT("Getting JSON file: " << v[1]);
-        jsonParser_.parseJSONFile ( & v[1] ) ;
+        jsonParser_.parseJSONFile ( v[1] ) ;
         //jsonParser_.printGoodLumis();
         jsonFileWasUsed_ = true;
         continue;
@@ -2042,46 +2053,36 @@ double baseClass::getInfoFromHist(const std::string& fileName, const std::string
 {
   double NBeforeSkim = -999;
 
-  auto f = std::unique_ptr<TFile>(TFile::Open(fileName.c_str()));
-  if(!f)
-  {
-    STDOUT("File pointer for "<< fileName << " came back null. Quitting");
-    exit(-1);
-  }
-  if(!f->IsOpen())
-  {
-    STDOUT("File didn't open! Quitting");
-    exit(-1);
-  }
-
   if(histName=="EventCounter")
   {
-    string s1 = "LJFilter/EventCount/EventCounter";
-    string s2 = "savedHists/EventCounter";
-    string s3 = "EventCounter";
-    auto hCount1 = f->Get<TH1D>(s3.c_str());
-    auto hCount2 = f->Get<TH1F>(s3.c_str());
-    if(!hCount1 && !hCount2) {
-      hCount1 = f->Get<TH1D>(s2.c_str());
-      hCount2 = f->Get<TH1F>(s2.c_str());
+    if(!cachedHistRead_) {
+      string s1 = "LJFilter/EventCount/EventCounter";
+      string s2 = "savedHists/EventCounter";
+      string s3 = "EventCounter";
+      auto hCount1 = tfileForReading_->Get<TH1D>(s3.c_str());
+      if(!hCount1)
+        hCount1 = tfileForReading_->Get<TH1D>(s2.c_str());
+      if(!hCount1)
+        hCount1 = tfileForReading_->Get<TH1D>(s1.c_str());
+      if(!hCount1) {
+        STDOUT("Skim filter histogram not found. Will assume skim was not made for ALL files.");
+        skimWasMade_ = false;
+        cachedHistRead_ = true;
+        return NBeforeSkim;
+      }
+      else {
+        cachedEventCounterHist_.reset(hCount1);
+        cachedHistRead_ = true;
+      }
     }
-    if(!hCount1 && !hCount2) {
-      hCount1 = f->Get<TH1D>(s1.c_str());
-      hCount2 = f->Get<TH1F>(s1.c_str());
-    }
-    if(!hCount1 && !hCount2) {
-      STDOUT("Skim filter histogram not found. Will assume skim was not made for ALL files.");
-      skimWasMade_ = false;
-      return NBeforeSkim;
-    }
-    else if(hCount1)
-      NBeforeSkim =  getError ? hCount1->GetBinError(bin) : hCount1->GetBinContent(bin);
+    else if(cachedEventCounterHist_)
+      NBeforeSkim =  getError ? cachedEventCounterHist_->GetBinError(bin) : cachedEventCounterHist_->GetBinContent(bin);
     else
-      NBeforeSkim = getError ? hCount2->GetBinError(bin) : hCount2->GetBinContent(bin);
+      return NBeforeSkim;
   }
   else
   {
-    auto hCount = f->Get<TH1D>(histName.c_str());
+    auto hCount = tfileForReading_->Get<TH1D>(histName.c_str());
     if(!hCount)
     {
       STDOUT("ERROR: Did not find specified hist named: '" << histName << "'. Cannot extract info. Quitting");
@@ -2153,18 +2154,7 @@ double baseClass::getTreeEntries(const std::string& fName)
 
 template <typename T> std::shared_ptr<T> baseClass::getSavedObjectFromFile(const std::string& fileName, const std::string& histName)
 {
-  auto f = std::unique_ptr<TFile>(TFile::Open(fileName.c_str()));
-  if(!f)
-  {
-    STDOUT("File pointer for "<< fileName << " came back null. Quitting");
-    exit(-1);
-  }
-  if(!f->IsOpen())
-  {
-    STDOUT("File didn't open! Quitting");
-    exit(-1);
-  }
-  auto hist = f->Get<T>(("savedHists/"+histName).c_str());
+  auto hist = tfileForReading_->Get<T>(("savedHists/"+histName).c_str());
   if(hist)
     hist->SetDirectory(0);
   return std::shared_ptr<T>(hist);
