@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <regex>
 
 #include "jsonParser.h"
 
@@ -173,7 +174,7 @@ void JSONParser::printGoodLumis () {
   GoodLumiMapIterator map_entry     = m_good_lumi_map.begin();
   GoodLumiMapIterator map_entry_end = m_good_lumi_map.end();
   
-  std::cout << "For JSON file: " << *m_file_name << std::endl;
+  std::cout << "For JSON file: " << m_file_name << std::endl;
   std::cout << "Good run/lumi ranges are: " << std::endl;
 
   for (; map_entry != map_entry_end; ++map_entry ) {
@@ -201,11 +202,11 @@ void JSONParser::printGoodLumis () {
 
 }
 
-void JSONParser::parseJSONFile( std::string * file_name ) {
+void JSONParser::parseJSONFile(const std::string& file_name ) {
 
-  m_file_name = file_name;
+  m_file_name = expandEnvironmentVariables(file_name);
 
-  std::string file_content = getFileContent ( file_name -> c_str() ) ;
+  std::string file_content = getFileContent ( m_file_name.c_str() ) ;
 
   std::vector <std::string> split_file_content  = split ( file_content, "]]" ) ;
   
@@ -225,4 +226,19 @@ void JSONParser::parseJSONFile( std::string * file_name ) {
     
   }
 
+}
+
+void JSONParser::autoExpandEnvironmentVariables(std::string& text) {
+    static std::regex env( "\\$\\{([^}]+)\\}" );
+    std::smatch match;
+    while ( std::regex_search( text, match, env ) ) {
+        const char * s = getenv( match[1].str().c_str() );
+        const std::string var( s == NULL ? "" : s );
+        text.replace( match[0].first, match[0].second, var );
+    }
+}
+std::string JSONParser::expandEnvironmentVariables(const std::string& input) {
+    std::string text = input;
+    autoExpandEnvironmentVariables(text);
+    return text;
 }
