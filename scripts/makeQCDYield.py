@@ -226,8 +226,8 @@ def SubtractTables(inputTable, tableToSubtractOrig, zeroNegatives=False, limitSu
                     # therefore, while we do the limiting of the 2FR to limit*1FR in the printed table, we don't print out any warnings
                     #  if the 2FR amount is limited in the cuts that happen before the electron selection ("PassIDRequirements")
                     if beyondEleIDRequirements:
-                        print("WARN: table: limiting Npass for {} to {:.2f}; originally {:.2f}, toSub {:.2f} = {:.2f}*Npass".format(
-                            tableToSubtract[j]["variableName"], limit*abs(float(outputTable[int(j)]["Npass"])), float(outputTable[int(j)]["Npass"]), float(tableToSubtract[j]["Npass"]), float(tableToSubtract[j]["Npass"])/float(outputTable[j]["Npass"]) ))
+                        print("WARN: table: limiting Npass for {} to {:.2f}; originally {:.2f}, toSub {:.2f}".format(
+                            tableToSubtract[j]["variableName"], limit*abs(float(outputTable[int(j)]["Npass"])), float(outputTable[int(j)]["Npass"]), float(tableToSubtract[j]["Npass"]) ))
                     tableToSubtract[j]["Npass"] = limit*abs(float(outputTable[int(j)]["Npass"]))
             # newN = float(outputTable[int(j)]["N"]) - float(tableToSubtract[j]["N"])
             newNpass = float(outputTable[int(j)]["Npass"]) - float(tableToSubtract[j]["Npass"])
