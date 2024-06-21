@@ -32,6 +32,7 @@ class JMEUncertainties {
           std::string ourJecTextFilePath = jecTextFilePath+jecTag+"/"+jecTag;
           std::string ourJerTextFilePath = jerTextFilePath+jerTag+"/"+jerTag;
           m_jerTextFilePath = ourJerTextFilePath;
+          //std::string textFilePath_UncertaintySources = jecTextFilePath + jecTag + "/RegroupedV2_" + jecTag + "_UncertaintySources_AK4PFchs.txt";
           std::string textFilePath_UncertaintySources = ourJecTextFilePath + "_UncertaintySources_AK4PFchs.txt";
           CheckFileExists(textFilePath_UncertaintySources);
           std::string textFilePath_PtResolution = ourJerTextFilePath + "_PtResolution_AK4PFchs.txt";
@@ -63,11 +64,16 @@ class JMEUncertainties {
               std::get<FixEE2017Type1METVariationsCalculator>(m_calc).setL1JEC(l1JecParams);
           // calculate JES uncertainties
           for(const auto& jesSource : jesUncertainties) {
+              try {
             JetCorrectorParameters jcp_unc(textFilePath_UncertaintySources, jesSource);
             std::visit(
                 [&jesSource, &jcp_unc](auto& calc) {
                 calc.addJESUncertainty(jesSource, jcp_unc);
                 }, m_calc);
+              } catch (std::exception& e) {
+                  STDOUT("Had a problem when adding uncertainty source " << jesSource << ": '" << e.what() << "'. Quitting.");
+                  exit(-6);
+              }
           }
         }
 
