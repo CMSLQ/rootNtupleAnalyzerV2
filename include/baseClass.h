@@ -838,7 +838,9 @@ class baseClass {
 
     void createOptCutFile();
 
-    bool isData();
+    bool isData() { return isDataCurrentChain(); }
+    bool isDataCurrentFile(const std::string& treeName);
+    bool isDataCurrentChain();
 
     Long64_t GetTreeEntries() { return treeEntries_; }
     Long64_t GetCurrentEntry() { return readerTools_->GetCurrentEntry(); }

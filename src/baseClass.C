@@ -386,20 +386,20 @@ void baseClass::readInputList()
       NBeforeSkim = getGlobalInfoNstart(name);
       NBeforeSkim_ = NBeforeSkim_ + NBeforeSkim;
       STDOUT("Initial number of events (current file,runningTotal): NBeforeSkim, NBeforeSkim_ = "<<NBeforeSkim<<", "<<NBeforeSkim_);
-      tmpSumGenWeights = isData() ? 0 : getSumGenWeights(name);
+      tmpSumGenWeights = isDataCurrentFile(*treeName_) ? 0 : getSumGenWeights(name);
       sumGenWeights_ += tmpSumGenWeights;
-      tmpSumGenWeightSqrs = isData() ? 0 : getSumGenWeightSqrs(name);
+      tmpSumGenWeightSqrs = isDataCurrentFile(*treeName_) ? 0 : getSumGenWeightSqrs(name);
       sumGenWeightSqrs_ += tmpSumGenWeightSqrs;
       STDOUT("gen weight sum (current,total): = "<<tmpSumGenWeights<<"+/-"<<sqrt(tmpSumGenWeightSqrs)<<", "<<sumGenWeights_<<"+/-"<<sqrt(sumGenWeightSqrs_));
-      tmpSumSignGenWeights = isData() ? 0 : getSumSignOnlyGenWeights(name);
+      tmpSumSignGenWeights = isDataCurrentFile(*treeName_) ? 0 : getSumSignOnlyGenWeights(name);
       sumSignOnlyGenWeights_ += tmpSumSignGenWeights;
-      tmpSumSignGenWeightSqrs = isData() ? 0 : getSumSignOnlyGenWeightSqrs(name);
+      tmpSumSignGenWeightSqrs = isDataCurrentFile(*treeName_) ? 0 : getSumSignOnlyGenWeightSqrs(name);
       sumSignOnlyGenWeightSqrs_ += tmpSumSignGenWeightSqrs;
       STDOUT("sign only gen weight sum (current,total): = "<<tmpSumSignGenWeights<<"+/-"<<sqrt(tmpSumSignGenWeightSqrs)<<", "<<sumSignOnlyGenWeights_<<"+/-"<<sqrt(sumSignOnlyGenWeightSqrs_));
-      tmpSumTopPtWeights = isData() ? 0 : getSumTopPtWeights(name);
+      tmpSumTopPtWeights = isDataCurrentFile(*treeName_) ? 0 : getSumTopPtWeights(name);
       sumTopPtWeights_ += tmpSumTopPtWeights;
       //STDOUT("TopPt weight sum (current,total): = "<<tmpSumTopPtWeights<<", "<<sumTopPtWeights_);
-      if(!isData())
+      if(!isDataCurrentFile(*treeName_))
         saveLHEPdfSumw(name);
       saveEventsPassingCuts(name);
   }
@@ -2769,7 +2769,28 @@ void baseClass::createOptCutFile() {
   } // for (int i=0;...)
 }
 
-bool baseClass::isData() {
+bool baseClass::isDataCurrentFile(const std::string& treeName){
+  auto myTree = tfileForReading_->Get<TTree>(treeName.c_str());
+  if(!myTree)
+  {
+    STDOUT("ERROR: Something went wrong. Could not find TTree '" << treeName << "' in the inputfile '" << tfileForReading_->GetName() << "'. Quit here.");
+    exit(-2);
+  }
+  auto readerTools = std::unique_ptr<TTreeReaderTools>(new TTreeReaderTools(myTree));
+
+  isData_ = true;
+  if(myTree->GetBranch("isData")) {
+    readerTools->LoadEntry(0);
+    if(readerTools->ReadValueBranch<Bool_t>("isData") < 1)
+      isData_ = false;
+  }
+  // if no isData branch (like in nanoAOD output), check for Weight or genWeight branches
+  else if(myTree->GetBranch("Weight") || myTree->GetBranch("genWeight"))
+    isData_ = false;
+  return isData_;
+}
+
+bool baseClass::isDataCurrentChain() {
   if(isDataSet_)
     return isData_;
 
