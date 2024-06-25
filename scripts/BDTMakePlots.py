@@ -245,7 +245,7 @@ for i,mass in enumerate(LQmasses):
     bkgPlotRebin.SetStats(0)
     bkgPlotRebin.GetXaxis().SetTitle("BDT output")
     bkgPlotRebin.GetXaxis().SetRangeUser(-1.1,1.1)
-    bkgPlotRebin.SetTitle("BDT output")
+    bkgPlotRebin.SetTitle("BDT output MLQ = {} GeV".format(mass))
     sigPlotRebin.SetName("sigBDTOutput_MLQ"+str(mass))
     bkgPlotRebin.SetName("bkgBDTOutput_MLQ"+str(mass))
     outFile.cd()
@@ -258,6 +258,12 @@ for i,mass in enumerate(LQmasses):
     bkgPlotRebin.Draw("Same")
     sigPlotRebin.Draw("same")
     cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputMLQ"+str(mass)+".pdf")
+    if mass == LQmasses[0]:
+        cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf(","pdf")
+    elif mass==LQmasses[-1]:
+        cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf)","pdf")
+    else:
+        cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf","pdf")
     #cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputZoomMLQ"+str(mass)+".pdf")    
 
     #Make an ROC curve/auc by hand
@@ -301,6 +307,12 @@ for i,mass in enumerate(LQmasses):
     ROCCurve.SetLineWidth(2)
     ROCCurve.Draw("AL")
     c.Print(pdf_folder+"/"+str(mass)+"/ROCFromBDTPlot"+str(mass)+".pdf")
+    if mass == LQmasses[0]:
+        c.Print(pdf_folder+"/allROCs.pdf(","pdf")
+    elif mass == LQmasses[-1]:
+        c.Print(pdf_folder+"/allROCs.pdf)","pdf")
+    else:
+        c.Print(pdf_folder+"/allROCs.pdf","pdf")
 
     c = TCanvas()
     c.SetGridy()
