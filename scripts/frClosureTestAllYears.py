@@ -63,7 +63,7 @@ def MakeStackAndRatioPlot(histDict1P1F, histDict2F, MCNames, year, variable):
 gROOT.SetBatch(True)
 
 #years = ["2016preVFP", "2016postVFP", "2017", "2018"]
-years = ["2017"]
+years = ["2016preVFP","2017"]
 filenames = {}
 for year in years:
     filenames[year] = {}
@@ -79,7 +79,10 @@ for year in years:
 
 filenames["2017"]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2017/testRecoveredCode/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
 
-pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears/testRecoveredCode"
+filenames["2016preVFP"]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2016preVFP/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
+filenames["2016preVFP"]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2016preVFP/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
+
+pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears/plots"
 
 if not os.path.isdir(pdf_folder):
     os.mkdir(pdf_folder)
@@ -189,17 +192,13 @@ for iyear,year in enumerate(years):
     histos1P1F[year]["data"] = {}
     histos1P1F[year]["MCTotal"] = {}
     for var in variableNameList:
-        if year=="2017":
-            histoData = tfile.Get(histoNameData+var.replace("PAS","tight"))
-        else:
-            histoData = tfile.Get(histoNameData+var)
-    #    if year=="2017" and "Mee" in var:
-    #        histoData.Rebin(10)
+        histToGet = histoNameData+var.replace("PAS","tight")
+        print("Get 1P1F hist "+histToGet)
+        histoData = tfile.Get(histToGet)
         histoData.SetLineWidth(2)
         histoData.SetStats(0)
         if "MET" in var:
             histoData.GetXaxis().SetRangeUser(0,100)
-        print("Get 1P1F hist "+histoNameData+var)
         histos1P1F[year]["data"][var] = copy.deepcopy(histoData)
         if iyear==0:
             histos1P1F["fullRunII"]["data"][var] = copy.deepcopy(histoData)
@@ -241,7 +240,10 @@ for iyear,year in enumerate(years):
     tfile2 = TFile.Open(filenames[year]["2F"])
     for var in variableNameList:
         print("Get 2F hist "+histoNameData+var)
-        histoData = copy.deepcopy(tfile2.Get(histoNameData+var))
+        if "2016" in year:
+            histoData = copy.deepcopy(tfile2.Get(histoNameData+var.replace("PAS","tight")))
+        else:
+            histoData = copy.deepcopy(tfile2.Get(histoNameData+var))
         if "MET" in var:
             histoData.GetXaxis().SetRangeUser(0,100)
       #  if year=="2017" and "Mee" in var:
