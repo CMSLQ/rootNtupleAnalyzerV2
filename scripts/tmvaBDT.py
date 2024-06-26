@@ -327,10 +327,12 @@ def TrainBDT(args):
         #         "V:NTrees=400:MinNodeSize=2.5%:MaxDepth=3:BoostType=AdaBoost:AdaBoostBeta=0.5:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20" )
         # factory.BookMethod(loader,TMVA.Types.kBDT, "BDT",
         #         "!V:NTrees=800:MinNodeSize=2.5%:MaxDepth=2:BoostType=Grad:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20" )
-        if "amcatnlo" in ZJetTrainingSample:
-            optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
-        else:
-            optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+        #if "amcatnlo" in ZJetTrainingSample:
+        #    optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=IgnoreNegWeightsInTraining:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+        #else:
+        #    optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=4:CreateMVAPdfs:NbinsMVAPdf=20"
+
+        optionString = "!H:!V:BoostType=Grad:DoBoostMonitor:NegWeightTreatment=Pray:SeparationType=GiniIndex:NTrees=1000:MinNodeSize=5%:Shrinkage=0.01:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:CreateMVAPdfs:NbinsMVAPdf=20" #:NodePurityLimit=0.7:UseYesNoLeaf=False"
 
         factory.BookMethod(loader, TMVA.Types.kBDT, "BDTG", optionString)
                 # "!H:!V:NTrees=400:MinNodeSize=2.5%:MaxDepth=1:BoostType=Grad:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20:NegWeightTreatment=Pray" )
@@ -715,7 +717,7 @@ def OptimizeBDTCut(args):
         # print("bkgIntegralOverCut={}".format(bkgIntegralOverCut), flush=True)
 
         # signal
-        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=None, lqMass=lqMassToUse, year=year)
+        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, year=year)
         dfSig = RDataFrame(tchainSig)
         dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
@@ -822,7 +824,12 @@ def OptimizeBDTCut(args):
             #     print("Evaluate figure of merit for nS={}, nB={}, unweightedNs={}, unweightedNb={}".format(nS, nB, unweightedNs, unweightedNb), flush=True)
             #     exit(0)
             # require at least one background event expected
-            if nB > 0.5 and not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
+            if "2016" in year:
+                minNB = 0.5
+            else:
+                minNB = 1
+
+            if nB > minNB and not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
@@ -833,7 +840,7 @@ def OptimizeBDTCut(args):
                 unusedFOM = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 unusedFOMs.append(unusedFOM)
                 fom = 0.0
-            fomValueToCutInfoDict[iBin] = [fom, cutVal, nS, efficiency, nB]
+            fomValueToCutInfoDict[iBin] = [fom, cutVal, nS, nSErr.value, efficiency, nB, nBErr]
             fomList.append(fom)
             nSList.append(nS)
             effList.append(efficiency)
@@ -1024,7 +1031,7 @@ def DoROCAndBDTPlots(args):
          #   varHist.Write()
 
         # signal
-        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches, signal=True, loader=None, lqMass=lqMassToUse, year=year)
+        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"", signal=True, loader=None, lqMass=lqMassToUse, year=year)
         dfSig = RDataFrame(tchainSig)
         dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
@@ -1068,7 +1075,7 @@ def DoROCAndBDTPlots(args):
 
         # ROC
         rocCurve = TMVA.ROCCurve(takeBDTSig.GetValue(), bkgMvaValues, takeEventWeightSig.GetValue(), bkgWeights)
-        rocGraph = rocCurve.GetROCCurve(500)
+        rocGraph = rocCurve.GetROCCurve(100)
         c = TCanvas("rocLQ"+str(lqMassToUse))
         c.cd()
         rocGraph.Draw("ap")
@@ -1080,8 +1087,14 @@ def DoROCAndBDTPlots(args):
         plotDict[str(lqMassToUse)]["ROC"] = rocGraph
         plotDict[str(lqMassToUse)]["ROC"] = rocGraph
 #        rocGraph.Write()
-        rocAUC = rocCurve.GetROCIntegral(500)
+        rocAUC = rocCurve.GetROCIntegral(51)
         print("For lqMass={}, got ROC AUC = {}".format(lqMassToUse, rocAUC))
+        if lqMassToUse==2800:
+            print("roc curve points LQM=2800")
+            for i in range(rocGraph.GetN()):
+               x = rocGraph.GetPointX(i)
+               y = rocGraph.GetPointY(i)
+               print("point",i,":",x,",",y) 
         #print(plotDict)
         rocAndBDTPlots[str(lqMassToUse)].update(plotDict[str(lqMassToUse)])
         #rocAndBDTPlots[str(lqMassToUse)] = plotDict[str(lqMassToUse)]
@@ -1101,12 +1114,17 @@ def GetMassFloat(mass):
 def PrintBDTCuts(optValsDict, parametrized):
     sortedDictMass = OrderedDict(sorted(optValsDict.items()))
     dataForTable = []
-    headers = ["mass", "bin", "max FOM", "cut value", "nS", "eff", "nB", "min. bkg limited"]
+    headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr", "min. bkg limited"]
     for mass, valList in sortedDictMass.items():
         valListFormatted = []
-        for i in range(6):
-            valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
-        valListFormatted.append(valList[6])
+        #print(valList)
+        for i in range(8):
+            #print("format entry ",valList[i])
+            if -0.0001 < valList[i] < 0.0001: #if something is too small to be displayed, use scientific notation
+                valListFormatted.append("{:0.4e}".format(valList[i]))
+            else:
+                valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
+        valListFormatted.append(valList[8])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
         l = [mass]+valListFormatted
         dataForTable.append(l)
@@ -1145,14 +1163,15 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
     optCutValsVsLQMassGraph.Draw("ap")
     optCutValsVsLQMassGraph.Write()
     optNSVals = [float(optValsDict[lqMass][3]) for lqMass in lqMasses]
-    optNSValsVsLQMassGraph = TGraph(len(lqMasses), np.array(lqMasses), np.array(optNSVals))
+    optNSErrs = [float(optValsDict[lqMass][4]) for lqMass in lqMasses]
+    optNSValsVsLQMassGraph = TGraphErrors(len(lqMasses), np.array(lqMasses), np.array(optNSVals), np.zeros(len(lqMasses)), np.array(optNSErrs))
     optNSValsVsLQMassGraph.SetName("optNSVsLQMass")
     optNSValsVsLQMassGraph.SetTitle("Opt. cut n_{S} vs. M_{LQ}; M_{LQ} [GeV]; Opt. n_{S}")
     optNSValsVsLQMassGraph.SetMarkerStyle(22)
     optNSValsVsLQMassGraph.SetMarkerColor(signalColor)
     optNSValsVsLQMassGraph.Draw("ap")
     optNSValsVsLQMassGraph.Write()
-    optEffVals = [float(optValsDict[lqMass][4]) for lqMass in lqMasses]
+    optEffVals = [float(optValsDict[lqMass][5]) for lqMass in lqMasses]
     optEffValsVsLQMassGraph = TGraph(len(lqMasses), np.array(lqMasses), np.array(optEffVals))
     optEffValsVsLQMassGraph.SetName("optEffVsLQMass")
     optEffValsVsLQMassGraph.SetTitle("Opt. cut eff. vs. M_{LQ}; M_{LQ} [GeV]; Opt. eff.")
@@ -1160,8 +1179,9 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
     optEffValsVsLQMassGraph.SetMarkerColor(kSpring-1)
     optEffValsVsLQMassGraph.Draw("ap")
     optEffValsVsLQMassGraph.Write()
-    optNBVals = [float(optValsDict[lqMass][5]) for lqMass in lqMasses]
-    optNBValsVsLQMassGraph = TGraph(len(lqMasses), np.array(lqMasses), np.array(optNBVals))
+    optNBVals = [float(optValsDict[lqMass][6]) for lqMass in lqMasses]
+    optNBErrs = [float(optValsDict[lqMass][7]) for lqMass in lqMasses]
+    optNBValsVsLQMassGraph = TGraphErrors(len(lqMasses), np.array(lqMasses), np.array(optNBVals), np.zeros(len(lqMasses)), np.array(optNBErrs))
     optNBValsVsLQMassGraph.SetName("optNBVsLQMass")
     optNBValsVsLQMassGraph.SetTitle("Opt. cut n_{B} vs. M_{LQ}; M_{LQ} [GeV]; Opt. n_{B}")
     optNBValsVsLQMassGraph.SetMarkerStyle(22)
@@ -1490,6 +1510,7 @@ def GetBackgroundDatasets(inputListBkgBase):
 
 
 def GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year):
+    year = str(year)
     # if year == "2016preVFP":
     #     qcdFakes = {
     #             "QCDFakes_DATA" : [
@@ -1559,6 +1580,34 @@ def GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year):
                     inputListQCD2FRBase+"SinglePhoton_Run2016H-UL2016_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2016G-UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2016F-UL2016_MiniAODv2_NanoAODv9-v1.txt",
+                    ]
+    elif year == "2017":
+        qcdFakes["QCDFakes_DATA"] = [
+                    inputListQCD1FRBase+"SinglePhoton_Run2017B-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017C-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017D-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017E-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"SinglePhoton_Run2017F-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    ]
+        qcdFakes["QCDFakes_DATA_2FR"] = [
+                    inputListQCD2FRBase+"SinglePhoton_Run2017B-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017C-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017D-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017E-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"SinglePhoton_Run2017F-UL2017_MiniAODv2_NanoAODv9-v1.txt",
+                    ]
+    elif year=="2018":
+        qcdFakes["QCDFakes_DATA"] = [
+                    inputListQCD1FRBase+"EGamma_Run2018A-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"EGamma_Run2018B-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"EGamma_Run2018C-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD1FRBase+"EGamma_Run2018D-UL2018_MiniAODv2_NanoAODv9-v3.txt",
+                    ]
+        qcdFakes["QCDFakes_DATA_2FR"] = [
+                    inputListQCD2FRBase+"EGamma_Run2018A-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"EGamma_Run2018B-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"EGamma_Run2018C-UL2018_MiniAODv2_NanoAODv9-v1.txt",
+                    inputListQCD2FRBase+"EGamma_Run2018D-UL2018_MiniAODv2_NanoAODv9-v3.txt",
                     ]
     return qcdFakes
 
@@ -1719,37 +1768,40 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}_allDY/{}/QCDFakes_DATA_2FR/"
-    ZJetTrainingSample = "ZJet_amcatnlo_ptBinned"
+    skim = "21jun"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    ZJetTrainingSample = "ZJet_HTLO"
+    use_BEle_samples = False
     eosDir = options.eosDir
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
     #xsectionTxt = "xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_4apr2024_dyjPowhegMiNNLO.txt"
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
-    xsectionFiles["2016postVFP"] = "xsection_withSF_allDY_4apr2024_2016postVFP.txt"
-    xsectionFiles["2016preVFP"] = "xsection_withSF_allDY_4apr2024_2016preVFP.txt"
+    xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
+    xsectionDate = "21jun2024"
+    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    xsectionFiles["2018"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     train = options.train
     optimize = options.optimize
     roc = options.roc
-    parallelize = False
+    parallelize = True
     parametrized = False
     includeQCD = True
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [2700]#,1100,1200]
-    #lqMassesToUse = list(range(1200, 2000, 100))
-    #lqMassesToUse = list(range(600, 1100, 100))
-    #lqMassesToUse = list(range(800, 1300, 100))
-    #lqMassesToUse = list(range(300, 1000, 100))
-    #lqMassesToUse = list(range(300, 700, 100))
-    #lqMassesToUse = list(range(300, 3100, 100))
-    #lqMassesToUse = list(range(800,1100,100))
-    lqMassesToUse = [400]#,500,600]
-    signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+    #lqMassesToUse = [600]#,1100,1200]
+    lqMassesToUse = list(range(300, 3100, 100))
+    #lqMassesToUse = [2800]#,500,600]
+    if use_BEle_samples:
+        signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
+    else:
+        signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(1500)+"_APV_BDTG.weights.xml"
@@ -1775,8 +1827,12 @@ if __name__ == "__main__":
         if includeQCD:
             backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
     elif year == "2017":
+        if includeQCD:
+            backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
         intLumi = 41477.877399
     elif year == "2018":
+        if includeQCD:
+            backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
         intLumi = 59827.449483
     else:
         raise RuntimeError("Did not understand 'year' parameter whose value is {}; must be one of 2016preVFP, 2016postVFP, 2017, 2018".format(year))

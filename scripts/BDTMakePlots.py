@@ -33,36 +33,20 @@ import math
 
 minMLQ = int(sys.argv[1])
 maxMLQ = int(sys.argv[2])
+year = str(sys.argv[3])
 parameterized = False
 #parameterized = True
-moreVars = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-if parameterized==True:
-    if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT/3rdJet/withElePt/parameterized/"+folderName+"/optimizationPlots.root"
-        bdtPlotFile = "$LQDATAEOS/BDT/3rdJet/withElePt/parameterized/"+folderName+"/bdtPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT/3rdJet/withElePt/parameterized/"+folderName
-        modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
-    else:
-        optimizationFile = "$LQDATAEOS/BDT/parameterized/"+folderName+"/optimizationPlots.root"
-        bdtPlotFile = "$LQDATAEOS/BDT/parameterized/"+folderName+"/bdtPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT/parameterized/"+folderName
-        modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
-else:
-    if moreVars==True:
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_mixed/2016preVFP/powheg-amcatnlo"
-        optimizationFile = base_folder+"/optimizationPlots.root"
-        bdtPlotFile = base_folder+"/bdtPlots.root"
-        modelName = "dedicated_mass"
-    else:
-        optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT/dedicated_mass"
-        bdtPlotFile = "$LQDATAEOS/BDT/dedicated_mass/bdtPlots.root"
-        modelName = "dedicated_mass"
+base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_21junxsec/LQToDEle/{}".format(year)
+optimizationFile = base_folder+"/optimizationPlots.root"
+bdtPlotFile = base_folder+"/bdtPlots.root"
+
+modelName = "LQToDEle_{}".format(year)
 
 pdf_folder = base_folder+"/plots"
 outFileName = base_folder+"/"+modelName+"Plots.root"
+plotsForAN = base_folder+"/plots/plotsForAN.pdf"
 
 gROOT.SetBatch(True)
 
@@ -95,6 +79,7 @@ cutVsMLQPlot.Draw("AP")
 outFile.cd()
 cutVsMLQPlot.Write()
 c1.Print(pdf_folder+"/optCutValVsLQMass.pdf")
+c1.Print(plotsForAN+"(","pdf")
 print(cutValues)
 
 #plot max FOM vs. LQ mass
@@ -117,6 +102,7 @@ FOMVsMLQPlot.Draw("ALP")
 outFile.cd()
 FOMVsMLQPlot.Write()
 c2.Print(pdf_folder+"/maxFOMvsMLQ.pdf")
+c2.Print(plotsForAN,"pdf")
 
 #Plot Ns and Nb vs BDT cut for each mass
 for mass in LQmasses:
@@ -208,6 +194,7 @@ for ipoint in range(yieldAtCutSig.GetN()):
 sigEfficiency = TGraphErrors(len(LQmasses))
 bkgRejection = TGraphErrors(len(LQmasses))
 sigEffVsBkgRejMLQ = TGraph(len(LQmasses))
+rocAreas = {}
 for i,mass in enumerate(LQmasses):
     cBDTOutput = TCanvas()
     cBDTOutput.SetLogy()
@@ -242,7 +229,7 @@ for i,mass in enumerate(LQmasses):
     bkgPlotRebin.SetStats(0)
     bkgPlotRebin.GetXaxis().SetTitle("BDT output")
     bkgPlotRebin.GetXaxis().SetRangeUser(-1.1,1.1)
-    bkgPlotRebin.SetTitle("BDT output")
+    bkgPlotRebin.SetTitle("BDT output MLQ = {} GeV".format(mass))
     sigPlotRebin.SetName("sigBDTOutput_MLQ"+str(mass))
     bkgPlotRebin.SetName("bkgBDTOutput_MLQ"+str(mass))
     outFile.cd()
@@ -255,7 +242,67 @@ for i,mass in enumerate(LQmasses):
     bkgPlotRebin.Draw("Same")
     sigPlotRebin.Draw("same")
     cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputMLQ"+str(mass)+".pdf")
+    if mass == LQmasses[0]:
+        cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf(","pdf")
+    elif mass==LQmasses[-1]:
+        cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf)","pdf")
+    else:
+        cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf","pdf")
+
+    if mass==500 or mass==1500 or mass==2500:
+        cBDTOutput.Print(plotsForAN,"pdf")
     #cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputZoomMLQ"+str(mass)+".pdf")    
+
+    #Make an ROC curve/auc by hand
+    nBins = bkgPlot.GetNbinsX()
+    ROCCurve = TGraph()
+    ROCCurve.SetPointX(0,1.0)
+    ROCCurve.SetPointY(0,0.0)
+    for ibin in range(nBins): #zero negative bins out
+        nBThisBin = bkgPlot.GetBinContent(ibin+1)
+        if nBThisBin < 0:
+            bkgPlot.SetBinContent(ibin+1,0)
+    nSTot = sigPlot.Integral(1,bkgPlot.GetXaxis().GetLast())
+    nBTot = bkgPlot.Integral(1,sigPlot.GetXaxis().GetLast())
+    for ibin in range(nBins):
+        nB = bkgPlot.Integral(ibin+1, bkgPlot.GetXaxis().GetLast())
+        nS = sigPlot.Integral(ibin+1, sigPlot.GetXaxis().GetLast())
+        if nB > 0:
+            Y = 1.0 - nB/nBTot
+        else:
+            Y = 1.0
+        X = nS/nSTot
+        print("MLQ{}: ({}, {})".format(mass,X,Y))
+        ROCCurve.SetPointX(ibin,X)
+        ROCCurve.SetPointY(ibin,Y)
+        #print("X = {}/{} = {}".format(nS,nSTot,X))
+        #print("Y = 1 - {}/{} = {}".format(nB,nBTot,Y))
+
+    ROCCurve.SetPointX(nBins,0.0)
+    ROCCurve.SetPointY(nBins,1.0)
+    ROCToIntegrate = copy.deepcopy(ROCCurve)
+    ROCToIntegrate.AddPoint(0,0)
+    auc = ROCToIntegrate.Integral()
+    rocAreas[str(mass)] = auc
+    ROCCurve.SetTitle("ROC for MLQ = {} GeV, AUC = {}".format(mass,auc))
+    ROCCurve.GetXaxis().SetTitle("signal efficiency")
+    ROCCurve.GetYaxis().SetTitle("background rejection")
+    c = TCanvas()
+    c.SetGridx()
+    c.SetGridy()
+    ROCCurve.SetLineColor(kRed)
+    ROCCurve.SetLineWidth(2)
+    ROCCurve.Draw("AL")
+    c.Print(pdf_folder+"/"+str(mass)+"/ROCFromBDTPlot"+str(mass)+".pdf")
+    if mass == LQmasses[0]:
+        c.Print(pdf_folder+"/allROCs.pdf(","pdf")
+    elif mass == LQmasses[-1]:
+        c.Print(pdf_folder+"/allROCs.pdf)","pdf")
+    else:
+        c.Print(pdf_folder+"/allROCs.pdf","pdf")
+
+    if mass==500 or mass==1500 or mass==2500:
+        c.Print(plotsForAN,"pdf")
 
     c = TCanvas()
     c.SetGridy()
@@ -299,11 +346,13 @@ cYield = TCanvas()
 cYield.SetGridy()
 cYield.SetLogy()
 yieldAtCutSig.SetMarkerStyle(8)
+yieldAtCutSig.SetMarkerSize(0.75)
 yieldAtCutSig.GetXaxis().SetTitle("MLQ")
 yieldAtCutSig.SetTitle("yield at opt. cut value vs LQ mass")
 yieldAtCutSig.SetName("SigYieldAtOptCut")
 yieldAtCutSig.SetMarkerColor(kBlue)
 yieldAtCutBkg.SetMarkerStyle(8)
+yieldAtCutBkg.SetMarkerSize(0.75)
 yieldAtCutBkg.SetMarkerColor(kRed)
 yieldAtCutBkg.SetName("BkgYieldAtOptCut")
 yieldAtCutSig.GetYaxis().SetRangeUser(1e-4,50000)
@@ -319,6 +368,7 @@ outFile.cd()
 yieldAtCutSig.Write()
 yieldAtCutBkg.Write()
 cYield.Print(pdf_folder+"/yieldAtOptCutvsMLQ.pdf")
+cYield.Print(plotsForAN,"pdf")
 
 cEff = TCanvas()
 cEff.SetGridy()
@@ -351,17 +401,18 @@ oneMaucVsMLQPlot.SetName("1-rocaucVsMLQ")
 for i, mass in enumerate(LQmasses):
     c3 = TCanvas()
     rocPlot = bdtTFile.Get("LQM"+str(mass)+"/Graph")
-    plotForIntegral = copy.deepcopy(rocPlot)
-    plotForIntegral.AddPoint(0,0)
-    rocauc = plotForIntegral.Integral()
+    #plotForIntegral = copy.deepcopy(rocPlot)
+    #plotForIntegral.AddPoint(0,0)
+#    rocauc = plotForIntegral.Integral()
+    rocauc = rocAreas[str(mass)]
     oneMauc = 1 - rocauc
     title = "ROC for MLQ = "+str(mass)+" (auc = "+str(rocauc)+")"
-    rocPlot.SetTitle(title)
-    rocPlot.SetName("ROC_MLQ"+str(mass))
-    rocPlot.Draw()
+#    rocPlot.SetTitle(title)
+#    rocPlot.SetName("ROC_MLQ"+str(mass))
+#    rocPlot.Draw()
     outFile.cd()
-    rocPlot.Write()
-    c3.Print(pdf_folder+"/"+str(mass)+"/rocMLQ"+str(mass)+".pdf")
+#    rocPlot.Write()
+#    c3.Print(pdf_folder+"/"+str(mass)+"/rocMLQ"+str(mass)+".pdf")
     rocaucVsMLQPlot.SetPoint(i,mass,rocauc)
     oneMaucVsMLQPlot.SetPoint(i,mass,oneMauc)
 rocaucVsMLQPlot.SetMarkerStyle(8)
@@ -373,6 +424,7 @@ rocaucVsMLQPlot.Draw("AP")
 outFile.cd()
 rocaucVsMLQPlot.Write()
 c3.Print(pdf_folder+"/rocaucVsMLQ.pdf")
+c3.Print(plotsForAN,"pdf")
 
 oneMaucVsMLQPlot.SetMarkerStyle(8)
 oneMaucVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
@@ -384,22 +436,27 @@ oneMaucVsMLQPlot.Draw("AP")
 outFile.cd()
 oneMaucVsMLQPlot.Write()
 c3.Print(pdf_folder+"/1-rocaucVsMLQ.pdf")
+c3.Print(plotsForAN,"pdf")
 
 #compare sig and bkg variable distributions for each mass
-c5 = TCanvas()
-c5.SetLogy()
 for i,mass in enumerate(LQmasses):
-    TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
+    if "2016preVFP" in base_folder:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+    else:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     for var in variables:
+       c5 = TCanvas()
+       c5.SetLogy()
        #bkgPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_bkg")
        #sigPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_LQ"+str(mass))
        bkgPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Background_Id".format(var))
        sigPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Signal_Id".format(var))
-       if parameterized == False: #we're going to store these in the dedicated mass root file. The inputs are the same for all models
-           outFile.cd()
-           sigPlot.Write()
-           if i==1:
-               bkgPlot.Write() #these are all the same, we only need to make one for each var
 
     #   if not "Pt" in var and not "MET" in var and not "Mej" in var:
     #       bkgPlot.Rebin(25)
@@ -426,14 +483,120 @@ for i,mass in enumerate(LQmasses):
        #bkgPlot.GetYaxis().SetRangeUser(0.1,1e5)
        #bkgPlot.GetXaxis().SetRangeUser(400,4700)
        bkgPlot.GetXaxis().SetTitle(var)
+       bkgPlot.Draw()
+       bkgPlot.GetYaxis().SetRangeUser(1e-3,2e5)
+       plotMin = 0
+       if "Pt" in var:
+           plotMax = 700+100*i
+           #bkgPlot.GetXaxis().SetLimits(0,2000)
+           #sigPlot.GetXaxis().SetLimits(0,2000)
+       elif "sT_eejj" in var:
+           plotMax = 2400+150*i
+           plotMin = 400
+           #bkgPlot.GetXaxis().SetLimits(0,8000)
+           #sigPlot.GetXaxis().SetLimits(0,8000)
+       elif "Meejj" in var:
+           plotMax = 3500+200*i
+       elif "M_e1e2" in var:
+           plotMax = 1400+200*i
+           plotMin = 220
+       else:
+           plotMax = 1400+200*i
+           #bkgPlot.GetXaxis().SetLimits(0,5000)
+           #sigPlot.GetXaxis().SetLimits(0,5000)
+
+       fakeHist = TH1D("forRange"+var+str(mass),"",1,plotMin,plotMax)
+       fakeHist.SetTitle("signal and bkg for "+var+", MLQ="+str(mass)+" GeV")
+       fakeHist.SetStats(0)
+       fakeHist.GetYaxis().SetRangeUser(5e-3,2e5)
        bkgPlot.SetTitle("signal and bkg for "+var+", MLQ="+str(mass)+" GeV")
-       bkgPlot.Draw("hist")
+       fakeHist.Draw()
+       bkgPlot.GetXaxis().SetRangeUser(0,bkgPlot.GetXaxis().GetXmax())
+       bkgPlot.Draw("histSame")
        sigPlot.Draw("HISTsame") 
        l = TLegend(0.4,0.8,0.6,0.9)
        l.AddEntry(sigPlot,"signal","lp")
        l.AddEntry(bkgPlot,"background","lp")
        l.Draw("same")
        c5.Print(pdf_folder+"/"+str(mass)+"/"+var+"MLQ"+str(mass)+".pdf")
+       if mass == LQmasses[0] and var == variables[0]:
+           c5.Print(pdf_folder+"/allInputVars.pdf(","pdf")
+       elif mass == LQmasses[-1] and var == variables[-1]:
+           c5.Print(pdf_folder+"/allInputVars.pdf)","pdf")
+       else:
+           c5.Print(pdf_folder+"/allInputVars.pdf","pdf")
+
+           if mass==500 or mass==1500 or mass==2500:
+               c5.Print(plotsForAN,"pdf")
+
+for i,mass in enumerate(LQmasses):
+    #Also get overtraining plots 
+    #see https://root-forum.cern.ch/t/tmva-signal-vs-background-bdt-response-plot-generated-with-macro-radically-different-from-manually-generated-plot/34002/4
+    #cross-checked with the plots produced in the tmva gui and these are indeed the right plot names
+    if "2016preVFP" in base_folder:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8_APV.root")
+    else:
+        if "BEle" in pdf_folder:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8.root")
+        else:
+            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
+    bkgTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_B")
+    bkgTest = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_B")
+    sigTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_S")
+    sigTest = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_S")
+
+    bkgTrain.SetLineColor(kRed)
+    bkgTrain.SetMarkerColor(kRed)
+    sigTrain.SetLineColor(kBlue)
+    sigTrain.SetMarkerColor(kBlue)
+    bkgTest.SetLineColor(kRed)
+    bkgTest.SetMarkerColor(kRed)
+    sigTest.SetLineColor(kBlue)
+    sigTest.SetMarkerColor(kBlue)
+
+    sigTrain.SetMarkerStyle(8)
+    sigTrain.SetMarkerSize(0.6)
+    bkgTrain.SetMarkerStyle(8)
+    bkgTrain.SetMarkerSize(0.6)
+
+    sigTest.SetFillStyle(3354)
+    sigTest.SetFillColor(kBlue)
+    bkgTest.SetFillStyle(3345)
+    bkgTest.SetFillColor(kRed)
+
+    legend = TLegend(0.4,0.7,0.6,0.9)
+    legend.AddEntry(sigTrain,"Training sample (sig)", "lp")
+    legend.AddEntry(bkgTrain, "Training sample (bkg)", "lp")
+    legend.AddEntry(sigTest, "Testing sample (sig)", "f")
+    legend.AddEntry(bkgTest, "Testing sample (bkg)", "f")
+
+    c = TCanvas()
+    c.SetGridy()
+    bkgTest.SetTitle("Overtraining check for MLQ = "+str(mass)+" GeV")
+    bkgTest.SetStats(0)
+    bkgTest.GetXaxis().SetTitle("BDT score")
+    bkgTest.GetYaxis().SetTitle("(1/N) dN/dx")
+    bkgTest.GetYaxis().SetRangeUser(0,21)
+    bkgTest.Draw("HIST")
+    sigTest.Draw("HISTSAME")
+    bkgTrain.Draw("PSAME][")
+    sigTrain.Draw("PSAME][")
+    legend.Draw("SAME")
+    c.Print(pdf_folder+"/"+str(mass)+"/BDTGOvertrainingPlot.pdf")
+    if mass == LQmasses[0]:
+        c.Print(pdf_folder+"/overtrainingPlots.pdf(","pdf")
+    elif mass == LQmasses[-1]:
+        c.Print(pdf_folder+"/overtrainingPlots.pdf)","pdf")
+    else:
+        c.Print(pdf_folder+"/overtrainingPlots.pdf","pdf")
+
+    if mass==500 or mass==1500 or mass==2500:
+        if mass==2500:
+            plotsForAN+=")"
+        c.Print(plotsForAN,"pdf")
 
 #correlation matrices
 if parameterized == True:
