@@ -416,13 +416,37 @@ if options.reducedSkim or options.nanoSkim:
         os.system("cp " + cmsjmelibPath + " " + options.outputDir + "/")
         inputFilesToTransfer.append(options.outputDir + "/libCMSJMECalculators.so")
     cmsjmeDictlibPath = os.path.expandvars("$LQANA/build/_deps/cmsjmecalculators-build/libCMSJMECalculatorsDict.so")
-    print("Moving CMSJME libs to the local output directory...", end=' ')
     if not os.path.isfile(cmsjmeDictlibPath):
         print("Error: No libCMSJMECalculatorsDict.so here: " + cmsjmeDictlibPath)
         sys.exit(-1)
     else:
         os.system("cp " + cmsjmeDictlibPath + " " + options.outputDir + "/")
         inputFilesToTransfer.append(options.outputDir + "/libCMSJMECalculatorsDict.so")
+    print("... done ")
+    # copy custom root libs
+    dictLibPath = os.path.expandvars("$LQANA/build/libmyapp_dict_lib.so")
+    print("Moving other libs to the local output directory...", end=' ')
+    if not os.path.isfile(dictLibPath):
+        print("Error: No libmyapp_dict_lib.so here: " + dictLibPath)
+        sys.exit(-1)
+    else:
+        os.system("cp " + dictLibPath + " " + options.outputDir + "/")
+        inputFilesToTransfer.append(options.outputDir + "/libmyapp_dict_lib.so")
+    dictLibPath = os.path.expandvars("$LQANA/build/libmyapp_dict_rdict.pcm")
+    if not os.path.isfile(dictLibPath):
+        print("Error: No libmyapp_dict_rdict.pcm here: " + dictLibPath)
+        sys.exit(-1)
+    else:
+        os.system("cp " + dictLibPath + " " + options.outputDir + "/")
+        inputFilesToTransfer.append(options.outputDir + "/libmyapp_dict_rdict.pcm")
+    dictLibPath = os.path.expandvars("$LQANA/build/libmyapp_dict.rootmap")
+    if not os.path.isfile(dictLibPath):
+        print("Error: No libmyapp_dict.rootmap here: " + dictLibPath)
+        sys.exit(-1)
+    else:
+        os.system("cp " + dictLibPath + " " + options.outputDir + "/")
+        inputFilesToTransfer.append(options.outputDir + "/libmyapp_dict.rootmap")
+    print("... done ")
 
 # --------------------------------------------------------------------------------
 # Check if path is a link
