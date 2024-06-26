@@ -1768,7 +1768,7 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    skim = "7may"
+    skim = "21jun"
     inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/"
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
@@ -1781,7 +1781,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "7may2024"
+    xsectionDate = "21jun2024"
     xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)

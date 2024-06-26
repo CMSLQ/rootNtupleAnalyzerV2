@@ -36,35 +36,17 @@ maxMLQ = int(sys.argv[2])
 year = str(sys.argv[3])
 parameterized = False
 #parameterized = True
-moreVars = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-if parameterized==True:
-    if moreVars==True:
-        optimizationFile = "$LQDATAEOS/BDT/3rdJet/withElePt/parameterized/"+folderName+"/optimizationPlots.root"
-        bdtPlotFile = "$LQDATAEOS/BDT/3rdJet/withElePt/parameterized/"+folderName+"/bdtPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT/3rdJet/withElePt/parameterized/"+folderName
-        modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
-    else:
-        optimizationFile = "$LQDATAEOS/BDT/parameterized/"+folderName+"/optimizationPlots.root"
-        bdtPlotFile = "$LQDATAEOS/BDT/parameterized/"+folderName+"/bdtPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT/parameterized/"+folderName
-        modelName = "MLQ"+str(minMLQ)+"To"+str(maxMLQ)+"GeV_parameterized"
-else:
-    if moreVars==True:
-        #base_folder = os.getenv("LQDATAEOS")+"/BDT_LQToBEle/HTLO/2016postVFP/depth3"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim/LQToDEle/correctedXsections/{}".format(year)
-        optimizationFile = base_folder+"/testing/optimizationPlots.root"
-        bdtPlotFile = base_folder+"/bdtPlots.root"
-        modelName = "dedicated_mass"
-    else:
-        optimizationFile = "$LQDATAEOS/BDT/dedicated_mass/optimizationPlots.root"
-        base_folder = os.getenv("LQDATAEOS")+"/BDT/dedicated_mass"
-        bdtPlotFile = "$LQDATAEOS/BDT/dedicated_mass/bdtPlots.root"
-        modelName = "dedicated_mass"
+base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_21junxsec/LQToDEle/{}".format(year)
+optimizationFile = base_folder+"/optimizationPlots.root"
+bdtPlotFile = base_folder+"/bdtPlots.root"
+
+modelName = "LQToDEle_{}".format(year)
 
 pdf_folder = base_folder+"/plots"
 outFileName = base_folder+"/"+modelName+"Plots.root"
+plotsForAN = base_folder+"/plots/plotsForAN.pdf"
 
 gROOT.SetBatch(True)
 
@@ -97,6 +79,7 @@ cutVsMLQPlot.Draw("AP")
 outFile.cd()
 cutVsMLQPlot.Write()
 c1.Print(pdf_folder+"/optCutValVsLQMass.pdf")
+c1.Print(plotsForAN+"(","pdf")
 print(cutValues)
 
 #plot max FOM vs. LQ mass
@@ -119,6 +102,7 @@ FOMVsMLQPlot.Draw("ALP")
 outFile.cd()
 FOMVsMLQPlot.Write()
 c2.Print(pdf_folder+"/maxFOMvsMLQ.pdf")
+c2.Print(plotsForAN,"pdf")
 
 #Plot Ns and Nb vs BDT cut for each mass
 for mass in LQmasses:
@@ -264,6 +248,9 @@ for i,mass in enumerate(LQmasses):
         cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf)","pdf")
     else:
         cBDTOutput.Print(pdf_folder+"/allBDTOutputs.pdf","pdf")
+
+    if mass==500 or mass==1500 or mass==2500:
+        cBDTOutput.Print(plotsForAN,"pdf")
     #cBDTOutput.Print(pdf_folder+"/"+str(mass)+"/BDTOutputZoomMLQ"+str(mass)+".pdf")    
 
     #Make an ROC curve/auc by hand
@@ -313,6 +300,9 @@ for i,mass in enumerate(LQmasses):
         c.Print(pdf_folder+"/allROCs.pdf)","pdf")
     else:
         c.Print(pdf_folder+"/allROCs.pdf","pdf")
+
+    if mass==500 or mass==1500 or mass==2500:
+        c.Print(plotsForAN,"pdf")
 
     c = TCanvas()
     c.SetGridy()
@@ -378,6 +368,7 @@ outFile.cd()
 yieldAtCutSig.Write()
 yieldAtCutBkg.Write()
 cYield.Print(pdf_folder+"/yieldAtOptCutvsMLQ.pdf")
+cYield.Print(plotsForAN,"pdf")
 
 cEff = TCanvas()
 cEff.SetGridy()
@@ -433,6 +424,7 @@ rocaucVsMLQPlot.Draw("AP")
 outFile.cd()
 rocaucVsMLQPlot.Write()
 c3.Print(pdf_folder+"/rocaucVsMLQ.pdf")
+c3.Print(plotsForAN,"pdf")
 
 oneMaucVsMLQPlot.SetMarkerStyle(8)
 oneMaucVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
@@ -444,6 +436,7 @@ oneMaucVsMLQPlot.Draw("AP")
 outFile.cd()
 oneMaucVsMLQPlot.Write()
 c3.Print(pdf_folder+"/1-rocaucVsMLQ.pdf")
+c3.Print(plotsForAN,"pdf")
 
 #compare sig and bkg variable distributions for each mass
 for i,mass in enumerate(LQmasses):
@@ -464,11 +457,6 @@ for i,mass in enumerate(LQmasses):
        #sigPlot = bdtTFile.Get("LQM"+str(mass)+"/"+var+"_LQ"+str(mass))
        bkgPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Background_Id".format(var))
        sigPlot = TMVAFile.Get("dataset/InputVariables_Id/{}__Signal_Id".format(var))
-       if parameterized == False: #we're going to store these in the dedicated mass root file. The inputs are the same for all models
-           outFile.cd()
-           sigPlot.Write()
-           if i==1:
-               bkgPlot.Write() #these are all the same, we only need to make one for each var
 
     #   if not "Pt" in var and not "MET" in var and not "Mej" in var:
     #       bkgPlot.Rebin(25)
@@ -538,6 +526,9 @@ for i,mass in enumerate(LQmasses):
        else:
            c5.Print(pdf_folder+"/allInputVars.pdf","pdf")
 
+           if mass==500 or mass==1500 or mass==2500:
+               c5.Print(plotsForAN,"pdf")
+
 for i,mass in enumerate(LQmasses):
     #Also get overtraining plots 
     #see https://root-forum.cern.ch/t/tmva-signal-vs-background-bdt-response-plot-generated-with-macro-radically-different-from-manually-generated-plot/34002/4
@@ -601,6 +592,11 @@ for i,mass in enumerate(LQmasses):
         c.Print(pdf_folder+"/overtrainingPlots.pdf)","pdf")
     else:
         c.Print(pdf_folder+"/overtrainingPlots.pdf","pdf")
+
+    if mass==500 or mass==1500 or mass==2500:
+        if mass==2500:
+            plotsForAN+=")"
+        c.Print(plotsForAN,"pdf")
 
 #correlation matrices
 if parameterized == True:
