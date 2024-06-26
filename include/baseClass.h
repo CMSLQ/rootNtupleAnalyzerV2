@@ -980,8 +980,6 @@ class baseClass {
     std::vector<std::shared_ptr<TH1> > histsToSave_; // various histograms to save, like LHEPdfWeightSumHist
     std::shared_ptr<TH1> findSavedHist(std::string histName);
     std::unique_ptr<TFile> tfileForReading_;
-    std::unique_ptr<TH1D> cachedEventCounterHist_;
-    bool cachedHistRead_ = false;
 
     // systematics
     std::vector<Systematic> systematics_;

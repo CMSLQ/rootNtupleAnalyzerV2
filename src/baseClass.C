@@ -382,25 +382,23 @@ void baseClass::readInputList()
         STDOUT("File didn't open! Quitting");
         exit(-1);
       }
-      cachedEventCounterHist_.reset();
       NBeforeSkim = getGlobalInfoNstart(name);
       NBeforeSkim_ = NBeforeSkim_ + NBeforeSkim;
       STDOUT("Initial number of events (current file,runningTotal): NBeforeSkim, NBeforeSkim_ = "<<NBeforeSkim<<", "<<NBeforeSkim_);
-      tmpSumGenWeights = isDataCurrentFile(*treeName_) ? 0 : getSumGenWeights(name);
+      tmpSumGenWeights = getSumGenWeights(name);
       sumGenWeights_ += tmpSumGenWeights;
-      tmpSumGenWeightSqrs = isDataCurrentFile(*treeName_) ? 0 : getSumGenWeightSqrs(name);
+      tmpSumGenWeightSqrs = getSumGenWeightSqrs(name);
       sumGenWeightSqrs_ += tmpSumGenWeightSqrs;
       STDOUT("gen weight sum (current,total): = "<<tmpSumGenWeights<<"+/-"<<sqrt(tmpSumGenWeightSqrs)<<", "<<sumGenWeights_<<"+/-"<<sqrt(sumGenWeightSqrs_));
-      tmpSumSignGenWeights = isDataCurrentFile(*treeName_) ? 0 : getSumSignOnlyGenWeights(name);
+      tmpSumSignGenWeights = getSumSignOnlyGenWeights(name);
       sumSignOnlyGenWeights_ += tmpSumSignGenWeights;
-      tmpSumSignGenWeightSqrs = isDataCurrentFile(*treeName_) ? 0 : getSumSignOnlyGenWeightSqrs(name);
+      tmpSumSignGenWeightSqrs = getSumSignOnlyGenWeightSqrs(name);
       sumSignOnlyGenWeightSqrs_ += tmpSumSignGenWeightSqrs;
       STDOUT("sign only gen weight sum (current,total): = "<<tmpSumSignGenWeights<<"+/-"<<sqrt(tmpSumSignGenWeightSqrs)<<", "<<sumSignOnlyGenWeights_<<"+/-"<<sqrt(sumSignOnlyGenWeightSqrs_));
-      tmpSumTopPtWeights = isDataCurrentFile(*treeName_) ? 0 : getSumTopPtWeights(name);
+      tmpSumTopPtWeights = getSumTopPtWeights(name);
       sumTopPtWeights_ += tmpSumTopPtWeights;
       //STDOUT("TopPt weight sum (current,total): = "<<tmpSumTopPtWeights<<", "<<sumTopPtWeights_);
-      if(!isDataCurrentFile(*treeName_))
-        saveLHEPdfSumw(name);
+      saveLHEPdfSumw(name);
       saveEventsPassingCuts(name);
   }
   treeEntries_ = tree_->GetEntries();
@@ -2053,36 +2051,46 @@ double baseClass::getInfoFromHist(const std::string& fileName, const std::string
 {
   double NBeforeSkim = -999;
 
+  auto f = std::unique_ptr<TFile>(TFile::Open(fileName.c_str()));
+  if(!f)
+  {
+    STDOUT("File pointer for "<< fileName << " came back null. Quitting");
+    exit(-1);
+  }
+  if(!f->IsOpen())
+  {
+    STDOUT("File didn't open! Quitting");
+    exit(-1);
+  }
+
   if(histName=="EventCounter")
   {
-    if(!cachedHistRead_) {
-      string s1 = "LJFilter/EventCount/EventCounter";
-      string s2 = "savedHists/EventCounter";
-      string s3 = "EventCounter";
-      auto hCount1 = tfileForReading_->Get<TH1D>(s3.c_str());
-      if(!hCount1)
-        hCount1 = tfileForReading_->Get<TH1D>(s2.c_str());
-      if(!hCount1)
-        hCount1 = tfileForReading_->Get<TH1D>(s1.c_str());
-      if(!hCount1) {
-        STDOUT("Skim filter histogram not found. Will assume skim was not made for ALL files.");
-        skimWasMade_ = false;
-        cachedHistRead_ = true;
-        return NBeforeSkim;
-      }
-      else {
-        cachedEventCounterHist_.reset(hCount1);
-        cachedHistRead_ = true;
-      }
+    string s1 = "LJFilter/EventCount/EventCounter";
+    string s2 = "savedHists/EventCounter";
+    string s3 = "EventCounter";
+    auto hCount1 = f->Get<TH1D>(s3.c_str());
+    auto hCount2 = f->Get<TH1F>(s3.c_str());
+    if(!hCount1 && !hCount2) {
+      hCount1 = f->Get<TH1D>(s2.c_str());
+      hCount2 = f->Get<TH1F>(s2.c_str());
     }
-    else if(cachedEventCounterHist_)
-      NBeforeSkim =  getError ? cachedEventCounterHist_->GetBinError(bin) : cachedEventCounterHist_->GetBinContent(bin);
-    else
+    if(!hCount1 && !hCount2) {
+      hCount1 = f->Get<TH1D>(s1.c_str());
+      hCount2 = f->Get<TH1F>(s1.c_str());
+    }
+    if(!hCount1 && !hCount2) {
+      STDOUT("Skim filter histogram not found. Will assume skim was not made for ALL files.");
+      skimWasMade_ = false;
       return NBeforeSkim;
+    }
+    else if(hCount1)
+      NBeforeSkim =  getError ? hCount1->GetBinError(bin) : hCount1->GetBinContent(bin);
+    else
+      NBeforeSkim = getError ? hCount2->GetBinError(bin) : hCount2->GetBinContent(bin);
   }
   else
   {
-    auto hCount = tfileForReading_->Get<TH1D>(histName.c_str());
+    auto hCount = f->Get<TH1D>(histName.c_str());
     if(!hCount)
     {
       STDOUT("ERROR: Did not find specified hist named: '" << histName << "'. Cannot extract info. Quitting");
@@ -2780,9 +2788,15 @@ bool baseClass::isDataCurrentFile(const std::string& treeName){
 
   isData_ = true;
   if(myTree->GetBranch("isData")) {
-    readerTools->LoadEntry(0);
-    if(readerTools->ReadValueBranch<Bool_t>("isData") < 1)
-      isData_ = false;
+    // if no tree entries, we can't really check
+    //FIXME: may want a better way of doing this
+    if(myTree->GetEntries() > 0) {
+      readerTools->LoadEntry(0);
+      if(readerTools->ReadValueBranch<Bool_t>("isData") < 1)
+        isData_ = false;
+    }
+    else
+      throw runtime_error("Cannot check if current file is data as it has no entries in its tree.");
   }
   // if no isData branch (like in nanoAOD output), check for Weight or genWeight branches
   else if(myTree->GetBranch("Weight") || myTree->GetBranch("genWeight"))
