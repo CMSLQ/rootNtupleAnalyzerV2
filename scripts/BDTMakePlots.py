@@ -38,7 +38,7 @@ parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_21junxsec/LQToDEle/{}".format(year)
+base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_21junxsec/LQToBEle/{}".format(year)
 optimizationFile = base_folder+"/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 

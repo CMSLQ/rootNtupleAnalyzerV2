@@ -1773,7 +1773,11 @@ if __name__ == "__main__":
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
+    if use_BEle_samples:
+        inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
+        inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
+        inputListQCD2FRBase = inputListQCD2FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
     eosDir = options.eosDir
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
