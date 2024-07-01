@@ -119,6 +119,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"  
         df.Snapshot("testTree",filename)
+        time.sleep(2)
         testOutputTree.Add(filename)
     elif ZJetTrainingSample in key and not "amcatnlo" in ZJetTrainingSample: #DY for training. See above comment about training with amcatnlo
         print("Use weight/2 for dataset "+datasetName)
@@ -152,9 +153,10 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         nTest = dfTest.Count()
         dfTrain.Snapshot("trainTree", filenameTrain)
         print("Add NEvents {} from {} dataset {} with weight = {} to TRAINING".format(nTrain.GetValue(), key, datasetName, tchain.GetWeight()))
-        trainOutputTree.Add(filenameTrain)
         dfTest.Snapshot("testTree",filenameTest)
         print("Add NEvents {} from {} dataset {} with weight {} to TESTING".format(nTest.GetValue(), key, datasetName, tchain.GetWeight()))
+        time.sleep(2)
+        trainOutputTree.Add(filenameTrain)
         testOutputTree.Add(filenameTest)
     ROOT.EnableImplicitMT(6) #Turn this back on when we're done
 
@@ -1773,7 +1775,7 @@ if __name__ == "__main__":
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = True
+    use_BEle_samples = False
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -1799,8 +1801,8 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [600]#,1100,1200]
-    lqMassesToUse = list(range(300, 3100, 100))
+    lqMassesToUse = [600]#,1100,1200]
+    #lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = [2800]#,500,600]
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
