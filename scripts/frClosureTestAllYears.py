@@ -62,25 +62,15 @@ def MakeStackAndRatioPlot(histDict1P1F, histDict2F, MCNames, year, variable):
 
 gROOT.SetBatch(True)
 
-#years = ["2016preVFP", "2016postVFP", "2017", "2018"]
-years = ["2016preVFP","2017"]
+years = ["2016preVFP", "2016postVFP", "2017", "2018"]
 filenames = {}
 for year in years:
     filenames[year] = {}
 
-#filenames["2017"]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/1P1F_SF/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-#filenames["2017"]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-
 for year in years:
-    filenames[year]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/2F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root".format(year)
-    if year=="2017":
-        continue
-    filenames[year]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root".format(year)
+    filenames[year]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
+    filenames[year]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
 
-filenames["2017"]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2017/testRecoveredCode/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/analysisClass_lq_QCD_FakeRateClosureTest_plots.root"
-
-filenames["2016preVFP"]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2016preVFP/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
-filenames["2016preVFP"]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/2016preVFP/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
 
 pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears/plots"
 
@@ -92,13 +82,13 @@ for year in years + ["fullRunII"]:
         os.mkdir(pdf_folder+"/"+year)
 
 variableNameList = [
-    "Pt1stEle_PAS",
-    "Me1j1_PAS",
-    "Mee_PAS",
-    "sT_PAS",
-    "MET_PAS",
-    "Me2j1_PAS",
-    "Pt2ndEle_PAS", 
+#    "Pt1stEle_PAS",
+#    "Me1j1_PAS",
+#    "Mee_PAS",
+#    "sT_PAS",
+#    "MET_PAS",
+#    "Me2j1_PAS",
+#    "Pt2ndEle_PAS", 
 #    "HT",
 #    "Mt_MET_Ele1_PAS",
 #    "Mt_MET_Ele2_PAS",
@@ -106,13 +96,13 @@ variableNameList = [
 #    "Phi2ndEle_PAS",
 #    "METPhi_PAS",
 #    "nJet_PAS",
-#    "Pt1stEle_tight", 
-#    "Me1j1_tight", 
-#    "Mee_tight", 
-#    "sT_tight", 
-#    "MET_tight", 
-#    "Me2j1_tight", 
-#    "Pt2ndEle_tight",
+    "Pt1stEle_tight", 
+    "Me1j1_tight", 
+    "Mee_tight", 
+    "sT_tight", 
+    "MET_tight", 
+    "Me2j1_tight", 
+    "Pt2ndEle_tight",
 #    "HT_tight",
 #    "Mt_MET_Ele1_tight",
 #    "Mt_MET_Ele2_tight",
@@ -255,12 +245,12 @@ for iyear,year in enumerate(years):
         histoData.SetLineWidth(2)
         histoData.SetStats(0)
         #print(histoData)
-    #    histoNameErr = histoNameData+"errFRsq_"
-    #    histoErrSQ = tfile2.Get(histoNameErr+var)
-    #    for i in range(histoData.GetNbinsX()):
-    #        errSQ = histoErrSQ.GetBinContent(i)
-    #        err = math.sqrt(errSQ)
-    #        histoData.SetBinError(i,err)
+        histoNameErr = histoNameData+"errFRsq_"
+        histoErrSQ = tfile2.Get(histoNameErr+var)
+        for i in range(histoData.GetNbinsX()):
+            errSQ = histoErrSQ.GetBinContent(i)
+            err = math.sqrt(errSQ)
+            histoData.SetBinError(i,err)
         histos2F[year][var] = histoData
         if iyear==0:
             histos2F["fullRunII"][var] = copy.deepcopy(histoData)
@@ -288,10 +278,10 @@ for year in years + ["fullRunII"]:
             plotRange = 100
             minWidth = 10
             binSize = 5
-        elif "Mee_PAS" in variable:
+        elif "Mee_tight" in variable:
             lowestEdge = 220
             #binSize = 1
-        elif "sT_PAS" in variable:
+        elif "sT_tight" in variable:
             lowestEdge = 400
         elif "phi" in variable.lower():
             lowestEdge = -3.1416
@@ -390,10 +380,10 @@ fPads2.Draw()
 leg = TLegend(0.9,0.6,0.999,0.9)
 #legMETPlot = TLegend(0.3,0.1,0.6,0.3)
 
-leg.AddEntry(histos1P1F["2017"]["data"]["sT_PAS"], "1-pass-1-fail data", "lp")
-leg.AddEntry(histos2F["2017"]["sT_PAS"],"predicted fakes", "lp")
+leg.AddEntry(histos1P1F["2017"]["data"]["sT_tight"], "1-pass-1-fail data", "lp")
+leg.AddEntry(histos2F["2017"]["sT_tight"],"predicted fakes", "lp")
 for i,name in enumerate(histoNamesMC):
-    leg.AddEntry(histos1P1F["2017"][name]["sT_PAS"], mcShortNames[i], "lp")
+    leg.AddEntry(histos1P1F["2017"][name]["sT_tight"], mcShortNames[i], "lp")
 
 legMETPlot = copy.deepcopy(leg)
 #legMETPlot.SetX1NDC(0.3)
@@ -483,7 +473,7 @@ for year in years + ["fullRunII"]:
 resultsFile = pdf_folder+"/results.txt"
 with open(resultsFile, 'w') as f:
     f.write("fake rate closure test results \n\n")
-var = "Mee_PAS"
+var = "Mee_tight"
 for year in years + ["fullRunII"]:
     DataErr = ctypes.c_double()
     DataHist = histos1P1F[year]["data"][var]

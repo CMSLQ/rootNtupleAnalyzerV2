@@ -559,10 +559,12 @@ else:
 if options.outputDir.startswith("/eos/"):
     if options.outputDir.startswith("/eos/cms"):
         cmd = "EOS_MGM_URL=root://eoscms/ eos mkdir {}".format(options.outputDir)
-        tfileOutputPath = options.outputDir.replace("/eos/cms/", "root://eoscms//")
+        #tfileOutputPath = options.outputDir.replace("/eos/cms/", "root://eoscms//")
+        tfileOutputPath = "/tmp"
     elif options.outputDir.startswith("/eos/user"):
         cmd = "EOS_MGM_URL=root://eosuser/ eos mkdir {}".format(options.outputDir)
-        tfileOutputPath = options.outputDir.replace("/eos/cms/", "root://eosuser//")
+        #tfileOutputPath = options.outputDir.replace("/eos/cms/", "root://eosuser//")
+        tfileOutputPath = "/tmp"
     else:
         raise RuntimeError("Don't know how to handle output dir like '{}'".format(outputDir))
     if not os.path.isdir(options.outputDir):
@@ -578,11 +580,16 @@ else:
         os.makedirs(options.outputDir)
     tfileOutputPath = options.outputDir
 
-outputTableFilename = options.outputDir + "/" + options.analysisCode + "_tables.dat"
-outputTableFile = open(outputTableFilename, "w")
+if options.outputDir.startswith("/eos/"):
+    outputTableFile = open("/tmp/"+options.analysisCode + "_tables.dat", "w")
+else:
+    outputTableFile = open(options.outputDir + "/" + options.analysisCode + "_tables.dat", "w")
 tfilePrefix = tfileOutputPath + "/" + options.analysisCode
 sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
-sampleDatFileNameTemplate = options.outputDir + "/" + options.analysisCode + "_{}_tables.dat"
+if options.outputDir.startswith("/eos/"):
+    sampleDatFileNameTemplate = "/tmp/"+options.analysisCode + "_{}_tables.dat"
+else:
+    sampleDatFileNameTemplate = options.outputDir + "/" + options.analysisCode + "_{}_tables.dat"
 
 dag = combineCommon.CreateGraphDict(dictSamples)
 visitedNodes = {key: False for key in dag.keys()}
@@ -819,6 +826,23 @@ if not options.tablesOnly:
         print("ERROR: something bad happened when trying to write the root file, as we didn't find a file here: {}".format(outputTFileNameHadd))
     else:
         print("output plots at: {}".format(outputTFileNameHadd), flush=True)
+ 
+if os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
+    command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
+    proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+
+command = ["xrdcp","/tmp/{}_plots.root".format(options.analysisCode), "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
+proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+
+if os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
+    command = ["rm", "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
+    proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+ 
+command = ["xrdcp","/tmp/{}_tables.dat".format(options.analysisCode), "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
+proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+
+command = ["rm", "/tmp/{}_plots.root".format(options.analysisCode), "/tmp/{}_tables.dat".format(options.analysisCode)]
+proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
 
 # ---TODO: CREATE LATEX TABLE (PYTEX?) ---#
 

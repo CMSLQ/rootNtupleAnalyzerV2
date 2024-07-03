@@ -1,0 +1,38 @@
+QCDFakes_SinglePhoton_2016F:
+  pieces:
+  - /SinglePhoton/Run2016F-UL2016_MiniAODv2_NanoAOD/NANOAOD
+QCDFakes_SinglePhoton_2016G:
+  pieces:
+  - /SinglePhoton/Run2016G-UL2016_MiniAODv2_NanoAOD/NANOAOD
+QCDFakes_SinglePhoton_2016H:
+  pieces:
+  - /SinglePhoton/Run2016H-UL2016_MiniAODv2_NanoAOD/NANOAOD
+QCDFakes_SinglePhoton:
+  pieces:
+  - QCDFakes_SinglePhoton_2016F
+  - QCDFakes_SinglePhoton_2016G
+  - QCDFakes_SinglePhoton_2016H
+  isMC: false
+  save: true
+QCDFakes_SingleEle_2016F:
+  pieces:
+  - /SingleElectron/Run2016F-UL2016_MiniAODv2_NanoAOD/NANOAOD
+QCDFakes_SingleEle_2016G:
+  pieces:
+  - /SingleElectron/Run2016G-UL2016_MiniAODv2_NanoAOD/NANOAOD
+QCDFakes_SingleEle_2016H:
+  pieces:
+  - /SingleElectron/Run2016H-UL2016_MiniAODv2_NanoAOD/NANOAOD
+QCDFakes_SingleEle:
+  pieces:
+  - QCDFakes_SingleEle_2016F
+  - QCDFakes_SingleEle_2016G
+  - QCDFakes_SingleEle_2016H
+  isMC: false
+  save: true
+QCDFakes_DATA:
+  pieces:
+  - QCDFakes_SinglePhoton
+  - QCDFakes_SingleEle
+  isMC: false
+  save: true

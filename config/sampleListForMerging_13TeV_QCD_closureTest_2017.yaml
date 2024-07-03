@@ -123,9 +123,9 @@ SingleTop:
   pieces:
   - ST_tW_top
   - ST_tW_antitop
-#  - ST_t-channel_top
-#  - ST_t-channel_antitop
-#  - ST_s-channel
+  - ST_t-channel_top
+  - ST_t-channel_antitop
+  - ST_s-channel
   save: true
 WJetHT100to200:
   pieces:

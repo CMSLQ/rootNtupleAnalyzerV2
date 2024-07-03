@@ -1,0 +1,317 @@
+ZJet_amcatnlo_pt0to50:
+  pieces:
+  - /DYJetsToLL_LHEFilterPtZ-0To50_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZJet_amcatnlo_pt50to100:
+  pieces:
+  - /DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZJet_amcatnlo_pt100to250:
+  pieces:
+  - /DYJetsToLL_LHEFilterPtZ-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZJet_amcatnlo_pt250to400:
+  pieces:
+  - /DYJetsToLL_LHEFilterPtZ-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZJet_amcatnlo_pt400to650:
+  pieces:
+  - /DYJetsToLL_LHEFilterPtZ-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZJet_amcatnlo_pt650toInf:
+  pieces:
+  - /DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZJet_amcatnlo_Inc:
+  pieces:
+  - /DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+ZJet_amcatnlo_ptBinned:
+  pieces:
+  - ZJet_amcatnlo_pt0to50
+  - ZJet_amcatnlo_pt50to100
+  - ZJet_amcatnlo_pt100to250
+  - ZJet_amcatnlo_pt250to400
+  - ZJet_amcatnlo_pt400to650
+  - ZJet_amcatnlo_pt650toInf
+  save: true
+ZJet_amcatnlo_ptBinned_IncStitch:
+  pieces:
+  - ZJet_amcatnlo_pt0to50
+  - ZJet_amcatnlo_pt50to100
+  - ZJet_amcatnlo_pt100to250
+  - ZJet_amcatnlo_pt250to400
+  - ZJet_amcatnlo_pt400to650
+  - ZJet_amcatnlo_pt650toInf
+  - ZJet_amcatnlo_Inc
+  save: true
+#Jet_NNLO_Inc:
+#  pieces:
+#  - /DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+#ZJet_NNLO_M10to50:
+#  pieces:
+#  - /DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M100to200:
+#  pieces:
+#  - /DYJetsToEE_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M200to400:
+#  pieces:
+#  - /DYJetsToEE_M-200to400_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M400to500:
+#  pieces:
+#  - /DYJetsToEE_M-400to500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M500to700:
+#  pieces:
+#  - /DYJetsToEE_M-500to700_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M700to800:
+#  pieces:
+#  - /DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M800to1000:
+#  pieces:
+#  - /DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M1000to1500:
+#  pieces:
+#  - /DYJetsToEE_M-1000to1500_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M1500to2000:
+#  pieces:
+#  - /DYJetsToEE_M-1500to2000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_M2000toInf:
+#  pieces:
+#  - /DYJetsToEE_M-2000toInf_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#ZJet_NNLO_IncStitch:
+#  pieces:
+#  - ZJet_NNLO_M10to50
+#  - ZJet_NNLO_M100to200
+#  - ZJet_NNLO_M200to400
+#  - ZJet_NNLO_M400to500
+#  - ZJet_NNLO_M500to700
+#  - ZJet_NNLO_M700to800
+#  - ZJet_NNLO_M800to1000
+#  - ZJet_NNLO_M1000to1500
+#  - ZJet_NNLO_M1500to2000
+#  - ZJet_NNLO_M2000toInf
+#  - ZJet_NNLO_Inc
+#  save: true
+#WJet_amcatnlo_0Jets:
+#  pieces:
+#  - /WJetsToLNu_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#WJet_amcatnlo_1Jet:
+#  pieces:
+#  - /WJetsToLNu_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#WJet_amcatnlo_2Jets:
+#  pieces:
+#  - /WJetsToLNu_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#WJet_amcatnlo_jetBinned:
+#  pieces:
+#  - WJet_amcatnlo_0Jets
+#  - WJet_amcatnlo_1Jet
+#  - WJet_amcatnlo_2Jets
+#  save: true
+WJetHT_70to100:
+  pieces:
+  - /WJetsToLNu_HT-70To100_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_100to200:
+  pieces:
+  - /WJetsToLNu_HT-100To200_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_200to400:
+  pieces:
+  - /WJetsToLNu_HT-200To400_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_400to600:
+  pieces:
+  - /WJetsToLNu_HT-400To600_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_600to800:
+  pieces:
+  - /WJetsToLNu_HT-600To800_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_800to1200:
+  pieces:
+  - /WJetsToLNu_HT-800To1200_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_1200to2500:
+  pieces:
+  - /WJetsToLNu_HT-1200To2500_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+WJetHT_2500toInf:
+  pieces:
+  - /WJetsToLNu_HT-2500ToInf_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+WJet_HTBinned:
+  pieces:
+  - WJetHT_70to100
+  - WJetHT_100to200
+  - WJetHT_200to400
+  - WJetHT_400to600
+  - WJetHT_600to800
+  - WJetHT_800to1200
+  - WJetHT_1200to2500
+  - WJetHT_2500toInf
+  save: true
+#WJetSherpa:
+#  pieces:
+#  - /WJetsToLNu_012JetsNLO_34JetsLO_EWNLOcorr_13TeV-sherpa/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#  save: true
+TTto2L2Nu:
+  pieces:
+  - /TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+TTtoHadronic:
+  pieces:
+  - /TTToHadronic_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+TTtoSemiLeptonic:
+  pieces:
+  - /TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+TTBar_powheg:
+  pieces:
+  - TTto2L2Nu
+  - TTtoHadronic
+  - TTtoSemiLeptonic
+  save: true
+ST_tW_top5f:
+  pieces:
+  - /ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ST_tW_antitop5f:
+  pieces:
+  - /ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ST_t_antitop5f:
+  pieces:
+  - /ST_t-channel_antitop_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ST_t_top5f:
+  pieces:
+  - /ST_t-channel_top_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+ST_s_4f:
+  pieces:
+  - /ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+SingleTop:
+  pieces:
+  - ST_tW_top5f
+  - ST_tW_antitop5f
+  - ST_t_antitop5f
+  - ST_t_top5f
+  - ST_s_4f
+  save: true
+GJets_HT100to200:
+  pieces:
+  - /GJets_DR-0p4_HT-100To200_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+GJets_HT200to400:
+  pieces:
+  - /GJets_DR-0p4_HT-200To400_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+GJets_HT400to600:
+  pieces:
+  - /GJets_DR-0p4_HT-400To600_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+GJets_HT600toInf:
+  pieces:
+  - /GJets_DR-0p4_HT-600ToInf_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+GJets:
+  pieces:
+  - GJets_HT100to200
+  - GJets_HT200to400
+  - GJets_HT400to600
+  - GJets_HT600toInf
+  save: true
+WW:
+  pieces:
+#  - /WWTo4Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+  - /WWTo1L1Nu2Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+  - /WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+WZ:
+  pieces:
+  - /WZTo1L1Nu2Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+  - /WZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+  - /WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+  - /WZTo1L3Nu_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+ZZ:
+  pieces:
+  - /ZZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+  - /ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+  #- /ZZTo2Nu2Q_5f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+  - /ZZTo2L2Nu_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+DIBOSON_nlo:
+  pieces:
+  - WW
+  - WZ
+  - ZZ
+  save: true
+#WWW:
+#  pieces:
+#  - /WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM
+#WWZ:
+#  pieces:
+#  - /WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM
+#WZZ:
+#  pieces:
+#  - /WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM
+#ZZZ:
+#  pieces:
+#  - /ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM
+#TRIBOSON:
+#  pieces:
+#  - WWW
+#  - WWZ
+#  - WZZ
+#  - ZZZ
+#  save: true
+#TTW:
+#  pieces:
+#  - /TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#  - /TTWJetsToQQ_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+#  save: true
+#TTZ:
+#  pieces:
+#  - /ttZJets_TuneCP5_13TeV_madgraphMLM_pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+#  save: true
+#ALLBKG_ZJetAMCIncStitchWJetAMCJetBinned:
+#  pieces:
+#  - ZJet_amcatnlo_ptBinnedIncStitch
+#  - WJet_amcatnlo_jetBinned
+#  - SingleTop
+#  - GJets
+#  - DIBOSON
+#  - TRIBOSON
+#  - TTW
+#  - TTZ
+#  - TTBar_powheg
+#  save: true
+#OTHERBKG_WJetAMCJetBinned:
+#  pieces:
+#  - WJet_amcatnlo_jetBinned
+#  - SingleTop
+#  - GJets
+#  - DIBOSON
+#  - TRIBOSON
+#  - TTW
+#  - TTZ
+#  save: true
+ALLBKG_ZJet_amcatnlo_ptBinned_WJetHT:
+  pieces:
+  - ZJet_amcatnlo_ptBinned_IncStitch
+  - WJet_HTBinned
+  - SingleTop
+  - GJets
+  - DIBOSON_nlo
+#  - TRIBOSON
+#  - TTW
+#  - TTZ
+  - TTBar_powheg
+  save: true
+#OTHERBKG_WJetAMCHTBinned:
+#  pieces:
+#  - WJetHTBinned
+#  - SingleTop
+#  - GJets
+#  - DIBOSON
+#  - TRIBOSON
+#  - TTW
+#  - TTZ
+#  save: true
+QCDFakes_A:
+  pieces:
+  - /EGamma/Run2018A-UL2018_MiniAODv2_NanoAODv9-v1/NANOAOD
+  isMC: false
+QCDFakes_B:
+  pieces:
+  - /EGamma/Run2018B-UL2018_MiniAODv2_NanoAODv9-v1/NANOAOD
+  isMC: false
+QCDFakes_C:
+  pieces:
+  - /EGamma/Run2018C-UL2018_MiniAODv2_NanoAODv9-v1/NANOAOD
+  isMC: false
+QCDFakes_D:
+  pieces:
+  - /EGamma/Run2018D-UL2018_MiniAODv2_NanoAODv9-v3/NANOAOD
+  isMC: false
+QCDFakes_DATA:
+  pieces:
+  - QCDFakes_A
+  - QCDFakes_B
+  - QCDFakes_C
+  - QCDFakes_D
+  isMC: false
+  save: true
