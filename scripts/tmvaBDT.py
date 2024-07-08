@@ -129,6 +129,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_train"+str(lqMass)+".root"
         df.Snapshot("trainTree", filename)
+        time.sleep(2)
         trainOutputTree.Add(filename)
  
     elif "QCDFakes" in key: #QCD always goes only in testing
@@ -593,8 +594,9 @@ def OptimizeBDTCut(args):
             numVars -= 1
         gInterpreter.ProcessLine(('''
         TMVA::Experimental::RReader BDT{}("{}");
-        computeBDT{} = TMVA::Experimental::Compute<{}, float>(BDT{});
+        auto computeBDT{} = TMVA::Experimental::Compute<{}, float>(BDT{});
         ''').format(lqMassToUse, bdtWeightFileName, lqMassToUse, numVars, lqMassToUse))
+        print("auto computeBDT{} = TMVA::Experimental::Compute<{}, float>(BDT{});".format(lqMassToUse, numVars, lqMassToUse))
         sys.stdout.flush()
         sys.stderr.flush()
         # backgrounds
@@ -628,7 +630,10 @@ def OptimizeBDTCut(args):
                 if "LQCandidateMass" in variableList:
                     df = df.Define("massInt", str(lqMassToUse))
                     df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
-                varNames = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNames = []
+                for v in varNamesVec:
+                    varNames.append(v)
                 if normalizeVars:
                     # print("{} varNames: {}".format(len(varNames), varNames))
                     l_varn = ROOT.std.vector['std::string']()
@@ -638,6 +643,7 @@ def OptimizeBDTCut(args):
                         df=df.Define(varname, '(float)({})'.format(expr))
                     df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
                 else:
+                    print(getattr(ROOT, "computeBDT{}".format(lqMassToUse)))
                     df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
                 df = df.Define('BDT', 'BDTv[0]')
                 df = df.Define('eventWeight', eventWeightExpression)
@@ -724,7 +730,10 @@ def OptimizeBDTCut(args):
         dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
         # dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-        varNames = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+        varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+        varNames = []
+        for v in varNamesVec:
+            varNames.append(v)
         if normalizeVars:
             # print("{} varNames: {}".format(len(varNames), varNames))
             l_varn = ROOT.std.vector['std::string']()
@@ -975,7 +984,10 @@ def DoROCAndBDTPlots(args):
                     df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
                 # df = df.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
                 # df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-                varNames = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNames = []
+                for v in varNamesVec:
+                    varNames.append(v)
                 if normalizeVars:
                     l_varn = ROOT.std.vector['std::string']()
                     for i_expr, expr in enumerate(varNames):
@@ -1775,7 +1787,7 @@ if __name__ == "__main__":
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -1801,8 +1813,8 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    lqMassesToUse = [600]#,1100,1200]
-    #lqMassesToUse = list(range(300, 3100, 100))
+    #lqMassesToUse = [300]#,1100,1200]
+    lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = [2800]#,500,600]
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
