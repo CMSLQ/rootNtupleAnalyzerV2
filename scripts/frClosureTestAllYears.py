@@ -69,10 +69,10 @@ for year in years:
 
 for year in years:
     filenames[year]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
-    filenames[year]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
+    filenames[year]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears/{}/1P1F_SF/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
 
 
-pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears/plots"
+pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears/plots-LCG_104_withSF"
 
 if not os.path.isdir(pdf_folder):
     os.mkdir(pdf_folder)
