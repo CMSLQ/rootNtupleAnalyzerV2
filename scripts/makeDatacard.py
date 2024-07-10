@@ -1284,10 +1284,10 @@ backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 selectionPoints = ["preselection", "trainingSelection"] + mass_points
 selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in selectionPoints]
 additionalBkgSystsDict = {}
-# QCDNorm is 0.50 [50% norm uncertainty for eejj = uncertaintyPerElectron*2]
+# QCDNorm is 0.60 [60% norm uncertainty for eejj = uncertaintyPerElectron*2]
 # lumi uncertainty from https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2#Combination_and_correlations
 if doEEJJ:
-    qcdNormDeltaXOverX = 0.5
+    qcdNormDeltaXOverX = 0.6
     if do2016:
         lumiDeltaXOverX = 0.01
         lumiCorrelatedDeltaXOverX = 0.006
@@ -1698,19 +1698,21 @@ if doSystematics:
             canvas.SetName("allSystsCanvas{}_".format(idx+1)+sampleName)
             canvas.cd()
             canvas.SetGridy()
+            canvas.Draw()
             r.gStyle.SetPaintTextFormat(".0f%")
+            systStack.Paint()
             systStack.Draw("pfc plc nostackb text")
-            systStack.GetXaxis().SetTitle("M_{LQ} [GeV]")
-            systStack.GetYaxis().SetTitle("Max. Syst. Uncertainty [%]")
+            systStack.GetHistogram().GetXaxis().SetTitle("M_{LQ} [GeV]")
+            systStack.GetHistogram().GetYaxis().SetTitle("Max. Syst. Uncertainty [%]")
             systStack.SetMaximum(100)
             systStack.SetTitle(sampleName)
-            systStack.Write()
             canvas.BuildLegend(0.15, 0.55, 0.5, 0.85, "", "l")
             # canvas.Write()
             if len(systStacks) > 1:
                 canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.pdf".format(idx+1, sampleName))
             else:
                 canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
+            systStack.Write()
         massList = []
         nominals = []
         deltaXOverX = []

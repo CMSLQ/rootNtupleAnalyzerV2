@@ -102,5 +102,5 @@ for sampleToUse in samplesToUse:
     print('#'*100)
     print()
     
-    print(dfPrint.to_latex(index=False))
+    print(dfPrint.style.hide().to_latex())
     print()

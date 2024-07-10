@@ -53,7 +53,7 @@ def PrepareJobScript(outputname):
         outputfile.write("#!/bin/bash\n")
         outputfile.write("echo \"Running at site: $GLIDEIN_CMSSite\"\n")
         # hardcoded root is a bit nasty FIXME
-        outputfile.write('source /cvmfs/sft.cern.ch/lcg/views/LCG_102/x86_64-centos7-gcc11-opt/setup.sh\n')
+        outputfile.write(' source /cvmfs/sft.cern.ch/lcg/views/LCG_104/x86_64-el9-gcc13-opt/setup.sh\n')
         # ROOT likes HOME set
         outputfile.write('[ -z "$HOME" ] && export HOME='+os.getenv('HOME')+'\n')
         outputfile.write('export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH\n')
@@ -112,7 +112,7 @@ def WriteSubmitFile(condorFileName):
         else:
             condorFile.write('+JobFlavour = "'+queue+'"\n')
             # require CentOS7
-            condorFile.write('MY.WantOS = "el7"\n')
+            condorFile.write('MY.WantOS = "el9"\n')
             condorFile.write('transfer_output_files = ""\n')
             if os.getenv("LQINPUTS") is not None:
                 condorFile.write('environment = "LQINPUTS={}"\n'.format(os.getenv("LQINPUTS")))
