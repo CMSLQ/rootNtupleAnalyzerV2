@@ -836,6 +836,35 @@ class baseClass {
     void CreateUserTProfile(const std::string&  nameAndTitle, Int_t nbinsx, Double_t xlow, Double_t xup);
     void FillUserTProfile(const std::string&  nameAndTitle, Double_t x, Double_t y, Double_t weight=1);
 
+    template <typename T> T& GetUserHist(const std::string& nameAndTitle)
+    {
+      if constexpr (std::is_base_of_v<TProfile, T>) {
+        std::map<std::string , std::unique_ptr<TProfile> >::iterator nh_h = userTProfiles_.find(nameAndTitle);
+        if( nh_h == userTProfiles_.end() )
+          return *(nh_h->second.get());
+      }
+      else if constexpr (std::is_base_of_v<TH3, T>) {
+        std::map<std::string , std::unique_ptr<TH3> >::iterator nh_h = userTH3s_.find(std::string(nameAndTitle));
+        if( nh_h != userTH3s_.end() )
+          return *(nh_h->second.get());
+      }
+      else if constexpr (std::is_base_of_v<TH2, T>) {
+        std::map<std::string , std::unique_ptr<TH2> >::iterator nh_h = user1DHistsWithSysts_.find(nameAndTitle);
+        if( nh_h != user1DHistsWithSysts_.end() )
+          return *(nh_h->second.get());
+        nh_h = userTH2s_.find(nameAndTitle);
+        if( nh_h != userTH2s_.end() )
+          return *(nh_h->second.get());
+      }
+      else if constexpr (std::is_base_of_v<TH1, T>) {
+        std::map<std::string , std::unique_ptr<TH1> >::iterator nh_h = userTH1s_.find(std::string(nameAndTitle));
+        if( nh_h != userTH1s_.end() )
+          return *(nh_h->second.get());
+      }
+      throw std::runtime_error("GetUserHist() Could not find histogram "+nameAndTitle+" that was not defined as any user hist.");
+    }
+
+
     void createOptCutFile();
 
     bool isData() { return isDataCurrentChain(); }
