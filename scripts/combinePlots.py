@@ -578,7 +578,8 @@ else:
         os.makedirs(options.outputDir)
     tfileOutputPath = options.outputDir
 
-outputTableFile = open(options.outputDir + "/" + options.analysisCode + "_tables.dat", "w")
+outputTableFilename = options.outputDir + "/" + options.analysisCode + "_tables.dat"
+outputTableFile = open(outputTableFilename, "w")
 tfilePrefix = tfileOutputPath + "/" + options.analysisCode
 sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
 sampleDatFileNameTemplate = options.outputDir + "/" + options.analysisCode + "_{}_tables.dat"
@@ -692,6 +693,16 @@ if not options.tablesOnly:
 # --- Write tables
 for sample in dictSamples.keys():
    combineCommon.WriteTable(dictFinalTables[sample], sample, outputTableFile)
+haveDatFile = True
+# trust, but verify and try to write again if needed
+if not os.path.isfile(outputTableFilename):
+   combineCommon.WriteTable(dictFinalTables[sample], sample, outputTableFile)
+   if not os.path.isfile(outputTableFilename):
+       print("ERROR: something bad happened when trying to write the table file, as we didn't find a file here: {}".format(outputTableFilename))
+       haveDatFile = False
+if haveDatFile:
+    print("output tables at: {}".format(outputTableFilename), flush=True)
+
 
 # now handle special backgrounds
 if options.ttbarBkg:
@@ -804,9 +815,10 @@ if not options.tablesOnly:
             histoQCDClosure.Write()
 
     outputTfile.Close()
-    print("output plots at: " + options.outputDir + "/" + options.analysisCode + "_plots.root", flush=True)
-
-print("output tables at: ", options.outputDir + "/" + options.analysisCode + "_tables.dat", flush=True)
+    if not os.path.isfile(outputTFileNameHadd):
+        print("ERROR: something bad happened when trying to write the root file, as we didn't find a file here: {}".format(outputTFileNameHadd))
+    else:
+        print("output plots at: {}".format(outputTFileNameHadd), flush=True)
 
 # ---TODO: CREATE LATEX TABLE (PYTEX?) ---#
 
