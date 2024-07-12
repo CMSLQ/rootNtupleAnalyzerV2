@@ -840,7 +840,8 @@ def OptimizeBDTCut(args):
             else:
                 minNB = 1
 
-            if nB > minNB and not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
+             
+            if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
@@ -861,10 +862,29 @@ def OptimizeBDTCut(args):
             nBErrList.append(nBErr)
             effErrList.append(effErr)
 
-        # sort by FOM
-        sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
-        # now the max FOM value should be the first entry
-        maxVal = next(iter(sortedDict.items()))
+        cutValInfoToUse = []
+        if lqMassToUse>=1000:
+            infoLastBin = fomValueToCutInfoDict[hbkg.GetNbinsX()]
+            nBLastBin = infoLastBin[5]
+            if nBLastBin > minNB:
+                cutValInfoToUse = [hbkg.GetNbinsX()]+infoLastBin
+            else:
+                nBThisBin=0
+                maxBin = hbkg.GetNbinsX()
+                for i in range(hbkg.GetNbinsX()):
+                    infoThisBin = fomValueToCutInfoDict[maxBin - i]
+                    nBThisBin = infoThisBin[5]
+                    if nBThisBin > minNB:
+                        cutValInfoToUse = [maxBin - i]+infoThisBin
+                        break
+
+        else:
+            # sort by FOM
+            sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
+            # now the max FOM value should be the first entry
+            maxVal = next(iter(sortedDict.items()))
+            cutValInfoToUse = [maxVal[0]]
+            cutValInfoToUse.extend(maxVal[1])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(lqMassToUse, maxVal[0], *maxVal[1]))
         # testVals=list(fomValueToCutInfoDict.items())
         # testVal=testVals[9949]
@@ -873,14 +893,15 @@ def OptimizeBDTCut(args):
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
         # testVal=testVals[9950]
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
-        valList = [maxVal[0]]
-        valList.extend(maxVal[1])
+        valList = cutValInfoToUse
+        #valList.extend(cutValInfoToUse)
         if len(unusedFOMs)>0 and max(unusedFOMs) > valList[1]:
             unusedVal = max(unusedFOMs)
             valList.append("yes")
         else:
             valList.append("no")
         sharedOptValsDict[lqMassToUse] = valList
+        print(sharedOptValsDict)
         sharedOptHistsDict[lqMassToUse] = [histSig.GetValue(), bkgTotal, histSigUnweighted.GetValue(), bkgTotalUnweighted, bkgTotalNegWeightsOnly]
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
         sharedFOMInfoDict[lqMassToUse]["nS"] = nSList
@@ -903,7 +924,8 @@ def OptimizeBDTCut(args):
         nBErr = ctypes.c_double()
         sharedFOMInfoDict[lqMassToUse]["nBUnweightedNoBDTCut"] = bkgTotalUnweighted.IntegralAndError(1, bkgTotal.GetNbinsX(), nBErr)
         sharedFOMInfoDict[lqMassToUse]["nBErrUnweightedNoBDTCut"] = nBErr.value
-        cutVal = maxVal[1][1]
+        #cutVal = maxVal[1][1]
+        cutVal = cutValInfoToUse[1]
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
         for sample, hist in bkgHists.items():
             cutBin = hist.FindFixBin(cutVal)
@@ -915,7 +937,7 @@ def OptimizeBDTCut(args):
             nBEventsErr = ctypes.c_double()
             nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
             nBEventsErr = nBEventsErr.value
-            print(f"Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+            print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
         cutBin = bkgTotal.FindFixBin(cutVal)
         nBErr = ctypes.c_double()
         nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
@@ -925,7 +947,7 @@ def OptimizeBDTCut(args):
         nBEventsErr = ctypes.c_double()
         nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
         nBEventsErr = nBEventsErr.value
-        print(f"Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+        print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -1128,17 +1150,17 @@ def GetMassFloat(mass):
 def PrintBDTCuts(optValsDict, parametrized):
     sortedDictMass = OrderedDict(sorted(optValsDict.items()))
     dataForTable = []
-    headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr", "min. bkg limited"]
+    headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr"] #, "min. bkg limited"]
     for mass, valList in sortedDictMass.items():
         valListFormatted = []
         #print(valList)
-        for i in range(8):
+        for i in range(7): #8):
             #print("format entry ",valList[i])
             if -0.0001 < valList[i] < 0.0001: #if something is too small to be displayed, use scientific notation
                 valListFormatted.append("{:0.4e}".format(valList[i]))
             else:
                 valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
-        valListFormatted.append(valList[8])
+        #valListFormatted.append(valList[8])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
         l = [mass]+valListFormatted
         dataForTable.append(l)
@@ -1168,7 +1190,9 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
     rootFile = TFile(rootFileName, "recreate")
     rootFile.cd()
     lqMasses = [float(key) for key in optHistsDict.keys()]
+    print("lqMasses: ",lqMasses)
     optCutVals = [float(optValsDict[lqMass][2]) for lqMass in lqMasses]
+    print("optCutVals: ",optCutVals)
     optCutValsVsLQMassGraph = TGraph(len(lqMasses), np.array(lqMasses), np.array(optCutVals))
     optCutValsVsLQMassGraph.SetName("optCutValVsLQMass")
     optCutValsVsLQMassGraph.SetTitle("Opt. BDT cut vs. M_{LQ}; M_{LQ} [GeV]")
@@ -1799,7 +1823,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "21jun2024"
+    xsectionDate = "10jul2024"
     xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
@@ -1815,7 +1839,7 @@ if __name__ == "__main__":
     # normTo = "Meejj"
     #lqMassesToUse = [300]#,1100,1200]
     lqMassesToUse = list(range(300, 3100, 100))
-    #lqMassesToUse = [2800]#,500,600]
+    #lqMassesToUse = [2300,500,600]
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
     else:

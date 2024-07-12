@@ -38,15 +38,15 @@ parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_21junxsec/LQToBEle/{}".format(year)
+base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_10julxsec/LQToDEle/{}".format(year)
 optimizationFile = base_folder+"/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 
-modelName = "LQToBEle_{}".format(year)
+modelName = "LQToDEle_{}".format(year)
 
-pdf_folder = base_folder+"/plotsNewXsections"
-outFileName = base_folder+"/"+modelName+"Plots_newXsections.root"
-plotsForAN = base_folder+"/plotsNewXsections/plotsForAN.pdf"
+pdf_folder = base_folder+"/plots"
+outFileName = base_folder+"/"+modelName+"Plots.root"
+plotsForAN = base_folder+"/plots/plotsForAN.pdf"
 
 gROOT.SetBatch(True)
 
