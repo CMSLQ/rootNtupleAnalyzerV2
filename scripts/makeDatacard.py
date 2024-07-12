@@ -13,6 +13,8 @@ from termcolor import colored
 from bisect import bisect
 import numpy as np
 import ROOT as r
+import matplotlib.pyplot as plt
+import mplhep as hep
 import combineCommon as cc
 
 sys.path.append(os.getenv("LQMACRO").rstrip("/") + "/plotting2016/")
@@ -1559,6 +1561,7 @@ if doSystematics:
     cc.SetDistinctiveTColorPalette()
     plots_tfile = r.TFile(plots_filePath, "recreate")
     systDir = plots_tfile.mkdir("systematics")
+    allSystCanvasNames = []
     d_totalBkgSysts = {}
     totalBkgSystsHeaders = []
     includeYieldLine = True
@@ -1570,6 +1573,8 @@ if doSystematics:
         systStacks = []
         systStacks.append(r.THStack())
         systStacks[-1].SetName("allSystsStack_"+sampleName)
+        systematicsByNameAndMass = {}
+        systematicsSelectionsByNameAndMass = {}
         for iSyst, syst in enumerate(d_systNominals[sampleName].keys()):
             if not DoesSystematicApply(syst, sampleName):
                 continue
@@ -1578,6 +1583,8 @@ if doSystematics:
             if not "totalYield" in d_totalBkgSysts.keys():
                 d_totalBkgSysts["totalYield"] = {}
             tableRow = [d_systTitles[syst]]
+            systematicsByNameAndMass[d_systTitles[syst]] = []
+            systematicsSelectionsByNameAndMass[d_systTitles[syst]] = []
             sortedSelectionDict = sorted(
                     iter(d_systNominals[sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")))
             systDir.cd()
@@ -1626,16 +1633,22 @@ if doSystematics:
                 # massList.append(mass)
                 # nominals.append(0.0)  # nominals.append(float(value))
                 fillVal = "N/A"
+                valid = False
                 if value > 0:
                     upVariation.append(100*float(d_systUpDeltas[sampleName][syst][selection])/value)
                     downVariation.append(100*float(d_systDownDeltas[sampleName][syst][selection])/value)
                     fillVal = max(100*float(d_systUpDeltas[sampleName][syst][selection])/value,
                                   100*float(d_systDownDeltas[sampleName][syst][selection])/value)
+                    # print("DEBUG: for sample {}, syst {}, fill value (% deltaX/X) = {}".format(sampleName, syst, fillVal), flush=True)
                     # tableRow.append(fillVal)
                     if selection != "preselection" and selection != "trainingSelection":
                         mass = float(selection.replace("LQ", ""))
                         idxToFill = bisect(massRanges, mass) - 1
                         systHists[idxToFill].Fill(mass, fillVal)
+                        valid = True
+                if valid:
+                    systematicsByNameAndMass[d_systTitles[syst]].append(fillVal if valid else 0)
+                    systematicsSelectionsByNameAndMass[d_systTitles[syst]].append(mass)
                 tableRow.append(fillVal)
                 if sampleName in background_names:
                     toAdd = max(float(d_systUpDeltas[sampleName][syst][selection]), float(d_systDownDeltas[sampleName][syst][selection]))
@@ -1690,12 +1703,14 @@ if doSystematics:
         if includeYieldLine:
             print(tabulate(yieldTable, headers=tableHeaders, tablefmt="fancy_grid", floatfmt=".4f"))
         print()
+
         if len(totalBkgSystsHeaders) <= 0:
             totalBkgSystsHeaders = tableHeaders
         systDir.cd()
         for idx, systStack in enumerate(systStacks):
             canvas = r.TCanvas("c", "c", 1200, 600)
             canvas.SetName("allSystsCanvas{}_".format(idx+1)+sampleName)
+            allSystCanvasNames.append(canvas.GetName())
             canvas.cd()
             canvas.SetGridy()
             canvas.Draw()
@@ -1707,12 +1722,51 @@ if doSystematics:
             systStack.SetMaximum(100)
             systStack.SetTitle(sampleName)
             canvas.BuildLegend(0.15, 0.55, 0.5, 0.85, "", "l")
-            # canvas.Write()
-            if len(systStacks) > 1:
-                canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.pdf".format(idx+1, sampleName))
-            else:
-                canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
+            canvas.Write()
+            # this broke for some reason. it just hangs.
+            # if len(systStacks) > 1:
+            #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.pdf".format(idx+1, sampleName))
+            #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.png".format(idx+1, sampleName))
+            #     # print("\tDEBUG: canvas.SaveAs({})".format(plotsDir+"/systematics_massRange{}_{}".format(idx+1, sampleName)), flush=True)
+            #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.png".format(idx+1, sampleName))
+            # else:
+            #     # print("\tDEBUG: canvas.SaveAs({})".format(plotsDir+"/systematics_{}.pdf".format(sampleName)), flush=True)
+            #     # canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
             systStack.Write()
+
+        # matplotlib bar chart for saving to png, since the root version above broke
+        # split the systematics into two groups, as otherwise there are too many bars
+        half = len(systematicsByNameAndMass) // 2
+        systsGroup1 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i < half}
+        systsGroup2 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i >= half}
+        systGroups = [systsGroup1, systsGroup2]
+        width = 6
+        multiplier = 0
+        for idx, systDict in enumerate(systGroups):
+            if len(systDict.keys()) < 1:
+                continue
+            fig, ax = plt.subplots(layout='constrained')
+            fig.set_size_inches(12, 5)
+            plt.style.use(hep.style.CMS)
+            plt.grid(axis = 'y', linestyle = ':')
+            for systName, effect in systDict.items():
+                offset = width * multiplier
+                x = np.array(systematicsSelectionsByNameAndMass[systName])
+                rects = ax.bar(x + offset, effect, width, label=systName)
+                ax.bar_label(rects, padding=3, fmt=lambda x: '{:.1f}%'.format(x) if x > 0 else '', rotation=90, fontsize=6)
+                multiplier += 1
+            # Add some text for labels, title and custom x-axis tick labels, etc.
+            ax = plt.gca()
+            ax.set_ylabel('Max. syst. uncert. [%]')
+            ax.set_xlabel('$\\mathrm{M}_{LQ}$ [GeV]')
+            ax.set_title(sampleName, fontsize=14)
+            ax.set_yticks(np.arange(start=0, stop=110, step=10))
+            # ax.set_xlim([300, 600])
+            ax.set_ylim([0, 100])
+            ax.legend(loc='upper left', ncols=2, fontsize=10, framealpha=1, frameon=True, facecolor='white')
+            plt.savefig(plotsDir+"/systematics_{}_group{}.png".format(sampleName, idx), dpi=100)
+            plt.close()
+
         massList = []
         nominals = []
         deltaXOverX = []
