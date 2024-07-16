@@ -930,7 +930,7 @@ def MakeFR2D(FRhistos, detectorRegions, bins, variableName):
 ####################################################################################################
 # RUN
 ####################################################################################################
-filename = "$LQDATAEOS/fakeRateCalcFinal/with1jetFR/2016postVFP/output_cutTable_lq_QCD_FakeRateCalculation_postVFP/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "$LQDATAEOS/fakeRateCalcFinal/2017/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
 if not tfile or tfile.IsZombie():
@@ -949,9 +949,10 @@ elif "2018" in filename:
     analysisYear = 2018
     analysisYearStr = "2018"
 
-outputFileName = "$LQDATAEOS/fakeRateCalcFinal/with1jetFR/2016postVFP/fakeRate_plots.root"
-pdf_folder = os.getenv("LQDATAEOS")+"/fakeRateCalcFinal/with1jetFR/2016postVFP/fakeRate_plots"
-fr2Dfilename = os.getenv("LQDATAEOS")+"/fakeRateCalcFinal/with1jetFR/2016postVFP/fr2D2016postVFP.root"
+outputFileName = "$LQDATAEOS/fakeRateCalcFinal/with1jetFR/2017/fakeRate_plots.root"
+pdf_folder = os.getenv("LQDATAEOS")+"/fakeRateCalcFinal/with1jetFR/2017/fakeRate_plots"
+fr2Dfilename = os.getenv("LQDATAEOS")+"/fakeRateCalcFinal/with1jetFR/2017/fr2D2017.root"
+plots4AN = os.getenv("LQDATAEOS") + "/fakeRateCalcFinal/with1jetFR/2017/frPlotsForAN2017.pdf"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -979,10 +980,10 @@ mcSamples = [
 #    "ZJet_NNLO_IncStitch",
     "WJet_amcatnlo_jetBinned",
 #    "WJetHTBinned",
-    "TTbar_powheg",
+    "TTBar_powheg",
     "SingleTop",
-    "PhotonJets_Madgraph",
-#    "GJets",
+#    "PhotonJets_Madgraph",
+    "GJets",
     "DIBOSON_nlo",
 ]
 mcNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson"]
@@ -1411,13 +1412,19 @@ if writeOutput:
     if not os.path.isdir(pdf_folder) and pdf_folder != "":
         "Making directory", pdf_folder
         os.mkdir(pdf_folder)
-for canLeg in myCanvases:
+for i,canLeg in enumerate(myCanvases):
     canv = canLeg[0]
     canv.Draw()  # canvas
     # canLeg[-1][1].Draw() #legend
     if writeOutput:
         canv.Write()
         canv.Print(pdf_folder + "/" + canv.GetName() + ".pdf")
+        if i==0:
+            canv.Print(plots4AN+"(","pdf")
+        elif i==len(myCanvases)-1:
+            canv.Print(plots4AN+")","pdf")
+        else:
+            canv.Print(plots4AN,"pdf")
 
 
 #Make 2D fake rate plots:
