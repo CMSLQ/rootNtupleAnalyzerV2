@@ -85,18 +85,44 @@ print(cutValues)
 #plot max FOM vs. LQ mass
 FOMVsMLQPlot = TGraph(len(LQmasses))
 for i, mass in enumerate(LQmasses):
-    print("get fom plot ", "LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
+    #print("get fom plot ", "LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
     fomPlot = optTFile.Get("LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
     foms = fomPlot.GetY()
+    cutVal = cutValues[str(mass)]
+    index = int((cutVal - (-1))/0.02) #100 cuts between -1 and 1
+    fomUsed = foms[index]
+    FOMVsMLQPlot.SetPoint(i,mass,fomUsed)
+    '''
     maxFOM = max(foms)
-    FOMVsMLQPlot.SetPoint(i,mass,maxFOM)
+    if (mass<1000):
+        FOMVsMLQPlot.SetPoint(i,mass,maxFOM)
+    else:
+        cutVal = cutValues[str(mass)]
+        for j in range(fomPlot.GetN()):
+            x = fomPlot.GetPointX(j)
+            if (cutVal-0.01 < x and x < cutVal+0.01):
+                fom = fomPlot.GetPointY(j)
+                FOMVsMLQPlot.SetPoint(i,mass,fom)
+    '''
+    c = TCanvas()
+    fomPlot.GetXaxis().SetTitle("BDT cut")
+    fomPlot.Draw()
+    #c.SetLogy()
+    c.SetGridy()
+    c.Print(pdf_folder+"/{}/FOMvsBDTCut.pdf")
+    if i==0:
+        c.Print(pdf_folder+"/FOMPlots.pdf(","pdf")
+    elif mass == LQmasses[-1]:
+        c.Print(pdf_folder+"/FOMPlots.pdf)","pdf")
+    else:
+        c.Print(pdf_folder+"/FOMPlots.pdf","pdf")
 c2 = TCanvas()
 c2.SetGridy()
 c2.SetLogy()
 FOMVsMLQPlot.SetName("maxFOM_vs_MLQ")
-FOMVsMLQPlot.SetTitle("max FOM vs MLQ")
+FOMVsMLQPlot.SetTitle("FOM of chosen BDT cut vs MLQ")
 FOMVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
-FOMVsMLQPlot.GetYaxis().SetTitle("max FOM")
+FOMVsMLQPlot.GetYaxis().SetTitle("FOM")
 FOMVsMLQPlot.SetMarkerStyle(8)
 FOMVsMLQPlot.Draw("ALP")
 outFile.cd()
