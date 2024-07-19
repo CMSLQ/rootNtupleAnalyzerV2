@@ -617,10 +617,10 @@ def MakeFakeRatePlot(
             fractionFit
         )
         sys.stdout.flush()
-    if reg == "End2":
-        bins = ptBinsHighEndcap
-    else:
-        bins = ptBinsEndcap
+    #if reg == "End2":
+    #    bins = ptBinsHighEndcap
+    #else:
+    #    bins = ptBinsEndcap
     typeString = "mcSub"
     if dataDriven:
         typeString = "dataDrivenRatio"
@@ -859,7 +859,7 @@ def GetJetBin(histName):
 # make FR 2D plot from FR TGraphAsymmErrors returned from MakeFakeRatePlot (frGraph)
 # frGraph has x-axis: Pt and y-axis FR
 # so we need to know the eta region here
-def MakeFR2D(FRhistos, detectorRegions, bins):
+def MakeFR2D(FRhistos, detectorRegions, bins, variableName):
     
     etaBins = [0, 1.4442, 1.566, 2.0, 2.5]
     frHist2d = TH2F(
@@ -913,7 +913,7 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
             #the last two pt bins in end2 need to have the same value bc we combined them
             #In the above code, the very highest ptBin gets filled, so I need to set the
             #next to highest bin to the same value.
-            if reg == "End2" and pt.value > 600:
+            if (reg == "End2" or "HEMonly" in variableName) and pt.value > 600:
                frHist2d.SetBinContent(
                    etaBin,
                    ptBin-1,
@@ -927,11 +927,10 @@ def MakeFR2D(FRhistos, detectorRegions, bins):
 
     return frHist2d
 
-
 ####################################################################################################
 # RUN
 ####################################################################################################
-filename = "$LQDATAEOS/fakeRateCalcFinal/2018/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
+filename = "$LQDATAEOS/fakeRateCalcFinal/2017/output_cutTable_lq_QCD_FakeRateCalculation/analysisClass_lq_QCD_FakeRateCalculation_plots.root"
 print("Opening file:", filename)
 tfile = TFile.Open(filename)
 if not tfile or tfile.IsZombie():
@@ -950,9 +949,10 @@ elif "2018" in filename:
     analysisYear = 2018
     analysisYearStr = "2018"
 
-outputFileName = "$LQDATAEOS/fakeRateCalcFinal/2018/fakeRate_plots.root"
-pdf_folder = "$LQDATAEOS/fakeRateCalcFinal/2018/fakeRate_plots"
-fr2Dfilename = "$LQDATAEOS/fakeRateCalcFinal/2018/fr2D2018.root"
+outputFileName = "$LQDATAEOS/fakeRateCalcFinal/with1jetFR/2017/fakeRate_plots.root"
+pdf_folder = os.getenv("LQDATAEOS")+"/fakeRateCalcFinal/with1jetFR/2017/fakeRate_plots"
+fr2Dfilename = os.getenv("LQDATAEOS")+"/fakeRateCalcFinal/with1jetFR/2017/fr2D2017.root"
+plots4AN = os.getenv("LQDATAEOS") + "/fakeRateCalcFinal/with1jetFR/2017/frPlotsForAN2017.pdf"
 
 gROOT.SetBatch(True)
 writeOutput = True
@@ -969,20 +969,22 @@ electronTypes = ["Jets", "Electrons", "Total"]
 # probably eventually expand to BarPlus, BarMinus, etc.
 detectorRegions = ["Bar", "End1", "End2"]
 regTitleDict = {}
-if analysisYear == 2017:
-    jetBins = ["","1Jet_","2Jet_"] #need 1Jet region for the closure test
-else:
-    jetBins = ["","2Jet_"]
+#if analysisYear == 2017:
+#    jetBins = ["","1Jet_","2Jet_"] #need 1Jet region for the closure test
+#else:
+#    jetBins = ["","2Jet_"]
+jetBins = ["","1Jet_","2Jet_"]
 # for MC
 mcSamples = [
     "ZJet_amcatnlo_ptBinned_IncStitch",
 #    "ZJet_NNLO_IncStitch",
-#    "WJet_amcatnlo_jetBinned",
-    "WJetHTBinned",
+    "WJet_amcatnlo_jetBinned",
+#    "WJetHTBinned",
     "TTBar_powheg",
     "SingleTop",
+#    "PhotonJets_Madgraph",
     "GJets",
-    "DIBOSON",
+    "DIBOSON_nlo",
 ]
 mcNames = ["ZJets", "WJets", "TTBar", "ST", "GJets", "Diboson"]
 
@@ -1002,8 +1004,8 @@ else:
         "TrkIsoHEEP7vsHLTPt_post319077",
         "TrkIsoHEEP7vsHLTPt_noHEM_post319077",
         "TrkIsoHEEP7vsHLTPt_HEMonly_post319077",
-        "TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077",
-        "TrkIsoHEEP7vsHLTPt_HEMSameEtaAllPhi_pre319077",
+        #"TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077",
+        #"TrkIsoHEEP7vsHLTPt_HEMSameEtaAllPhi_pre319077",
     ]
 
 # Z' binning -- 2016
@@ -1064,6 +1066,23 @@ else:
         600,
         1000,
     ]
+    ptBinsHighEndcap = [
+        36,
+        50,
+        75,
+        90,
+        120,
+        140,
+        175,
+        200,
+        225,
+        250,
+        300,
+        350,
+        400,
+        500,
+        1000,
+    ]
 # 2018
 ptBinsEndcapHEM1516Only = [
     36,
@@ -1098,8 +1117,8 @@ if analysisYear==2016:
 if analysisYear == 2018:
     for reg in detectorRegions:
         ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMonly_post319077"][reg] = ptBinsEndcapHEM1516Only
-        ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077"][reg] = ptBinsEndcapHEM1516Only
-        ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMSameEtaAllPhi_pre319077"][reg] = ptBinsEndcapHEM1516Only
+        #ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077"][reg] = ptBinsEndcapHEM1516Only
+        #ptBinsDict["TrkIsoHEEP7vsHLTPt_HEMSameEtaAllPhi_pre319077"][reg] = ptBinsEndcapHEM1516Only
 
 allHistos = {}
 for varName in varNameList:
@@ -1205,95 +1224,107 @@ for varName in allHistos:
 
 #for 2018, I also need a FR plot for the barrel region with the last two bins combined, to use for making the HEM15/16 only Barrel FR
 if analysisYear==2018:
-    BarNoHEMwCombinedBins, BarNoHEMwCombinedBinsNum, BarNoHEMwCombinedBinsDen = MakeFakeRatePlot("TrkIsoHEEP7vsHLTPt_noHEM_post319077", "Bar","2Jet_",ptBinsEndcapHEM1516Only,allHistos["TrkIsoHEEP7vsHLTPt_noHEM_post319077"],verbose=True,dataDriven=True,fractionFit=False)
     histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"] = {}
     histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"] = {}
-    histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"] = {}
-    histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"]["data"] = BarNoHEMwCombinedBins
     numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"] = {}
     numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"] = {}
-    numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"] = {}
-    numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"]["data"] = BarNoHEMwCombinedBinsNum
     denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"] = {}
     denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"] = {}
-    denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"] = {}
-    denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"]["data"] = BarNoHEMwCombinedBinsDen
+    #print("\n+++++++++++++++++++++++++++++++++++++++++\n")
+    #print("Make special FR plots for 2018")
+    #print("\n+++++++++++++++++++++++++++++++++++++++++\n")
+    for jBin in jetBins:
+        #print("\n+++++++++++++++++++++++++++++++++++++++++\n")
+        #print("make 2018 FR plots for jet bin "+jBin)
+        BarNoHEMwCombinedBins, BarNoHEMwCombinedBinsNum, BarNoHEMwCombinedBinsDen = MakeFakeRatePlot("TrkIsoHEEP7vsHLTPt_noHEM_post319077", "Bar",jBin,ptBinsEndcapHEM1516Only,allHistos["TrkIsoHEEP7vsHLTPt_noHEM_post319077"],verbose=True,dataDriven=True,fractionFit=False)
+#        histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"] = {}
+#        histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"] = {}
+        histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jBin] = {}
+        histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jBin]["data"] = BarNoHEMwCombinedBins
+#        numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"] = {}
+#        numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"] = {}
+        numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jBin] = {}
+        numerHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jBin]["data"] = BarNoHEMwCombinedBinsNum
+#        denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"] = {}
+#        denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"] = {}
+        denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jBin] = {}
+        denomHistDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jBin]["data"] = BarNoHEMwCombinedBinsDen
+        #print("+++++++++++++++++++++++++++++++++++++++++")
+        #print(histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"])
+        #print("+++++++++++++++++++++++++++++++++++++++++")
 
 #2018 is special bc of HEM15/16 issue
 if analysisYear==2018:
-    c = TCanvas()
-    fPads1 = TPad("pad1","",0.00,0.3,0.99,0.99)
-    fPads2 = TPad("pad2","",0.00,0.00,0.99,0.31)
-    fPads1.Draw()
-    fPads2.Draw()
-    graphNoHEM, graphHEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "excluding HEM 15/16", "HEM 15/16 only")
-    fPads1.cd()
-    fPads1.SetGridy()
-    graphNoHEM.GetYaxis().SetRangeUser(0,0.1)
-    graphNoHEM.Draw("ap0")
-    graphHEMonly.Draw("psame0")
-    leg.Draw("same")
+    for jetBin in jetBins:
+        c = TCanvas()
+        fPads1 = TPad("pad1","",0.00,0.3,0.99,0.99)
+        fPads2 = TPad("pad2","",0.00,0.00,0.99,0.31)
+        fPads1.Draw()
+        fPads2.Draw()
+        #graphNoHEM, graphHEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "excluding HEM 15/16", "HEM 15/16 only")
+        graphNoHEM = histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jetBin]["data"]
+        graphHEMonly = histDict["TrkIsoHEEP7vsHLTPt_HEMonly_post319077"]["Bar"][jetBin]["data"]
+        graphHEMonly.SetLineColor(kRed)
+        graphHEMonly.SetMarkerColor(kRed)
+        leg = TLegend(0.7,0.8,0.9,0.9)
+        leg.AddEntry(graphHEMonly, "HEM 15/16 only", "lp")
+        leg.AddEntry(graphNoHEM, "excluding HEM 15/16", "lp")
+        fPads1.cd()
+        fPads1.SetGridy()
+        graphNoHEM.GetYaxis().SetRangeUser(0,0.1)
+        graphNoHEM.SetTitle("barrel fake rates")
+        graphNoHEM.GetXaxis().SetRangeUser(0,1000)
+        graphNoHEM.Draw("ap0")
+        graphHEMonly.Draw("psame0")
+        leg.Draw("same")
 
-    fPads2.cd()
-    fPads2.SetGridy()
-    HEMonlyNoHEMRatio, HEMonlyNoHEMfitResult  = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077","Bar", "TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins","Bar", 2.0, "HEM 15/16 only / excluding HEM 15/16")
-    HEMonlyNoHEMRatio.GetYaxis().SetRangeUser(0,10)
-    HEMonlyNoHEMRatio.GetXaxis().SetRangeUser(0,1000)
-    HEMonlyNoHEMRatio.Draw()
-    c.Print(pdf_folder+"/frRatioPlots/HEMonly-noHEM-fullYrange.pdf")
-
-    #use fit result to scale noHEM FR to get the HEMonly FR that we'll use for the analysis
-    c1 = TCanvas()
-    c1.cd()
-    c1.SetGridy()
-    plotToScale = copy.deepcopy(histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"]["2Jet_"]["data"])
-    plotToScale.Scale(HEMonlyNoHEMfitResult,"y")
-    plotToScale.SetTitle("possible HEM15/16 fake rates")
-    plotToScale.GetXaxis().SetTitle("pT (GeV)")
-    plotToScale.GetXaxis().SetRangeUser(0,1000)
-    plotToScale.GetYaxis().SetRangeUser(0,0.1)
-    plotToScale.SetMarkerStyle(8)
-    plotToScale.SetMarkerSize(0.9)
-    histDict["TrkIsoHEEP7vsHLTPt_HEMonly_post319077"]["Bar"]["2Jet_"]["data"] = plotToScale
-    plotToScale.Draw("ap0")
-    graphHEMonly.Draw("psame0")
-    l = TLegend(0.6,0.7,0.9,0.9)
-    l.AddEntry(plotToScale,"FR obtained from fit result","lp")
-    l.AddEntry(graphHEMonly, "HEM15/16 FR measured from data")
-    l.Draw("same")
-    c1.Print(pdf_folder+"/BarNoHEMscaled.pdf")
-
-    #a few more plots
-    c2 = TCanvas()
-    fPads1.Draw()
-    fPads2.Draw()
-    graphNoHEM, graphHEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "same eta as HEM 15/16, different phi", "HEM 15/16 only")
-    fPads1.cd()
-    fPads1.SetGridy()
-    graphNoHEM.Draw("ap0")
-    graphHEMonly.Draw("psame0")
-    leg.Draw("same")
-    fPads2.cd()
-    fPads2.SetGridy()
-    HEMonlyNoHEMRatio, HEMonlyNoHEMres = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMSameEtaDiffPhi_post319077", "Bar", 2.0, "HEM 15/16 only / HEM 15/16 same eta diff phi")
-    HEMonlyNoHEMRatio.GetYaxis().SetRangeUser(0,10)
-    HEMonlyNoHEMRatio.Draw()
-    c2.Print(pdf_folder+"/frRatioPlots/HEMonly-HEMSameEtaDiffPhi.pdf")
-
-    c3 = TCanvas()
-    fPads1.Draw()
-    fPads2.Draw()
-    fPads1.cd()
-    fPads1.SetGridy()
-    graphBarHEMonly, graphEnd1HEMonly, leg = fakeRateOverlayPlot("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "End1", "Barrel, post319077, HEM15/16 only", "End1, post319077, HEM15/16 only")
-    graphBarHEMonly.Draw("ap0")
-    graphEnd1HEMonly.Draw("psame0")
-    leg.Draw("Same")
-    fPads2.cd()
-    fPads2.SetGridy()
-    barEnd1RatioHEMonly, barEnd1HEMonlyRes = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "End1", "TrkIsoHEEP7vsHLTPt_HEMonly_post319077", "Bar", 5.0, "End1 / Bar")
-    barEnd1RatioHEMonly.Draw()
-    c3.Print(pdf_folder+"/frRatioPlots/Bar-End1-HEMonly.pdf")
+        fPads2.cd()
+        fPads2.SetGridy()
+        #HEMonlyNoHEMRatio, HEMonlyNoHEMfitResult  = FRratioPlotWStraightLineFit("TrkIsoHEEP7vsHLTPt_HEMonly_post319077","Bar", "TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins","Bar", 2.0, "HEM 15/16 only / excluding HEM 15/16")
+        HEMonlyNoHEMRatio = copy.deepcopy(graphHEMonly)
+        #HEMonlyNoHEMRatio.Divide(graphNoHEM)
+        for ipoint in range(graphHEMonly.GetN()):
+            numerator = HEMonlyNoHEMRatio.GetPointY(ipoint)
+            denominator = graphNoHEM.GetPointY(ipoint)
+            numErr = HEMonlyNoHEMRatio.GetErrorY(ipoint)
+            denErr = graphNoHEM.GetErrorY(ipoint)
+            pointErr = math.sqrt( (numErr/denominator)**2 + (numerator*denErr / denominator**2)**2 )
+            HEMonlyNoHEMRatio.SetPointY(ipoint, numerator/denominator)
+            HEMonlyNoHEMRatio.SetPointEYhigh(ipoint, pointErr)
+            HEMonlyNoHEMRatio.SetPointEYlow(ipoint, pointErr)
+        HEMonlyNoHEMRatio.SetLineColor(kBlack)
+        HEMonlyNoHEMRatio.SetMarkerColor(kBlack)
+        HEMonlyNoHEMRatio.GetYaxis().SetRangeUser(0,10)
+        HEMonlyNoHEMRatio.GetXaxis().SetRangeUser(0,1000)
+        if jetBin=="2Jet_":
+            HEMonlyNoHEMRatio.Fit("pol0","S","",75,1000)
+        else:
+            HEMonlyNoHEMRatio.Fit("pol0","S")
+        fit = HEMonlyNoHEMRatio.GetFunction("pol0")
+        HEMonlyNoHEMfitResult = fit.GetParameter(0)
+        HEMonlyNoHEMRatio.Draw("ap")
+        c.Print(pdf_folder+"/frRatioPlots/HEMonly-noHEM_"+jetBin+"fullYrange.pdf")
+   
+        #use fit result to scale noHEM FR to get the HEMonly FR that we'll use for the analysis
+        c1 = TCanvas()
+        c1.cd()
+        c1.SetGridy()
+        plotToScale = copy.deepcopy(histDict["TrkIsoHEEP7vsHLTPt_noHEM_post319077_CombinedBins"]["Bar"][jetBin]["data"])
+        plotToScale.Scale(HEMonlyNoHEMfitResult,"y")
+        plotToScale.SetTitle("possible HEM15/16 fake rates")
+        plotToScale.GetXaxis().SetTitle("pT (GeV)")
+        plotToScale.GetXaxis().SetRangeUser(0,1000)
+        plotToScale.GetYaxis().SetRangeUser(0,0.1)
+        plotToScale.SetMarkerStyle(8)
+        plotToScale.SetMarkerSize(0.9)
+        histDict["TrkIsoHEEP7vsHLTPt_HEMonly_post319077"]["Bar"][jetBin]["data"] = plotToScale
+        plotToScale.Draw("ap0")
+        graphHEMonly.Draw("psame0")
+        l = TLegend(0.6,0.7,0.9,0.9)
+        l.AddEntry(plotToScale,"FR obtained from fit result","lp")
+        l.AddEntry(graphHEMonly, "HEM15/16 FR measured from data")
+        l.Draw("same")
+        c1.Print(pdf_folder+"/"+jetBin+"BarNoHEMscaled.pdf")
 
 '''
 c = TCanvas()
@@ -1381,13 +1412,19 @@ if writeOutput:
     if not os.path.isdir(pdf_folder) and pdf_folder != "":
         "Making directory", pdf_folder
         os.mkdir(pdf_folder)
-for canLeg in myCanvases:
+for i,canLeg in enumerate(myCanvases):
     canv = canLeg[0]
     canv.Draw()  # canvas
     # canLeg[-1][1].Draw() #legend
     if writeOutput:
         canv.Write()
         canv.Print(pdf_folder + "/" + canv.GetName() + ".pdf")
+        if i==0:
+            canv.Print(plots4AN+"(","pdf")
+        elif i==len(myCanvases)-1:
+            canv.Print(plots4AN+")","pdf")
+        else:
+            canv.Print(plots4AN,"pdf")
 
 
 #Make 2D fake rate plots:
@@ -1397,27 +1434,28 @@ fr2Dfile.cd()
 
 c = TCanvas()
 for jets in jetBins:
-    for reg in detectorRegions:
-        frGraphs[reg] = histDict["TrkIsoHEEP7vsHLTPt_PAS"][reg][jets]["data"]       
-    if jets=='':
-        plotTitle = "fake rate 0Jet_"
-        pdfTitle = pdf_folder + "/FakeRate2D_0Jet_.pdf"
-        canvasName = "fakeRate2D_0Jet_"
-    else:
-        plotTitle = "fake rate " + jets
-        pdfTitle = pdf_folder + "/FakeRate2D_"+jets+".pdf"
-        canvasName = "fakeRate2D_"+jets
-    c.SetName(canvasName)
-    fakeRate2D = MakeFR2D(frGraphs,detectorRegions,ptBinsEndcap)
-    c.SetRightMargin(0.13)
-    fakeRate2D.SetStats(0)
-    fakeRate2D.Draw("colzTEXT")
-    fakeRate2D.SetTitle(plotTitle)
-    fakeRate2D.GetYaxis().SetRangeUser(25,1000)
-    c.Update()
-    c.Write()
-    c.Print(pdfTitle)
-    fakeRate2D.Write()
+    for variableName in varNameList:
+        for reg in detectorRegions:
+            frGraphs[reg] = histDict[variableName][reg][jets]["data"]       
+        if jets=='':
+            plotTitle = "fake rate 0Jet_"
+            pdfTitle = pdf_folder + "/FakeRate2D_0Jet_.pdf"
+            canvasName = "fakeRate2D_0Jet_"
+        else:
+            plotTitle = "fake rate " + jets
+            pdfTitle = pdf_folder + "/FakeRate2D_"+jets+".pdf"
+            canvasName = "fakeRate2D_"+jets
+        c.SetName(canvasName)
+        fakeRate2D = MakeFR2D(frGraphs,detectorRegions,ptBinsEndcap, variableName)
+        c.SetRightMargin(0.13)
+        fakeRate2D.SetStats(0)
+        fakeRate2D.Draw("colzTEXT")
+        fakeRate2D.SetTitle(plotTitle)
+        fakeRate2D.GetYaxis().SetRangeUser(25,1000)
+        c.Update()
+        c.Write()
+        c.Print(pdfTitle)
+        fakeRate2D.Write()
 fr2Dfile.Close()
 
 #make stack plots for MC

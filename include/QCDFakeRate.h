@@ -13,6 +13,8 @@ class QCDFakeRate {
     float GetFakeRate(double et, std::string regionName);
     float GetFakeRate(double et, std::string regionName, double scEta);
     float GetFakeRate(double et, double scEta, double phi, unsigned int run);
+    float GetFakeRateError(double et, std::string regionName, double scEta);
+    float GetFakeRateError(double et, double scEta, double phi, unsigned int run);
     static std::string GetFakeRateRegion(float eta=-999, float phi=-999, unsigned int run=0);
     static bool isHEMElectron(float eta, float phi);
 

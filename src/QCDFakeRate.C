@@ -27,6 +27,14 @@ float QCDFakeRate::GetFakeRate(double et, std::string regionName) {
   return m_funcVec[m_regionToIndexMap[regionName]]->Eval(et);
 }
 
+float QCDFakeRate::GetFakeRateError(double et, std::string regionName, double scEta){
+  return m_histoReaderVec[m_regionToIndexMap[regionName]]->LookupValueError(scEta, et);
+}
+
+float QCDFakeRate::GetFakeRateError(double et, double scEta, double phi, unsigned int run){
+  return GetFakeRateError(et, GetFakeRateRegion(scEta, phi, run), scEta);
+}
+
 bool QCDFakeRate::isHEMElectron(float eta, float phi) {
   if(eta <= -1.3 && eta >= -3.0)
     if(phi <= -0.87 && phi >= -1.57)
