@@ -21,6 +21,38 @@ from termcolor import colored
 import combineCommon
 
 
+def CheckForFile(filename):
+    filename = filename.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
+    if not filename.startswith("/eos"):
+        if os.path.isfile(filename):
+            return True
+    else:
+        if not filename.startswith("/eos/user"):
+            serverName = filename.split('/store')[0].strip('/').replace('/', '')
+        else:
+            serverName = "eosuser"
+        my_env = os.environ.copy()
+        my_env["EOS_MGM_URL"] = "root://{}.cern.ch/".format(serverName)
+        result = subprocess.run(["eos", "ls", filename], env=my_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result == 0:
+            return True
+    return False
+
+
+def RemoveFile(filename):
+    filename = filename.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
+    if not filename.startswith("/eos"):
+        os.remove(filename)
+    else:
+        if not filename.startswith("/eos/user"):
+            serverName = filename.split('/store')[0].strip('/').replace('/', '')
+        else:
+            serverName = "eosuser"
+        my_env = os.environ.copy()
+        my_env["EOS_MGM_URL"] = "root://{}.cern.ch/".format(serverName)
+        result = subprocess.check_call(["eos", "rm", filename], env=my_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def RenameLHECombBins(histo):
     binsToRename = ["LHEPdf_UpComb", "LHEPdf_DownComb", "LHEScale_UpComb", "LHEScale_DownComb"]
     renamedBins = ["LHEPdfCombUp", "LHEPdfCombDown", "LHEScaleCombUp", "LHEScaleCombDown"]
@@ -679,13 +711,13 @@ if not options.tablesOnly:
     if not options.keepInputFiles:
         for sample in dictSamples.keys():
             fileName = sampleTFileNameTemplate.format(sample).replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
-            os.remove(fileName)
-            os.remove(fileName.replace("_plots.root", "_plots_pruned.root"))
+            RemoveFile(fileName)
+            RemoveFile(fileName.replace("_plots.root", "_plots_pruned.root"))
             if not dictSamples[sample]["save"]:
-                os.remove(fileName.replace("_plots.root", "_keep_plots_pruned.root"))
-                os.remove(fileName.replace("_plots.root", "_keep_plots.root"))
+                RemoveFile(fileName.replace("_plots.root", "_keep_plots_pruned.root"))
+                RemoveFile(fileName.replace("_plots.root", "_keep_plots.root"))
             tableFile = fileName.replace(".root", ".dat").replace("plots", "tables")
-            os.remove(tableFile)
+            RemoveFile(tableFile)
     # now prune the hists and write in a new TFile
     # print("INFO: pruning output file...", end=' ', flush=True)
     # outputTFileName = outputTFileNameHadd.replace("_hadd", "")
@@ -823,7 +855,7 @@ if not options.tablesOnly:
             histoQCDClosure.Write()
 
     outputTfile.Close()
-    if not os.path.isfile(outputTFileNameHadd):
+    if not CheckForFile(outputTFileNameHadd):
         print("ERROR: something bad happened when trying to write the root file, as we didn't find a file here: {}".format(outputTFileNameHadd))
     else:
         print("output plots at: {}".format(outputTFileNameHadd), flush=True)
