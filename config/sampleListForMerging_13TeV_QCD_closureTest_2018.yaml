@@ -269,7 +269,7 @@ DIBOSON_nlo:
 #  - TTW
 #  - TTZ
 #  save: true
-ALLBKG_ZJet_amcatnlo_ptBinned_WJetHT:
+ALLBKG_ZJet_amcatnlo_WJetHT:
   pieces:
   - ZJet_amcatnlo_ptBinned_IncStitch
   - WJet_HTBinned
