@@ -1966,11 +1966,11 @@ for i_signal_name, signal_name in enumerate(signal_names):
         latexRowPaper.append(dataEntry)
 
         latexRow = [
-            "$" + entry + "$" if "LQ" not in entry and "pres" not in entry else entry
+            "$" + entry + "$" if "LQ" not in entry and "pres" not in entry and "train" not in entry else entry
             for entry in latexRow
         ]
         latexRowPaper = [
-            "$" + entry + "$" if "LQ" not in entry and "pres" not in entry else entry
+            "$" + entry + "$" if "LQ" not in entry and "pres" not in entry and "train" not in entry else entry
             for entry in latexRowPaper
         ]
         for i, rowEntry in enumerate(latexRow):
