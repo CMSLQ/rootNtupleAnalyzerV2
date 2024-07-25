@@ -580,10 +580,11 @@ else:
         os.makedirs(options.outputDir)
     tfileOutputPath = options.outputDir
 
-if options.outputDir.startswith("/eos/"):
-    outputTableFile = open("/tmp/"+options.analysisCode + "_tables.dat", "w")
+if options.outputDir.startswith("/eos"):
+    outputTableFilename = "/tmp/"+options.analysisCode+"_tables.dat"
 else:
-    outputTableFile = open(options.outputDir + "/" + options.analysisCode + "_tables.dat", "w")
+    outputTableFilename = options.outputDir+"/"+options.analysisCode+"_tables.dat"
+outputTableFile = open(outputTableFilename,"w")
 tfilePrefix = tfileOutputPath + "/" + options.analysisCode
 sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
 if options.outputDir.startswith("/eos/"):
@@ -708,7 +709,7 @@ if not os.path.isfile(outputTableFilename):
        print("ERROR: something bad happened when trying to write the table file, as we didn't find a file here: {}".format(outputTableFilename))
        haveDatFile = False
 if haveDatFile:
-    print("output tables at: {}".format(outputTableFilename), flush=True)
+    print("output tables at: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode), flush=True)#.format(outputTableFilename), flush=True)
 
 
 # now handle special backgrounds
@@ -825,7 +826,7 @@ if not options.tablesOnly:
     if not os.path.isfile(outputTFileNameHadd):
         print("ERROR: something bad happened when trying to write the root file, as we didn't find a file here: {}".format(outputTFileNameHadd))
     else:
-        print("output plots at: {}".format(outputTFileNameHadd), flush=True)
+        print("output plots at: {}/{}_plots.root".format(options.outputDir ,options.analysisCode), flush=True)#.format(outputTFileNameHadd), flush=True)
  
 if os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
     command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
