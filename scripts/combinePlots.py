@@ -580,10 +580,11 @@ else:
         os.makedirs(options.outputDir)
     tfileOutputPath = options.outputDir
 
-if options.outputDir.startswith("/eos/"):
-    outputTableFile = open("/tmp/"+options.analysisCode + "_tables.dat", "w")
+if options.outputDir.startswith("/eos"):
+    outputTableFilename = "/tmp/"+options.analysisCode+"_tables.dat"
 else:
-    outputTableFile = open(options.outputDir + "/" + options.analysisCode + "_tables.dat", "w")
+    outputTableFilename = options.outputDir+"/"+options.analysisCode+"_tables.dat"
+outputTableFile = open(outputTableFilename,"w")
 tfilePrefix = tfileOutputPath + "/" + options.analysisCode
 sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
 if options.outputDir.startswith("/eos/"):
@@ -826,7 +827,8 @@ if not options.tablesOnly:
         print("ERROR: something bad happened when trying to write the root file, as we didn't find a file here: {}".format(outputTFileNameHadd))
     else:
         print("output plots at: {}".format(outputTFileNameHadd), flush=True)
- 
+
+print("copy files to {}".format(options.outputDir))
 if os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
     command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
@@ -844,6 +846,15 @@ proc = subprocess.run(command, check=True, universal_newlines=True, stdout = sub
 command = ["rm", "/tmp/{}_plots.root".format(options.analysisCode), "/tmp/{}_tables.dat".format(options.analysisCode)]
 proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
 
+if not os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
+    print("ERROR: failed to copy root file to eos")
+else:
+    print("output plots copied to: {}/{}_plots.root".format(options.outputDir ,options.analysisCode))
+
+if not os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
+    print("ERROR: failed to copy dat file to eos")
+else:
+    print("output plots copied to: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode))
 # ---TODO: CREATE LATEX TABLE (PYTEX?) ---#
 
 # for profiling
