@@ -709,7 +709,7 @@ if not os.path.isfile(outputTableFilename):
        print("ERROR: something bad happened when trying to write the table file, as we didn't find a file here: {}".format(outputTableFilename))
        haveDatFile = False
 if haveDatFile:
-    print("output tables at: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode), flush=True)#.format(outputTableFilename), flush=True)
+    print("output tables at: {}".format(outputTableFilename), flush=True)
 
 
 # now handle special backgrounds
@@ -826,8 +826,9 @@ if not options.tablesOnly:
     if not os.path.isfile(outputTFileNameHadd):
         print("ERROR: something bad happened when trying to write the root file, as we didn't find a file here: {}".format(outputTFileNameHadd))
     else:
-        print("output plots at: {}/{}_plots.root".format(options.outputDir ,options.analysisCode), flush=True)#.format(outputTFileNameHadd), flush=True)
- 
+        print("output plots at: {}".format(outputTFileNameHadd), flush=True)
+
+print("copy files to {}".format(options.outputDir))
 if os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
     command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
@@ -845,6 +846,15 @@ proc = subprocess.run(command, check=True, universal_newlines=True, stdout = sub
 command = ["rm", "/tmp/{}_plots.root".format(options.analysisCode), "/tmp/{}_tables.dat".format(options.analysisCode)]
 proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
 
+if not os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
+    print("ERROR: failed to copy root file to eos")
+else:
+    print("output plots copied to: {}/{}_plots.root".format(options.outputDir ,options.analysisCode))
+
+if not os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
+    print("ERROR: failed to copy dat file to eos")
+else:
+    print("output plots copied to: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode))
 # ---TODO: CREATE LATEX TABLE (PYTEX?) ---#
 
 # for profiling
