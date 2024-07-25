@@ -1154,12 +1154,14 @@ def PrintBDTCuts(optValsDict, parametrized):
     for mass, valList in sortedDictMass.items():
         valListFormatted = []
         #print(valList)
-        for i in range(7): #8):
+        for val in valList: #i in range(8):
+            if isinstance(val, str): #get rid of min bkg limited column for now
+                continue
             #print("format entry ",valList[i])
-            if -0.0001 < valList[i] < 0.0001: #if something is too small to be displayed, use scientific notation
-                valListFormatted.append("{:0.4e}".format(valList[i]))
+            if -0.0001 < val < 0.0001: #if something is too small to be displayed, use scientific notation
+                valListFormatted.append("{:0.4e}".format(val))
             else:
-                valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
+                valListFormatted.append("{:0.4f}".format(val)) # for i in valList]
         #valListFormatted.append(valList[8])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
         l = [mass]+valListFormatted
@@ -1811,7 +1813,7 @@ if __name__ == "__main__":
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = True
+    use_BEle_samples = False
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
