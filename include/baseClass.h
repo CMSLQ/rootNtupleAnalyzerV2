@@ -431,7 +431,7 @@ class baseClass {
     }
     template <typename T> bool passedAllPreviousCuts(const std::string& s, std::map<std::string, T>& cutNameToCut, std::vector<std::string>& orderedCutNames, bool verbose=false) {
       if(verbose)
-        STDOUT("passedAllPreviousCuts" << s);
+        STDOUT("passedAllPreviousCuts for " << s);
       auto&& cc = cutNameToCut.find(s);
       if( cc == cutNameToCut.end() ) {
         STDOUT("ERROR: did not find variableName = "<<s<<" in cutNameToCut. Returning false.");
@@ -440,6 +440,8 @@ class baseClass {
       if(!cc->second->evaluatePreviousCuts) // only look at min selection level in this case
         return passedAllPreviousCuts(cc->second->minimumSelectionToPass);
       if(!cc->second->evaluatedPreviousCuts) {
+        if(verbose)
+          STDOUT("Did not evaluate all previous cuts--do it now");
         for (auto& cutName : orderedCutNames) {
           auto& c = cutNameToCut.find(cutName)->second;
           if( c->variableName == cc->second->variableName ) {
@@ -458,6 +460,10 @@ class baseClass {
           }
         }
       }
+      else if(verbose)
+        STDOUT("Already evaluated all previous cuts--returning cached value.");
+      if(verbose)
+        STDOUT("passedAllPreviousCuts for " << s << " is: " << cc->second->passedPreviousCuts);
       return cc->second->passedPreviousCuts;
     }
 
