@@ -75,11 +75,11 @@ if doQuery:
     #for dbsFile in dbsFiles:
     #    print dbsFile['logical_file_name']
     # get first N LFNs
-    # filesToUse = 100
-    filesToUse = 25
+    filesToUse = 2000
+    #filesToUse = 25
     firstNFiles = [dbsFile['logical_file_name'] for dbsFile in dbsFiles]
     # if needed
-    filesToSkip = ["A5BFC697-3A86-9A4D-B090-01D0291ADDDD"]
+    filesToSkip = ["6B651A93-8182-564A-A5C5-80D0D08AB7F1"]
     # filesToSkip = []
     for skipFile in filesToSkip:
         firstNFiles[:] = [x for x in firstNFiles if skipFile not in x]

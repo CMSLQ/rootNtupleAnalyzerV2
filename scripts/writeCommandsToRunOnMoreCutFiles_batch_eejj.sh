@@ -26,10 +26,7 @@ fi
 
 #### INPUTS HERE ####
 #------------
-#ANANAME=eejj_8mar2024_dedicatedMassBDTs
-#ANANAME=eejj_7may2024_preselectionOnly
-#ANANAME=eejj_8may2024_dedicatedMassBDTsRedoAprSkims
-ANANAME=eejj_24may2024_dedicatedMassBDTs_LQToBEle
+ANANAME=eejj_12jul2024_bdt_LQToBEle
 #------------
 #
 #inputlist2016pre=config/inputListsAnalysisPreselSkim_UL16preVFP_4apr2024/inputListAllCurrent.txt
@@ -43,10 +40,10 @@ inputlist2018=config/inputListsAnalysisPreselSkim_UL18_7may2024/inputListAllCurr
 #xsection2016post=config/xsection_13TeV_2022.txt
 #xsection2017=config/xsection_13TeV_2022.txt
 #xsection2018=config/xsection_13TeV_2022.txt
-xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_may7_qcd_dyjAMCatNLO.txt
-xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_may7_qcd_dyjAMCatNLO.txt
-xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_may7_qcd_dyjAMCatNLO.txt
-xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_may7_qcd_dyjAMCatNLO.txt
+xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_10jul2024qcd_dyjAMCatNLO.txt
+xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_10jul2024qcd_dyjAMCatNLO.txt
+xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_10jul2024qcd_dyjAMCatNLO.txt
+xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_10jul2024qcd_dyjAMCatNLO.txt
 #------------
 CODENAME=analysisClass_lq_eejj
 #CODENAME=analysisClass_lq_eejj_oneBTag
@@ -146,7 +143,7 @@ fi
 SUBDIR=ultralegacy/${DIRSTR}/${YEAR}/$ANANAME
 #EOSDIR=/eos/user/s/scooper/LQ/NanoV7/${YEAR}/$DIRSTR/$ANANAME
 EOSDIR=/eos/cms/store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/${DIRSTR}/${YEAR}/$ANANAME
-COMMANDFILE=commandsToRunOnMoreCutFiles_eejj_${YEAR}_${DIRSTR}_batch_$(hostname -s).txt
+COMMANDFILE=commandsToRunOnMoreCutFiles_eejj_${ANANAME}_${YEAR}_${DIRSTR}_batch_$(hostname -s).txt
 SAMPLELISTFORMERGING=config/sampleListForMerging_13TeV_eejj_${YEAR}.yaml
 #------------
 FACTOR=1000 # numbers in final tables (but *not* in plots) will be multiplied by this scale factor (to see well the decimal digits)
