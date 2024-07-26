@@ -105,7 +105,7 @@ if(REDUCED_SKIM)
   include(FetchContent)
   FetchContent_Declare(CMSJMECalculators
     GIT_REPOSITORY https://gitlab.cern.ch/cp3-cms/CMSJMECalculators.git
-    GIT_TAG        0.2.0
+    GIT_TAG        9aa89b97524472cc94262ec9566873f3b42517fa  # head as of July 10, 2024
     )
   FetchContent_MakeAvailable(CMSJMECalculators)
 else()
