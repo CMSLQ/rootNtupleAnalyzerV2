@@ -1,0 +1,9 @@
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/01E199F4-E25E-9644-9CA0-1858D89AE485.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/1B0DA682-71B3-ED4D-AC04-1D67FC96B32B.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/30C8A6A9-A8F3-994D-8997-7BA7A7B5DEA2.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/3B3C2632-EDF0-264D-ABEC-3FD68F00283E.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/782C542B-BF72-E849-B3E7-4F69883F9B3C.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/95402CD7-A432-624F-A460-C612C83F58E4.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/A714FC39-C798-D442-81BD-FDA288496EDB.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/E62CF957-3C57-3E48-8B32-0EFAE60FEFFD.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL17NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v1/2820000/F8CDD72D-5571-194C-AC52-0C6FF5DFA280.root

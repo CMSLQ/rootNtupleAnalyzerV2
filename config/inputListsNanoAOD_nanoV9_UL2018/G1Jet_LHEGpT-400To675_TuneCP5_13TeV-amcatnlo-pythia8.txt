@@ -1,0 +1,3 @@
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL18NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/230000/95FE302E-9704-BE4B-951D-1861935C9B1F.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL18NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/230000/A04A2360-87D0-E944-8F01-5B95750D62E1.root
+root://cms-xrd-global.cern.ch//store/mc/RunIISummer20UL18NanoAODv9/G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/230000/E5F13436-DA7C-4A4A-9069-956D9FA87F17.root
