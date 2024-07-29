@@ -151,6 +151,7 @@ def FindInputFileAndModifyCutFile(localCutFile, keyword):
                 #     print("cut file = " + options.cutfile)
                 #     sys.exit()
                 inputFile = line.split()[1]
+                inputFile = os.path.expandvars(inputFile)
                 # print("INFO: found input file {} for keyword {}".format(inputFile, keyword))
                 if os.path.isfile(inputFile):
                     print("Moving the {} file to the local output directory...".format(keyword), end=' ')
