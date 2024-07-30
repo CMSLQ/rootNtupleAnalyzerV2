@@ -150,8 +150,8 @@ def FindInputFileAndModifyCutFile(localCutFile, keyword):
                 #     print(line)
                 #     print("cut file = " + options.cutfile)
                 #     sys.exit()
-                inputFile = line.split()[1]
-                inputFile = os.path.expandvars(inputFile)
+                inputFileInCutFile = line.split()[1]
+                inputFile = os.path.expandvars(inputFileInCutFile)
                 # print("INFO: found input file {} for keyword {}".format(inputFile, keyword))
                 if os.path.isfile(inputFile):
                     print("Moving the {} file to the local output directory...".format(keyword), end=' ')
@@ -160,7 +160,7 @@ def FindInputFileAndModifyCutFile(localCutFile, keyword):
                     found_file = True
                     localFile = options.outputDir + "/" + inputFile.split("/")[-1]
                     localFileBasePath = os.path.basename(localFile)
-                    cutfile_lines.append(line.replace(inputFile, localFileBasePath))
+                    cutfile_lines.append(line.replace(inputFileInCutFile, localFileBasePath))
                 elif os.path.isdir(inputFile):
                     print("Moving the {} dir to the local output directory...".format(keyword), end=' ')
                     os.system("cp -R " + inputFile + " " + options.outputDir)
@@ -170,8 +170,8 @@ def FindInputFileAndModifyCutFile(localCutFile, keyword):
                     localFile = options.outputDir + "/" + localFileBasePath
                     if localFileBasePath[-1] != "/":
                         localFileBasePath += "/"
-                    print("INFO: replace inputFile={} in line {} with localFileBasePath={}".format(inputFile, line, localFileBasePath))
-                    cutfile_lines.append(line.replace(inputFile, localFileBasePath))
+                    print("INFO: replace inputFile={} in line {} with localFileBasePath={}".format(inputFileInCutFile, line, localFileBasePath))
+                    cutfile_lines.append(line.replace(inputFileInCutFile, localFileBasePath))
                 else:
                     print("Error: No {} file or dir here: {}".format(keyword, inputFile))
                     sys.exit()
