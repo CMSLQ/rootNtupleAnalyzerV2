@@ -413,3 +413,7 @@
 /SinglePhoton/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
 /SinglePhoton/Run2016G-UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
 /SinglePhoton/Run2016H-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
+# dasgoclient --query="dataset=/DoubleEG/Run2016*_UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD"
+/DoubleEG/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
+/DoubleEG/Run2016G-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
+/DoubleEG/Run2016H-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD
