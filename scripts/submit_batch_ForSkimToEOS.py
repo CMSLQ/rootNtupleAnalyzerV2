@@ -110,6 +110,8 @@ def WriteSubmitFile(condorFileName):
             outputPath = outputmain+"/output/"
             condorFile.write('transfer_output_files = '+outputRootFile+','+outputDatFile+'\n')
             condorFile.write('transfer_output_remaps = "'+outputRootFile+' = '+outputPath+outputRootFile+'; '+outputDatFile+' = '+outputPath+outputDatFile+'"\n')
+            condorFile.write("# Periodically retry the jobs every 10 minutes, up to a maximum of 5 retries.\n")
+            condorFile.write("periodic_release =  (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStatus) > 600)\n")
         else:
             condorFile.write('+JobFlavour = "'+queue+'"\n')
             # require CentOS7
