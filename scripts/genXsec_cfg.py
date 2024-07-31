@@ -75,7 +75,7 @@ if doQuery:
     #for dbsFile in dbsFiles:
     #    print dbsFile['logical_file_name']
     # get first N LFNs
-    filesToUse = 2000
+    filesToUse = 100
     #filesToUse = 25
     firstNFiles = [dbsFile['logical_file_name'] for dbsFile in dbsFiles]
     # if needed
