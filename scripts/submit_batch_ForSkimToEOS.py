@@ -313,7 +313,12 @@ oldDir = os.getcwd()
 os.chdir(outputmain)
 print('submit jobs for', options.output.rstrip("/"), end="")
 condorCmd = 'condor_submit '+condorFileName
-if len(siteList):
+# check site list for T1s or T2s
+foundT1orT2 = False
+for site in siteList:
+    if site.startswith("T1") or site.startswith("T2"):
+        foundT1orT2 = True
+if foundT1orT2:
     condorSites = 'CONDOR_DEFAULT_DESIRED_SITES="'+",".join(siteList)
     condorSites = condorSites.strip(",")+'"'
     condorCmd = condorSites + " " + condorCmd
