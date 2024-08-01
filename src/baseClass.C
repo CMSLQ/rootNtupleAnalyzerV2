@@ -1737,9 +1737,10 @@ bool baseClass::writeCutEfficFile()
   int precision = 4;
   int mainFieldWidth=20;
   int nameFieldWidth=40;
+  int nFieldWidth=45;
   os.precision(precision);
-  os << "################################## Cuts #########################################################################################################################################################################################################################\n"
-     <<"#id                       variableName                min1                max1                min2                max2               level                   N               Npass              EffRel           errEffRel              EffAbs           errEffAbs"<<endl
+  os << "################################################# Cuts #########################################################################################################################################################################################################################\n"
+     <<"#id                       variableName                min1                max1                min2                max2               level                        N                    Npass                   EffRel           errEffRel              EffAbs           errEffAbs"<<endl
      ;
   if(nPreviousSkimCuts_ < 1)
     os << fixed
@@ -1751,8 +1752,8 @@ bool baseClass::writeCutEfficFile()
       << setw(mainFieldWidth) << "-" //min2
       << setw(mainFieldWidth) << "-" //max2
       << setw(mainFieldWidth) << "-" //level
-      << setw(mainFieldWidth) << nEntTot //N
-      << setw(mainFieldWidth) << nEntTot //Npass
+      << setw(nFieldWidth) << nEntTot //N
+      << setw(nFieldWidth) << nEntTot //Npass
       //     << setprecision(11)
       << setw(mainFieldWidth) << 1. //EffRell
       << setw(mainFieldWidth) << 0. //errEffRel
@@ -1821,8 +1822,8 @@ bool baseClass::writeCutEfficFile()
         << setw(mainFieldWidth) << "-"
         << setw(mainFieldWidth) << "-"
         << setw(mainFieldWidth) << "-"
-        << setw(mainFieldWidth) << NBeforeSkim_
-        << setw(mainFieldWidth) << GetTreeEntries()
+        << setw(nFieldWidth) << NBeforeSkim_
+        << setw(nFieldWidth) << GetTreeEntries()
         << setw(mainFieldWidth) << ( (effRel                 < minForFixed) ? (scientific) : (fixed) ) << effRel
         << setw(mainFieldWidth) << ( (effRelErr              < minForFixed) ? (scientific) : (fixed) ) << effRelErr
         << setw(mainFieldWidth) << ( (effAbs                 < minForFixed) ? (scientific) : (fixed) ) << effAbs
@@ -1858,8 +1859,8 @@ bool baseClass::writeCutEfficFile()
       << setw(mainFieldWidth) << "-"
       << setw(mainFieldWidth) << "-"
       << setw(mainFieldWidth) << "-1"
-      << setw(mainFieldWidth) << ( (nEvtPassed_previousCut < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_previousCut
-      << setw(mainFieldWidth) << ( (sumw          < minForFixed) ? (scientific) : (fixed) ) << sumw
+      << setw(nFieldWidth) << ( (nEvtPassed_previousCut < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_previousCut
+      << setw(nFieldWidth) << ( (sumw          < minForFixed) ? (scientific) : (fixed) ) << sumw
       << setw(mainFieldWidth) << ( (effRel                 < minForFixed) ? (scientific) : (fixed) ) << effRel
       << setw(mainFieldWidth) << ( (effRelErr              < minForFixed) ? (scientific) : (fixed) ) << effRelErr
       << setw(mainFieldWidth) << ( (effAbs                 < minForFixed) ? (scientific) : (fixed) ) << effAbs
@@ -1948,12 +1949,12 @@ bool baseClass::writeCutEfficFile()
       << setw(mainFieldWidth) << ( ( c->minValue2 > c->maxValue2 ) ? "-" : ssM2.str() )
       << setw(mainFieldWidth) << c->level_int;
     if(c->evaluatePreviousCuts)
-      os << setw(mainFieldWidth) << ( (nEvtPassed_previousCut < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_previousCut;
+      os << setw(nFieldWidth) << ( (nEvtPassed_previousCut < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_previousCut;
     else {
       auto&& minSelCut = cutName_cut_.find(c->minimumSelectionToPass)->second;
       double nEvtPassed_minSel = minSelCut->nEvtPassed;
       double nEvtPassedBeforeWeight_minSel = minSelCut->nEvtPassedBeforeWeight;
-      os << setw(mainFieldWidth) << ( (nEvtPassed_minSel < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_minSel;
+      os << setw(nFieldWidth) << ( (nEvtPassed_minSel < minForFixed) ? (scientific) : (fixed) ) << nEvtPassed_minSel;
       effRel = (double) c->nEvtPassed / nEvtPassed_minSel;
       double N = nEvtPassedBeforeWeight_minSel;
       double p = Np / N;
@@ -1961,7 +1962,7 @@ bool baseClass::writeCutEfficFile()
       double w = c->nEvtPassed / c->nEvtPassedBeforeWeight;
       effRelErr = sqrt(p*q/N)*w;
     }
-    os << setw(mainFieldWidth) << ( (c->nEvtPassed          < minForFixed) ? (scientific) : (fixed) ) << c->nEvtPassed
+    os << setw(nFieldWidth) << ( (c->nEvtPassed          < minForFixed) ? (scientific) : (fixed) ) << c->nEvtPassed
       << setw(mainFieldWidth) << ( (effRel                 < minForFixed) ? (scientific) : (fixed) ) << effRel
       << setw(mainFieldWidth) << ( (effRelErr              < minForFixed) ? (scientific) : (fixed) ) << effRelErr;
     if(c->evaluatePreviousCuts)
