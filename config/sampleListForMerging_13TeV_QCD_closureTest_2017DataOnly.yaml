@@ -49,6 +49,6 @@ SingleElectron_DATA:
 QCDFakes_DATA:
   pieces:
   - SinglePhoton_DATA
-  - SingleElectron_DATA
+    #- SingleElectron_DATA
   isMC: false
   save: true

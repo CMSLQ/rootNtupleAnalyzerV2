@@ -33,6 +33,6 @@ QCDFakes_SingleEle:
 QCDFakes_DATA:
   pieces:
   - QCDFakes_SinglePhoton
-  - QCDFakes_SingleEle
+    #- QCDFakes_SingleEle
   isMC: false
   save: true

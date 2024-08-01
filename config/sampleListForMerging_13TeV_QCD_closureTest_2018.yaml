@@ -124,6 +124,9 @@ WJetHT_1200to2500:
 WJetHT_2500toInf:
   pieces:
   - /WJetsToLNu_HT-2500ToInf_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
+WJet_MadgraphInc:
+  pieces:
+  - /WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
 WJet_HTBinned:
   pieces:
   - WJetHT_70to100
@@ -134,6 +137,11 @@ WJet_HTBinned:
   - WJetHT_800to1200
   - WJetHT_1200to2500
   - WJetHT_2500toInf
+  save: true
+WJet_HTBinned_IncStitch:
+  pieces:
+  - WJet_HTBinned
+  - WJet_MadgraphInc
   save: true
 #WJetSherpa:
 #  pieces:
@@ -272,7 +280,7 @@ DIBOSON_nlo:
 ALLBKG_ZJet_amcatnlo_WJetHT:
   pieces:
   - ZJet_amcatnlo_ptBinned_IncStitch
-  - WJet_HTBinned
+  - WJet_HTBinned_IncStitch
   - SingleTop
   - GJets
   - DIBOSON_nlo

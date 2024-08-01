@@ -29,9 +29,9 @@ ZJet_amcatnlo_ptBinned_IncStitch:
   - DYJetsToLL650toInf
   - DYJetsToLL_Inc
   save: true
-#WWto4Q:
-#  pieces:
-#  - /WWTo4Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+    #WWto4Q:
+    #pieces:
+    #- /WWTo4Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
 WWto1L1Nu2Q:
   pieces:
   - /WWTo1L1Nu2Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
@@ -40,15 +40,15 @@ WWto2L2Nu:
   - /WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
 WW_nlo:
   pieces:
-  #- WWto4Q
+    #- WWto4Q
   - WWto2L2Nu
   - WWto1L1Nu2Q
 ZZto2Q2L:
   pieces:
   - /ZZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
 #ZZto2Nu2Q:
-#  pieces:
-#  - /ZZTo2Nu2Q_5f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
+  #pieces:
+  #- /ZZTo2Nu2Q_5f_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM
 ZZto4L:
   pieces:
   - /ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
@@ -58,7 +58,7 @@ ZZto2L2Nu:
 ZZ_nlo:
   pieces:
   - ZZto2Q2L
-  #- ZZto2Nu2Q
+    #- ZZto2Nu2Q
   - ZZto4L
   - ZZto2L2Nu
 WZto1L1Nu2Q:
@@ -293,6 +293,6 @@ SingleElectron_DATA:
 QCDFakes_DATA:
   pieces:
   - SinglePhoton_DATA
-  - SingleElectron_DATA
+    #- SingleElectron_DATA
   isMC: false
   save: true
