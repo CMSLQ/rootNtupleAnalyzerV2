@@ -32,7 +32,7 @@ import os
 import math
 from tabulate import tabulate
 
-def MakeStackAndRatioPlot(histDict1P1F, histDict2F, MCNames, year, variable):
+def MakeStackAndRatioPlot(histDict1P1F, histDict2F, MCNames, year, variable, useFR=True):
     bkgHist = 0
     stack = THStack()
     dataHist = histDict1P1F[year]["data"][variable]
@@ -43,11 +43,12 @@ def MakeStackAndRatioPlot(histDict1P1F, histDict2F, MCNames, year, variable):
             bkgHist = copy.deepcopy(hist)
         else:
             bkgHist.Add(hist)
-    data2Fhist = histos2F[year][variable]
-    stack.Add(data2Fhist)
-    bkgHist.Add(data2Fhist)
+    if useFR == True:
+        data2Fhist = histos2F[year][variable]
+        stack.Add(data2Fhist)
+        bkgHist.Add(data2Fhist)
 
-    stack.SetMaximum(1e4)
+    stack.SetMaximum(1e11)
     stack.SetMinimum(1)
     ratioPlot = copy.deepcopy(dataHist)
     ratioPlot.Divide(bkgHist)
@@ -55,7 +56,7 @@ def MakeStackAndRatioPlot(histDict1P1F, histDict2F, MCNames, year, variable):
     ratioPlot.SetStats(0)
     ratioPlot.GetYaxis().SetRangeUser(0,2)
     ratioPlot.GetYaxis().SetLabelSize(0.08)
-    ratioPlot.GetYaxis().SetTitle("1P1F data / bkg.")
+    ratioPlot.GetYaxis().SetTitle("data / bkg.")
     ratioPlot.GetYaxis().SetTitleSize(0.06)
     ratioPlot.GetXaxis().SetLabelSize(0.08)
     ratioPlot.GetXaxis().SetTitleSize(0.08)
@@ -166,17 +167,21 @@ def Get2F1DHistFrom2DHists(dataHists, frHists, etaRegions, HEMRegions, var):
 gROOT.SetBatch(True)
 
 years = ["2016preVFP", "2016postVFP", "2017", "2018"]
-#years = ["2017"]
+#years = ["2016preVFP","2018"]
 filenames = {}
 for year in years:
     filenames[year] = {}
 
+fileTemplate = "$LQDATAEOS/qcdFRClosureTest_allYears_DoubleEleTrigger/{}/{}/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
+
 for year in years:
-    filenames[year]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears_newErrorCalc/{}/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
-    filenames[year]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears_newErrorCalc/{}/1P1F_SF/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root".format(year)
+    #filenames[year]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears_newMtPlots/{}/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_newMtPlots_plots.root".format(year)
+    #filenames[year]["1P1F"] = "$LQDATAEOS/qcdFRClosureTest_allYears_newMtPlots/{}/1P1F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_newMtPlots_plots.root".format(year)
+    filenames[year]["2F"] = fileTemplate.format(year, "2F")
+    filenames[year]["1P1F"] = fileTemplate.format(year, "1P1F")
     filenames[year]["FR"] = os.getenv("LQINPUTS")+"/fakeRate/{}/fr2D{}.root".format(year, year.replace("2016",""))
 
-pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears_newErrorCalc/plots_test"
+pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears_DoubleEleTrigger/plotsResscaledWJets"
 
 if not os.path.isdir(pdf_folder):
     os.mkdir(pdf_folder)
@@ -194,7 +199,7 @@ variableNameList = [
     "Me2j1_PAS",
     "Pt2ndEle_PAS", 
 #    "HT",
-#    "Mt_MET_Ele1_PAS",
+    "Mt_MET_Ele1_PAS",
 #    "Mt_MET_Ele2_PAS",
 #    "Phi1stEle_PAS",
 #    "Phi2ndEle_PAS",
@@ -208,7 +213,7 @@ variableNameList = [
     "Me2j1_tight", 
     "Pt2ndEle_tight",
 #    "HT_tight",
-#    "Mt_MET_Ele1_tight",
+    "Mt_MET_Ele1_tight",
 #    "Mt_MET_Ele2_tight",
 #    "Phi1stEle_tight",
 #    "Phi2ndEle_tight",
@@ -216,7 +221,21 @@ variableNameList = [
 #    "MeeControlReg",
 ]
 
-for var in variableNameList:
+variablesWPeakStudy = [
+    "Mt_MET_Ele1_WPeak",
+    "nEleLoose_fewCuts",
+    "nJet_fewCuts",
+    "Mt_MET_Ele1_passNJetCut",
+    "Mt_MET_Ele1_passMETCut",
+    "LooseEle1_Pt",
+    "LooseEle2_Pt",
+    "HEEPEle1_Pt",
+#    "HEEPEle2_Pt",
+    "nHEEPEle",
+    "MET_WPeakReg",
+]
+
+for var in variableNameList+variablesWPeakStudy:
     for year in years+["fullRunII"]:
         f = pdf_folder+"/"+year+"/"+var
         if not os.path.isdir(f):
@@ -226,7 +245,7 @@ histoNameData = "histo1D__QCDFakes_DATA__"
 #mcSamples = {}
 mcSamples = [
     "ZJet_amcatnlo_ptBinned_IncStitch",
-    "WJet_HTBinned",
+    "WJet_HTBinned_IncStitch",
     "TTBar_powheg", 
     "SingleTop", 
     "GJets", 
@@ -288,14 +307,14 @@ for iyear,year in enumerate(years):
     tfile = TFile.Open(filenames[year]["1P1F"])
     histos1P1F[year]["data"] = {}
     histos1P1F[year]["MCTotal"] = {}
-    for var in variableNameList:
+    for var in variableNameList+variablesWPeakStudy:
         histToGet = histoNameData+var #.replace("PAS","tight")
         print("Get 1P1F hist "+histToGet)
         histoData = tfile.Get(histToGet)
         histoData.SetLineWidth(2)
         histoData.SetStats(0)
-        if "MET" in var:
-            histoData.GetXaxis().SetRangeUser(0,100)
+        #if "MET" in var:
+        #    histoData.GetXaxis().SetRangeUser(0,100)
         histos1P1F[year]["data"][var] = copy.deepcopy(histoData)
         if iyear==0:
             histos1P1F["fullRunII"]["data"][var] = copy.deepcopy(histoData)
@@ -306,11 +325,13 @@ for iyear,year in enumerate(years):
         for i,name in enumerate(histoNamesMC):
             print("Get 1P1F hist "+name+var)
             histo = tfile.Get(name+var)#.replace("PAS","tight"))
-            if "MET" in var:
-                histo.GetXaxis().SetRangeUser(0,100)
+            #if "MET" in var:
+            #    histo.GetXaxis().SetRangeUser(0,100)
      #       if year=="2017" and "Mee" in var:
      #           histo.Rebin(10)
             c = colors[i]
+            #if "WJet" in name:
+             #   histo.Scale(1.3)
             histo.SetLineColor(c)
             histo.SetFillColor(c)
             histo.SetMarkerColor(c)
@@ -498,6 +519,8 @@ for year in years + ["fullRunII"]:
     ratioAllBkg[year] = {}
     for var in variableNameList:
         stackAllBkg[year][var],ratioAllBkg[year][var] = MakeStackAndRatioPlot(histos1P1F, histos2F, histoNamesMC, year, var)
+    for var in variablesWPeakStudy:
+        stackAllBkg[year][var],ratioAllBkg[year][var] = MakeStackAndRatioPlot(histos1P1F, histos2F, histoNamesMC, year, var, False)
 
 c = TCanvas()
 c.SetLogy()
@@ -517,29 +540,40 @@ fPads1.Draw()
 fPads2.Draw()
 leg = TLegend(0.9,0.6,0.999,0.9)
 #legMETPlot = TLegend(0.3,0.1,0.6,0.3)
+legNoFR = TLegend(0.9,0.6,0.999,0.9)
 
-leg.AddEntry(histos1P1F["2017"]["data"]["sT_tight"], "1-pass-1-fail data", "lp")
-leg.AddEntry(histos2F["2017"]["sT_tight"],"predicted fakes", "lp")
+leg.AddEntry(histos1P1F[years[0]]["data"]["sT_tight"], "1-pass-1-fail data", "lp")
+legNoFR.AddEntry(histos1P1F[years[0]]["data"]["sT_tight"], "data", "lp")
+leg.AddEntry(histos2F[years[0]]["sT_tight"],"predicted fakes", "lp")
 for i,name in enumerate(histoNamesMC):
-    leg.AddEntry(histos1P1F["2017"][name]["sT_tight"], mcShortNames[i], "lp")
+    leg.AddEntry(histos1P1F[years[0]][name]["sT_tight"], mcShortNames[i], "lp")
+    legNoFR.AddEntry(histos1P1F[years[0]][name]["sT_tight"], mcShortNames[i], "lp")
 
 legMETPlot = copy.deepcopy(leg)
 #legMETPlot.SetX1NDC(0.3)
 #legMETPlot.SetY1NDC(0.1)
+if len(years)==4:
+    yearsToPlot = years + ["fullRunII"]
+else:
+    yearsToPlot = years
 
-for year in years + ["fullRunII"]:
-    for var in variableNameList:
+for year in yearsToPlot:
+    for var in variableNameList+variablesWPeakStudy:
         title = var.replace("_tight"," BDT training region")
         title = var.replace("_PAS"," preselection")
+        title = var.replace("_fewCuts","")
         fPads1.cd()
         histos1P1F[year]["data"][var].SetTitle(title+" "+year)
-        if "MET" in var:
+        if "MET" in var and not "Mt" in var and not "WPeak" in var:
             histos1P1F[year]["data"][var].GetXaxis().SetRangeUser(0,100)
-        histos1P1F[year]["data"][var].GetYaxis().SetRangeUser(1,1e5)
+        if var in variableNameList:
+            histos1P1F[year]["data"][var].GetYaxis().SetRangeUser(1,1e5)
+        else:
+            histos1P1F[year]["data"][var].GetYaxis().SetRangeUser(1,1e11)
         histos1P1F[year]["data"][var].Draw()
         stackAllBkg[year][var].Draw("histSame")
         histos1P1F[year]["data"][var].Draw("SAME")
-        if "MET" in var:
+        if "MET" in var and not "Mt" in var and not "WPeak" in var:
             legMETPlot.Draw("SAME")
             gPad.Update()
             #legMETPlot.SetX1NDC(0.75)
@@ -547,12 +581,18 @@ for year in years + ["fullRunII"]:
             #legMETPlot.SetX2NDC(0.9)
             #legMETPlot.SetY2NDC(0.9)
             gPad.Modified()
+        if var in variablesWPeakStudy:
+            legNoFR.Draw("Same")
         else:
-            leg.Draw("SAME") 
-
+            leg.Draw("SAME")
+        gPad.RedrawAxis()
+        gPad.RedrawAxis("G")
         fPads2.cd()
-        ratioAllBkg[year][var].GetXaxis().SetTitle(var.split("_")[0]+" GeV")
-        if "MET" in var:
+        axisTitle = var.split("_")[0]
+        if not "nEle" in var and not "nJet" in var and not "nHEEPEle" in var:
+            axisTitle += " (GeV)"
+        ratioAllBkg[year][var].GetXaxis().SetTitle(axisTitle)
+        if "MET" in var and not "Mt" in var and not "WPeak" in var:
             ratioAllBkg[year][var].GetXaxis().SetRangeUser(0,100)
         ratioAllBkg[year][var].Draw()
         xAxisLow = ratioAllBkg[year][var].GetXaxis().GetXmin()
@@ -567,10 +607,20 @@ for year in years + ["fullRunII"]:
         line.Draw("SAME")
         ratioAllBkg[year][var].Draw("SAME")
         c.Print(pdf_folder+"/"+year+"/"+var+"/stack_plot_"+var+".pdf")
-        if year == years[0] and var == variableNameList[0]:
-            c.Print(pdf_folder+"/closureTestPlots.pdf(","pdf")
-        else:
-            c.Print(pdf_folder+"/closureTestPlots.pdf","pdf")
+        if var in variableNameList:
+            if year == yearsToPlot[0] and var == variableNameList[0]:
+                c.Print(pdf_folder+"/closureTestPlots.pdf(","pdf")
+            else:
+                c.Print(pdf_folder+"/closureTestPlots.pdf","pdf")
+
+        if var in variablesWPeakStudy:
+            if year==yearsToPlot[0] and var==variablesWPeakStudy[0]:
+                c.Print(pdf_folder+"/WPeakStudyPlots.pdf(","pdf")
+            elif year==yearsToPlot[-1] and var==variablesWPeakStudy[-1]:
+                c.Print(pdf_folder+"/WPeakStudyPlots.pdf)","pdf")
+            else:
+                c.Print(pdf_folder+"/WPeakStudyPlots.pdf","pdf")
+            continue
 
         histoMCSub = histos1P1F[year]["data"][var] - histos1P1F[year]["MCTotal"][var]
         histoFR = histos2F[year][var]
@@ -603,7 +653,7 @@ for year in years + ["fullRunII"]:
         errWindow.Draw("SAME")
         ratioPlot.Draw("SAME")
         c.Print(pdf_folder+"/"+year+"/"+var+"/MCSub_"+var+".pdf")
-        if year == "fullRunII" and var == variableNameList[-1]:
+        if year == yearsToPlot[-1] and var == variableNameList[-1]:
             c.Print(pdf_folder+"/closureTestPlots.pdf)","pdf")
         else:
             c.Print(pdf_folder+"/closureTestPlots.pdf","pdf")
@@ -615,7 +665,7 @@ with open(resultsFile, 'w') as f:
 variables = ["Mee_PAS", "Mee_tight"]
 #variables = ["Mee_tight"]
 for var in variables:
-    for year in years + ["fullRunII"]:
+    for year in yearsToPlot:
         DataErr = ctypes.c_double()
         DataHist = histos1P1F[year]["data"][var]
         DataYield = DataHist.IntegralAndError(DataHist.GetXaxis().GetFirst(), DataHist.GetXaxis().GetLast(), DataErr)
