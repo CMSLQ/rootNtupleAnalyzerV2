@@ -14,25 +14,42 @@ QCDFakes_SinglePhoton:
   - QCDFakes_SinglePhoton_2016H
   isMC: false
   save: true
-QCDFakes_SingleEle_2016F:
+    #QCDFakes_SingleEle_2016F:
+    #pieces:
+    #- /SingleElectron/Run2016F-UL2016_MiniAODv2_NanoAOD/NANOAOD
+    #QCDFakes_SingleEle_2016G:
+    #pieces:
+    #- /SingleElectron/Run2016G-UL2016_MiniAODv2_NanoAOD/NANOAOD
+    #QCDFakes_SingleEle_2016H:
+    # pieces:
+    #- /SingleElectron/Run2016H-UL2016_MiniAODv2_NanoAOD/NANOAOD
+    #QCDFakes_SingleEle:
+    #pieces:
+    #- QCDFakes_SingleEle_2016F
+    # - QCDFakes_SingleEle_2016G
+    #- QCDFakes_SingleEle_2016H
+    #isMC: false
+    #save: true
+DoubleEG_F:
   pieces:
-  - /SingleElectron/Run2016F-UL2016_MiniAODv2_NanoAOD/NANOAOD
-QCDFakes_SingleEle_2016G:
+  - /DoubleEG/Run2016F-UL2016_MiniAODv2_NanoAOD/NANOAOD
+DoubleEG_G:
   pieces:
-  - /SingleElectron/Run2016G-UL2016_MiniAODv2_NanoAOD/NANOAOD
-QCDFakes_SingleEle_2016H:
+  - /DoubleEG/Run2016G-UL2016_MiniAODv2_NanoAOD/NANOAOD
+DoubleEG_H:
   pieces:
-  - /SingleElectron/Run2016H-UL2016_MiniAODv2_NanoAOD/NANOAOD
-QCDFakes_SingleEle:
+  - /DoubleEG/Run2016H-UL2016_MiniAODv2_NanoAOD/NANOAOD
+DoubleEG_DATA:
   pieces:
-  - QCDFakes_SingleEle_2016F
-  - QCDFakes_SingleEle_2016G
-  - QCDFakes_SingleEle_2016H
+  - DoubleEG_F
+  - DoubleEG_G
+  - DoubleEG_H
   isMC: false
   save: true
 QCDFakes_DATA:
   pieces:
-  - QCDFakes_SinglePhoton
+    #- QCDFakes_SinglePhoton
     #- QCDFakes_SingleEle
+  - DoubleEG_DATA
   isMC: false
   save: true

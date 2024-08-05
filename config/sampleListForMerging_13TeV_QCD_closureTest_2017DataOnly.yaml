@@ -13,21 +13,21 @@ SinglePhotonE:
 SinglePhotonF:
   pieces:
   - /SinglePhoton/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-SingleElectronB:
-  pieces:
-  - /SingleElectron/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-SingleElectronC:
-  pieces:
-  - /SingleElectron/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-SingleElectronD:
-  pieces:
-  - /SingleElectron/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-SingleElectronE:
-  pieces:
-  - /SingleElectron/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-SingleElectronF:
-  pieces:
-  - /SingleElectron/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+    #SingleElectronB:
+  #pieces:
+    #- /SingleElectron/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+    #SingleElectronC:
+  #pieces:
+    #- /SingleElectron/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+    #SingleElectronD:
+  #pieces:
+    #- /SingleElectron/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+    #SingleElectronE:
+  #pieces:
+    #- /SingleElectron/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+    #SingleElectronF:
+  #pieces:
+    #  - /SingleElectron/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
 SinglePhoton_DATA:
   pieces:
   - SinglePhotonB
@@ -37,18 +37,41 @@ SinglePhoton_DATA:
   - SinglePhotonF
   isMC: false
   save: true
-SingleElectron_DATA:
+    #SingleElectron_DATA:
+    #pieces:
+    #- SingleElectronB
+    #- SingleElectronC
+    #- SingleElectronD
+    #- SingleElectronE
+    #- SingleElectronF
+    #isMC: false
+    #save: true
+DoubleEG_B:
   pieces:
-  - SingleElectronB
-  - SingleElectronC
-  - SingleElectronD
-  - SingleElectronE
-  - SingleElectronF
-  isMC: false
-  save: true
+  - /DoubleEG/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+DoubleEG_C:
+  pieces:
+  - /DoubleEG/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+DoubleEG_D:
+  pieces:
+  - /DoubleEG/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+DoubleEG_E:
+  pieces:
+  - /DoubleEG/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+DoubleEG_F:
+  pieces:
+  - /DoubleEG/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
+DoubleEG_DATA:
+  pieces:
+  - DoubleEG_B
+  - DoubleEG_C
+  - DoubleEG_D
+  - DoubleEG_E
+  - DoubleEG_F
 QCDFakes_DATA:
   pieces:
-  - SinglePhoton_DATA
+  - DoubleEG_DATA
+    #- SinglePhoton_DATA
     #- SingleElectron_DATA
   isMC: false
   save: true

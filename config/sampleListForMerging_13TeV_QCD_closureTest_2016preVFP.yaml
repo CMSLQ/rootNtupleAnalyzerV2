@@ -188,22 +188,22 @@ SingleTop:
 #WJetsToLNu_0J:
 #  pieces:
 #  - /WJetsToLNu_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
-#WJetsToLNu_1J:
-#  pieces:
-#  - /WJetsToLNu_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
-#WJetsToLNu_2J:
-#  pieces:
-#  - /WJetsToLNu_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
-#WJet_amcatnlo_Inc:
-#  pieces:
-#  - /WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
-#  save: true
-#WJet_amcatnlo_jetBinned:
-#  pieces:
+WJetsToLNu_1J:
+  pieces:
+  - /WJetsToLNu_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+WJetsToLNu_2J:
+  pieces:
+  - /WJetsToLNu_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+WJet_amcatnlo_Inc:
+  pieces:
+  - /WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
+  save: true
+WJet_amcatnlo_jetBinned:
+  pieces:
 #  - WJetsToLNu_0J
-#  - WJetsToLNu_1J
-#  - WJetsToLNu_2J
-#  save: true
+  - WJetsToLNu_1J
+  - WJetsToLNu_2J
+  save: true
 #WJet_amcatnlo_jetBinned_lte1Jet:
 #  pieces:
 #  - WJetsToLNu_0J
@@ -243,10 +243,18 @@ WJet_HTBinned:
   - WJetHT1200To2500
   - WJetHT2500ToInf
   save: true
-#WJetSherpa:
-#  pieces:
-#  - /WJetsToLNu_012JetsNLO_34JetsLO_EWNLOcorr_13TeV-sherpa/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
-#  save: true
+WJetMadgraphInc:
+  pieces:
+  - /WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+WJet_HTBinned_IncStitch:
+  pieces:
+  - WJet_HTBinned
+  - WJetMadgraphInc
+  save: true
+WJetSherpa:
+  pieces:
+  - /WJetsToLNu_012JetsNLO_34JetsLO_EWNLOcorr_13TeV-sherpa/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 WWW_4F:
   pieces:
   - /WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM
@@ -298,6 +306,37 @@ GJets:
   - GJets_200To400
   - GJets_400To600
   - GJets_600ToInf
+  save: true
+G1Jets_pT50To100:
+  pieces:
+  - /G1Jet_LHEGpT-50To100_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+G1Jets_pT100To150:
+  pieces:
+  - /G1Jet_LHEGpT-100To150_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+G1Jets_pT150To250:
+  pieces:
+  - /G1Jet_LHEGpT-150To250_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+  - /G1Jet_LHEGpT-150To250_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM
+G1Jets_pT250To400:
+  pieces:
+  - /G1Jet_LHEGpT-250To400_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+  - /G1Jet_LHEGpT-250To400_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM
+G1Jets_pT400To675:
+  pieces:
+  - /G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+  - /G1Jet_LHEGpT-400To675_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM
+G1Jets_pT675ToInf:
+  pieces:
+  - /G1Jet_LHEGpT-675ToInf_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+  - /G1Jet_LHEGpT-675ToInf_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM
+GJets_amcatnlo:
+  pieces:
+  - G1Jets_pT50To100
+  - G1Jets_pT100To150
+  - G1Jets_pT150To250
+  - G1Jets_pT250To400
+  - G1Jets_pT400To675
+  - G1Jets_pT675ToInf
   save: true
 #OTHERBKG_WJetAMCJetBinned_dibosonNLO_triboson:
 #  pieces:
@@ -367,34 +406,34 @@ QCDFakes_SinglePhoton:
   - QCDFakes_SinglePhoton_2016F
   isMC: false
   save: true
-QCDFakes_SingleEle_2016B_v1:
-  pieces:
-  - /SingleElectron/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-QCDFakes_SingleEle_2016B_v2:
-  pieces:
-  - /SingleElectron/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-QCDFakes_SingleEle_2016C:
-  pieces:
-  - /SingleElectron/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-QCDFakes_SingleEle_2016D:
-  pieces:
-  - /SingleElectron/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-QCDFakes_SingleEle_2016E:
-  pieces:
-  - /SingleElectron/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-QCDFakes_SingleEle_2016F:
-  pieces:
-  - /SingleElectron/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-QCDFakes_SingleEle:
-  pieces:
-  - QCDFakes_SingleEle_2016B_v1
-  - QCDFakes_SingleEle_2016B_v2
-  - QCDFakes_SingleEle_2016C
-  - QCDFakes_SingleEle_2016D
-  - QCDFakes_SingleEle_2016E
-  - QCDFakes_SingleEle_2016F
-  isMC: false
-  save: true
+    #QCDFakes_SingleEle_2016B_v1:
+    #pieces:
+    #- /SingleElectron/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+    #QCDFakes_SingleEle_2016B_v2:
+    #pieces:
+    #- /SingleElectron/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+    #QCDFakes_SingleEle_2016C:
+    # pieces:
+    # - /SingleElectron/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+    #QCDFakes_SingleEle_2016D:
+    # pieces:
+    #- /SingleElectron/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+    #QCDFakes_SingleEle_2016E:
+    #pieces:
+    #- /SingleElectron/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+    #QCDFakes_SingleEle_2016F:
+    # pieces:
+    #- /SingleElectron/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
+    #QCDFakes_SingleEle:
+    #pieces:
+    # - QCDFakes_SingleEle_2016B_v1
+    # - QCDFakes_SingleEle_2016B_v2
+    # - QCDFakes_SingleEle_2016C
+    # - QCDFakes_SingleEle_2016D
+    # - QCDFakes_SingleEle_2016E
+    # - QCDFakes_SingleEle_2016F
+    #isMC: false
+    #save: true
 QCDFakes_DoubleEG_B_v1:
   pieces:
   - /DoubleEG/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD

@@ -166,8 +166,8 @@ def Get2F1DHistFrom2DHists(dataHists, frHists, etaRegions, HEMRegions, var):
 
 gROOT.SetBatch(True)
 
-#years = ["2016preVFP", "2016postVFP", "2017", "2018"]
-years = ["2018"]
+years = ["2016preVFP", "2016postVFP", "2017", "2018"]
+#years = ["2016preVFP","2018"]
 filenames = {}
 for year in years:
     filenames[year] = {}
@@ -245,7 +245,7 @@ histoNameData = "histo1D__QCDFakes_DATA__"
 #mcSamples = {}
 mcSamples = [
     "ZJet_amcatnlo_ptBinned_IncStitch",
-    "WJet_HTBinned",
+    "WJet_HTBinned_IncStitch",
     "TTBar_powheg", 
     "SingleTop", 
     "GJets", 
@@ -330,8 +330,8 @@ for iyear,year in enumerate(years):
      #       if year=="2017" and "Mee" in var:
      #           histo.Rebin(10)
             c = colors[i]
-            if "WJet" in name:
-                histo.Scale(1.3)
+            #if "WJet" in name:
+             #   histo.Scale(1.3)
             histo.SetLineColor(c)
             histo.SetFillColor(c)
             histo.SetMarkerColor(c)
