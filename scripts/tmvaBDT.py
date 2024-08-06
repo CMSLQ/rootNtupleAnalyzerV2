@@ -117,8 +117,10 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain) 
         df = df.Define("perSampleWeight", str(weight)) 
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
-        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"  
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root" 
+        time.sleep(3)
         df.Snapshot("testTree",filename)
+        time.sleep(2)
         testOutputTree.Add(filename)
     elif ZJetTrainingSample in key and not "amcatnlo" in ZJetTrainingSample: #DY for training. See above comment about training with amcatnlo
         print("Use weight/2 for dataset "+datasetName)
@@ -128,6 +130,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_train"+str(lqMass)+".root"
         df.Snapshot("trainTree", filename)
+        time.sleep(2)
         trainOutputTree.Add(filename)
  
     elif "QCDFakes" in key: #QCD always goes only in testing
@@ -138,6 +141,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"
         df.Snapshot("testTree",filename)
+        time.sleep(3)
         testOutputTree.Add(filename)
     else: #everything else goes in both. Also, amcatnlo should end up going through this part if we train with amcatnlo DY
         tchain.SetWeight(weight,"global")
@@ -152,9 +156,10 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         nTest = dfTest.Count()
         dfTrain.Snapshot("trainTree", filenameTrain)
         print("Add NEvents {} from {} dataset {} with weight = {} to TRAINING".format(nTrain.GetValue(), key, datasetName, tchain.GetWeight()))
-        trainOutputTree.Add(filenameTrain)
         dfTest.Snapshot("testTree",filenameTest)
         print("Add NEvents {} from {} dataset {} with weight {} to TESTING".format(nTest.GetValue(), key, datasetName, tchain.GetWeight()))
+        time.sleep(2)
+        trainOutputTree.Add(filenameTrain)
         testOutputTree.Add(filenameTest)
     ROOT.EnableImplicitMT(6) #Turn this back on when we're done
 
@@ -591,8 +596,9 @@ def OptimizeBDTCut(args):
             numVars -= 1
         gInterpreter.ProcessLine(('''
         TMVA::Experimental::RReader BDT{}("{}");
-        computeBDT{} = TMVA::Experimental::Compute<{}, float>(BDT{});
+        auto computeBDT{} = TMVA::Experimental::Compute<{}, float>(BDT{});
         ''').format(lqMassToUse, bdtWeightFileName, lqMassToUse, numVars, lqMassToUse))
+        print("auto computeBDT{} = TMVA::Experimental::Compute<{}, float>(BDT{});".format(lqMassToUse, numVars, lqMassToUse))
         sys.stdout.flush()
         sys.stderr.flush()
         # backgrounds
@@ -626,7 +632,10 @@ def OptimizeBDTCut(args):
                 if "LQCandidateMass" in variableList:
                     df = df.Define("massInt", str(lqMassToUse))
                     df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
-                varNames = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNames = []
+                for v in varNamesVec:
+                    varNames.append(v)
                 if normalizeVars:
                     # print("{} varNames: {}".format(len(varNames), varNames))
                     l_varn = ROOT.std.vector['std::string']()
@@ -636,6 +645,7 @@ def OptimizeBDTCut(args):
                         df=df.Define(varname, '(float)({})'.format(expr))
                     df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
                 else:
+                    print(getattr(ROOT, "computeBDT{}".format(lqMassToUse)))
                     df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
                 df = df.Define('BDT', 'BDTv[0]')
                 df = df.Define('eventWeight', eventWeightExpression)
@@ -722,7 +732,10 @@ def OptimizeBDTCut(args):
         dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
         # dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-        varNames = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+        varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+        varNames = []
+        for v in varNamesVec:
+            varNames.append(v)
         if normalizeVars:
             # print("{} varNames: {}".format(len(varNames), varNames))
             l_varn = ROOT.std.vector['std::string']()
@@ -829,7 +842,8 @@ def OptimizeBDTCut(args):
             else:
                 minNB = 1
 
-            if nB > minNB and not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
+             
+            if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
                 fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "asymptotic")
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "zpl")
@@ -850,10 +864,29 @@ def OptimizeBDTCut(args):
             nBErrList.append(nBErr)
             effErrList.append(effErr)
 
-        # sort by FOM
-        sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
-        # now the max FOM value should be the first entry
-        maxVal = next(iter(sortedDict.items()))
+        cutValInfoToUse = []
+        if lqMassToUse>=1000:
+            infoLastBin = fomValueToCutInfoDict[hbkg.GetNbinsX()]
+            nBLastBin = infoLastBin[5]
+            if nBLastBin > minNB:
+                cutValInfoToUse = [hbkg.GetNbinsX()]+infoLastBin
+            else:
+                nBThisBin=0
+                maxBin = hbkg.GetNbinsX()
+                for i in range(hbkg.GetNbinsX()):
+                    infoThisBin = fomValueToCutInfoDict[maxBin - i]
+                    nBThisBin = infoThisBin[5]
+                    if nBThisBin > minNB:
+                        cutValInfoToUse = [maxBin - i]+infoThisBin
+                        break
+
+        else:
+            # sort by FOM
+            sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
+            # now the max FOM value should be the first entry
+            maxVal = next(iter(sortedDict.items()))
+            cutValInfoToUse = [maxVal[0]]
+            cutValInfoToUse.extend(maxVal[1])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(lqMassToUse, maxVal[0], *maxVal[1]))
         # testVals=list(fomValueToCutInfoDict.items())
         # testVal=testVals[9949]
@@ -862,14 +895,15 @@ def OptimizeBDTCut(args):
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
         # testVal=testVals[9950]
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
-        valList = [maxVal[0]]
-        valList.extend(maxVal[1])
+        valList = cutValInfoToUse
+        #valList.extend(cutValInfoToUse)
         if len(unusedFOMs)>0 and max(unusedFOMs) > valList[1]:
             unusedVal = max(unusedFOMs)
             valList.append("yes")
         else:
             valList.append("no")
         sharedOptValsDict[lqMassToUse] = valList
+        print(sharedOptValsDict)
         sharedOptHistsDict[lqMassToUse] = [histSig.GetValue(), bkgTotal, histSigUnweighted.GetValue(), bkgTotalUnweighted, bkgTotalNegWeightsOnly]
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
         sharedFOMInfoDict[lqMassToUse]["nS"] = nSList
@@ -892,7 +926,8 @@ def OptimizeBDTCut(args):
         nBErr = ctypes.c_double()
         sharedFOMInfoDict[lqMassToUse]["nBUnweightedNoBDTCut"] = bkgTotalUnweighted.IntegralAndError(1, bkgTotal.GetNbinsX(), nBErr)
         sharedFOMInfoDict[lqMassToUse]["nBErrUnweightedNoBDTCut"] = nBErr.value
-        cutVal = maxVal[1][1]
+        #cutVal = maxVal[1][1]
+        cutVal = cutValInfoToUse[1]
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
         for sample, hist in bkgHists.items():
             cutBin = hist.FindFixBin(cutVal)
@@ -904,7 +939,7 @@ def OptimizeBDTCut(args):
             nBEventsErr = ctypes.c_double()
             nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
             nBEventsErr = nBEventsErr.value
-            print(f"Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+            print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
         cutBin = bkgTotal.FindFixBin(cutVal)
         nBErr = ctypes.c_double()
         nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
@@ -914,7 +949,7 @@ def OptimizeBDTCut(args):
         nBEventsErr = ctypes.c_double()
         nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
         nBEventsErr = nBEventsErr.value
-        print(f"Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+        print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -973,7 +1008,10 @@ def DoROCAndBDTPlots(args):
                     df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
                 # df = df.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
                 # df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-                varNames = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                varNames = []
+                for v in varNamesVec:
+                    varNames.append(v)
                 if normalizeVars:
                     l_varn = ROOT.std.vector['std::string']()
                     for i_expr, expr in enumerate(varNames):
@@ -1114,17 +1152,19 @@ def GetMassFloat(mass):
 def PrintBDTCuts(optValsDict, parametrized):
     sortedDictMass = OrderedDict(sorted(optValsDict.items()))
     dataForTable = []
-    headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr", "min. bkg limited"]
+    headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr"] #, "min. bkg limited"]
     for mass, valList in sortedDictMass.items():
         valListFormatted = []
         #print(valList)
-        for i in range(8):
+        for val in valList: #i in range(8):
+            if isinstance(val, str): #get rid of min bkg limited column for now
+                continue
             #print("format entry ",valList[i])
-            if -0.0001 < valList[i] < 0.0001: #if something is too small to be displayed, use scientific notation
-                valListFormatted.append("{:0.4e}".format(valList[i]))
+            if -0.0001 < val < 0.0001: #if something is too small to be displayed, use scientific notation
+                valListFormatted.append("{:0.4e}".format(val))
             else:
-                valListFormatted.append("{:0.4f}".format(valList[i])) # for i in valList]
-        valListFormatted.append(valList[8])
+                valListFormatted.append("{:0.4f}".format(val)) # for i in valList]
+        #valListFormatted.append(valList[8])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(mass, *valListFormatted))
         l = [mass]+valListFormatted
         dataForTable.append(l)
@@ -1154,7 +1194,9 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
     rootFile = TFile(rootFileName, "recreate")
     rootFile.cd()
     lqMasses = [float(key) for key in optHistsDict.keys()]
+    print("lqMasses: ",lqMasses)
     optCutVals = [float(optValsDict[lqMass][2]) for lqMass in lqMasses]
+    print("optCutVals: ",optCutVals)
     optCutValsVsLQMassGraph = TGraph(len(lqMasses), np.array(lqMasses), np.array(optCutVals))
     optCutValsVsLQMassGraph.SetName("optCutValVsLQMass")
     optCutValsVsLQMassGraph.SetTitle("Opt. BDT cut vs. M_{LQ}; M_{LQ} [GeV]")
@@ -1768,12 +1810,16 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    skim = "21jun"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    skim = "2Aug"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
+    if use_BEle_samples:
+        inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
+        inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
+        inputListQCD2FRBase = inputListQCD2FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
     eosDir = options.eosDir
     backgroundDatasetsDict = GetBackgroundDatasets(inputListBkgBase)
     xsectionFiles = dict()
@@ -1781,7 +1827,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "21jun2024"
+    xsectionDate = "2aug2024"
     xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
@@ -1795,9 +1841,8 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [600]#,1100,1200]
+    #lqMassesToUse = [300]#,1100,1200]
     lqMassesToUse = list(range(300, 3100, 100))
-    #lqMassesToUse = [2800]#,500,600]
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
     else:

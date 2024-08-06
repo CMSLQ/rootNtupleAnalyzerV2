@@ -38,7 +38,7 @@ parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_7maySkim_21junxsec/LQToDEle/{}".format(year)
+base_folder = os.getenv("LQDATAEOS")+"/BDT_2AugSkim/LQToBEle/{}".format(year)
 optimizationFile = base_folder+"/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 
@@ -85,18 +85,62 @@ print(cutValues)
 #plot max FOM vs. LQ mass
 FOMVsMLQPlot = TGraph(len(LQmasses))
 for i, mass in enumerate(LQmasses):
-    print("get fom plot ", "LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
+    #print("get fom plot ", "LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
     fomPlot = optTFile.Get("LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
     foms = fomPlot.GetY()
+    cutVal = cutValues[str(mass)]
+    index = int((cutVal - (-1))/0.02) #100 cuts between -1 and 1
+    fomUsed = foms[index]
+    FOMVsMLQPlot.SetPoint(i,mass,fomUsed)
+    '''
     maxFOM = max(foms)
-    FOMVsMLQPlot.SetPoint(i,mass,maxFOM)
+    if (mass<1000):
+        FOMVsMLQPlot.SetPoint(i,mass,maxFOM)
+    else:
+        cutVal = cutValues[str(mass)]
+        for j in range(fomPlot.GetN()):
+            x = fomPlot.GetPointX(j)
+            if (cutVal-0.01 < x and x < cutVal+0.01):
+                fom = fomPlot.GetPointY(j)
+                FOMVsMLQPlot.SetPoint(i,mass,fom)
+    '''
+    c = TCanvas()
+    fomPlot.GetXaxis().SetTitle("BDT cut")
+    fomPlot.Draw()
+    #c.SetLogy()
+    c.SetGridy()
+    c.Print(pdf_folder+"/{}/FOMvsBDTCut.pdf".format(mass))
+    if i==0:
+        c.Print(pdf_folder+"/FOMPlots.pdf(","pdf")
+    elif mass == LQmasses[-1]:
+        c.Print(pdf_folder+"/FOMPlots.pdf)","pdf")
+    else:
+        c.Print(pdf_folder+"/FOMPlots.pdf","pdf")
+    if mass == 2300:
+        ymin = fomPlot.GetYaxis().GetBinLowEdge(fomPlot.GetYaxis().GetFirst())
+        ymax = fomPlot.GetYaxis().GetBinUpEdge(fomPlot.GetYaxis().GetLast())
+        lineMaxFOM = TLine(0.3804, ymin, 0.3804, ymax)
+        lineMaxCut = TLine(0.6006, ymin, 0.6006, ymax)
+        lineMaxFOM.SetLineColor(kBlue)
+        lineMaxCut.SetLineColor(kRed)
+        ltemp = TLegend(0.2,0.7,0.6,0.9)
+        ltemp.AddEntry(lineMaxFOM, "BDT cut with max FOM and nB > 0.5. (FOM = 0.0283)","l")
+        ltemp.AddEntry(lineMaxCut, "Max BDT cut with nB > 0.5 (FOM = 0.0277)", "l")
+        ltemp.AddEntry(fomPlot, "Figure of merit", "p")
+        lineMaxFOM.Draw('same')
+        lineMaxCut.Draw('same')
+        ltemp.Draw('same')
+        fomPlot.Draw('psame')
+        c.Print(pdf_folder+"/{}/FOM_withCuts_forAN.pdf".format(mass))
+
+
 c2 = TCanvas()
 c2.SetGridy()
 c2.SetLogy()
 FOMVsMLQPlot.SetName("maxFOM_vs_MLQ")
-FOMVsMLQPlot.SetTitle("max FOM vs MLQ")
+FOMVsMLQPlot.SetTitle("FOM of chosen BDT cut vs MLQ")
 FOMVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
-FOMVsMLQPlot.GetYaxis().SetTitle("max FOM")
+FOMVsMLQPlot.GetYaxis().SetTitle("FOM")
 FOMVsMLQPlot.SetMarkerStyle(8)
 FOMVsMLQPlot.Draw("ALP")
 outFile.cd()
@@ -126,22 +170,34 @@ for mass in LQmasses:
     NbPlot.SetLineColor(kRed)
     NsPlot.SetLineColor(kBlue)
     NbPlot.GetYaxis().SetTitle("")
-    NbPlot.SetTitle("yield vs BDT cut")
+    NbPlot.SetTitle("Background Yield vs BDT Cut")
     #NbPlot.GetYaxis().SetRangeUser(plotMin,plotMax)
-    NbPlot.GetXaxis().SetTitle("opt. BDT cut")
+    NbPlot.GetXaxis().SetTitle("BDT cut")
     NsPlot.GetYaxis().SetRangeUser(plotMin,plotMax)
     NbPlot.SetMarkerSize(0.5)
     NsPlot.SetMarkerSize(0.5)
+    NbPlot.SetMarkerColor(kBlack)
+    NbPlot.SetLineColor(kBlack)
     NbPlot.Draw("AP")
-    #NsPlot.Draw("P")
+    #NsPlot.Draw("Psame")
     l = TLegend(0.9,0.8,0.99,0.9)
-    l.AddEntry(NsPlot,"signal","p")
-    l.AddEntry(NbPlot,"background", "p")
+    #l.AddEntry(NsPlot,"signal","p")
+    l.AddEntry(NbPlot,"background yield", "p")
     #l.Draw("same")
     optCut = cutValues[str(mass)]
-    line = TLine(optCut,plotMin,optCut,plotMax)
-    line.SetLineColor(kAzure+8)
+    line = TLine(optCut,NbPlot.GetYaxis().GetBinLowEdge(NbPlot.GetYaxis().GetFirst()),optCut,NbPlot.GetYaxis().GetBinUpEdge(NbPlot.GetYaxis().GetLast()))
+    line.SetLineColor(kRed)
     line.Draw("same")
+    if mass==2300:
+        ltemp = TLegend(0.2,0.7,0.6,0.9)
+        lineMaxFom = TLine(0.3804,NbPlot.GetYaxis().GetBinLowEdge(NbPlot.GetYaxis().GetFirst()),0.3804,NbPlot.GetYaxis().GetBinUpEdge(NbPlot.GetYaxis().GetLast()))
+        lineMaxFom.SetLineColor(kBlue)
+        lineMaxFom.Draw('same')
+        ltemp.AddEntry(lineMaxFom, "BDT cut with max FOM and min nB > 0.5 (nB = 0.5087)","l")
+        ltemp.AddEntry(line, "Max BDT cut with nB > 0.5 (nB = 0.5327)","l")
+        ltemp.AddEntry(NbPlot, "background yield", "p")
+        ltemp.Draw("same")
+    NbPlot.Draw('psame')
     c.Print(pdf_folder+"/"+str(mass)+"/NBvsBDTCutMLQ"+str(mass)+".pdf")
 
     cEff = TCanvas()
@@ -526,8 +582,8 @@ for i,mass in enumerate(LQmasses):
        else:
            c5.Print(pdf_folder+"/allInputVars.pdf","pdf")
 
-           if mass==500 or mass==1500 or mass==2500:
-               c5.Print(plotsForAN,"pdf")
+       if mass==500 or mass==1500 or mass==2500:
+           c5.Print(plotsForAN,"pdf")
 
 for i,mass in enumerate(LQmasses):
     #Also get overtraining plots 

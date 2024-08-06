@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 #
 import os
+import shutil
 import sys
 import math
 import multiprocessing
 import traceback
+import tempfile
 from rich.progress import Progress
 from rich.console import Console
 from time import sleep
@@ -130,30 +132,33 @@ def ProcessDataset(args):
         #     df = df.Redefine("Weight", "float(TMath::Sign(1, Weight))")
         expectedEvents = df.Count().GetValue()
         datasetName = os.path.basename(txtFile).replace(".txt", "")
+        tempDir = tempfile.mkdtemp()
         if len(qcdLabel):
-            tfilepath = outputTFileDir+"/{}/{}/{}.root".format(qcdLabel, mass, datasetName)
+            tfilepath = "{}/{}.root".format(tempDir,datasetName)
+            outputOnEos = outputTFileDir+"/{}/{}".format(qcdLabel, mass)
             #if not os.path.isdir(outputTFileDir+"/{}/{}".format(qcdLabel, mass)):
              #   os.makedirs(outputTFileDir+"/{}/{}".format(qcdLabel, mass))
         else:
-            tfilepath = outputTFileDir+"/{}/{}.root".format(mass, datasetName)
+            tfilepath = "{}/{}.root".format(tempDir,datasetName)
+            outputOnEos = outputTFileDir+"/{}".format(mass)
             #if not os.path.isdir(outputTFileDir+"/{}".format(mass)):
              #   os.mkdir(outputTFileDir+"/{}".format(mass))
-        if "root://" not in tfilepath:
-            os.makedirs(tfilepath, exist_ok=True)
-            print("proccess dataset ",tfilepath)
+        if "root://" not in outputOnEos:
+            os.makedirs(outputOnEos, exist_ok=True)
+            print("proccess dataset ",datasetName)
         if signalNameTemplate.format(mass) in tfilepath:
             eventCounterHist = GetTotalEventsHist(mass, year, allSignalDatasetsDict, signalNameTemplate)
         else:
             eventCounterHist = GetTotalEventsHist(mass, year, {datasetName: [txtFile]}, datasetName)
         eventCounterHistEntries = eventCounterHist.GetEntries()
         while redo and trials < maxTrials:
-            #print("INFO: Writing snapshot to:", tfilepath)
+            print("INFO: Writing snapshot to:", tfilepath)
         #    if "TTToHadronic" in tfilepath:
         #        print("columns for TTToHadronic sample")
         #        df.Describe().Print()
             #if expectedEvents > 0:
             df.Snapshot("rootTupleTree/tree", tfilepath, branchesToSave)
-            
+            #sleep(3)    
             #if signalNameTemplate.format(mass) in tfilepath:
             #    eventCounterHist = GetTotalEventsHist(mass, allSignalDatasetsDict, signalNameTemplate)
             #    tfile = TFile(tfilepath, "update")
@@ -190,10 +195,20 @@ def ProcessDataset(args):
                 redo = False
                 break
             trials+=1
-            sleep(1)
         if redo:
             #print("ERROR: After {} trials, didn't write the tree properly into the root file; txtFile={}, mass={}".format(maxTrials, txtFile, mass), flush=True)
             raise RuntimeError("After {} trials, didn't write the tree or hist properly into the root file; txtFile={}, mass={}".format(maxTrials, txtFile, mass))
+        else:
+            #if len(qcdLabel):
+             #   shutil.copy(tfilepath, outputOnEos+"/{}.root".format(datasetName))
+            #else:
+            shutil.copy(tfilepath, outputOnEos)
+            print("copied to ", outputOnEos+"/{}.root".format(datasetName))
+            #clean out /tmp/
+            for f in os.listdir(tempDir):
+                os.remove(tempDir+"/"+f)
+            if os.path.isdir(tempDir):
+                os.rmdir(tempDir)
     except Exception as e:
         #print("ERROR: exception in ProcessDataset for txtFile={}, mass={}".format(txtFile, mass), flush=True)
         traceback.print_exc()
@@ -455,11 +470,11 @@ parallelize = True
 date = "9oct2023"
 includeQCD = True
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7maySkim/trainingTreeInputs/preselOnly"
-inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7maySkim/trainingTreeInputs/singleFR/"
-inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7maySkim/trainingTreeInputs/doubleFR/"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/2AugSkim/trainingTreeInputs/preselOnly"
+inputListQCD1FRBase = "$LQANA/config/myDatasets/"+str(year)+"/2AugSkim/trainingTreeInputs/singleFR/"
+inputListQCD2FRBase = "$LQANA/config/myDatasets/"+str(year)+"/2AugSkim/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/may7Skims"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/2AugSkims"
 #signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
 signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
 if __name__ == "__main__":

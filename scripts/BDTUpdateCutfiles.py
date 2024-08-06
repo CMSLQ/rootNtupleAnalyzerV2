@@ -7,19 +7,20 @@ import subprocess
 #If running for 2017 or 2018, use era = ""
 
 year = "2016"
-era = "preVFP"
-date = "11jul2024"
+era = "postVFP"
+date = "5aug2024"
 
 #weight files
-weightFiles = os.getenv("LQDATAEOS")+"/BDT_7maySkim_10julxsec/LQToBEle/{}{}/dataset/weights".format(year,era)
+weightFiles = os.getenv("LQDATAEOS")+"/BDT_2AugSkim/LQToBEle/{}{}/dataset/weights".format(year,era)
 weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToBEle/{}{}/HTLO-amcatnlo_{}/weights".format(year,era,date)
 print("copying weight files to "+weightFilesDest)
 
 #optimization results
-optResults = os.getenv("LQDATAEOS")+"/BDT_7maySkim_10julxsec/LQToBEle/{}{}/bdtOptimization.log".format(year,era)
+optResults = os.getenv("LQDATAEOS")+"/BDT_2AugSkim/LQToBEle/{}{}/bdtOptimization.log".format(year,era)
 
 #cut files
 filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")
+#filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}HTLO-amcatnlo/".format(year,era+"/")
 filesToUpdate = [
     "cutTable_lq_eejj_BDT.txt",
     "cutTable_lq_eejj_QCD_doubleFR.txt",

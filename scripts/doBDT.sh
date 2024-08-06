@@ -8,7 +8,7 @@ years='2016preVFP 2016postVFP 2017 2018'
 
 for year in $years; do
 
-destDir=$LQDATAEOS/BDT_7maySkim_10julxsec/LQToDEle/$year/testLCG105
+destDir=$LQDATAEOS/BDT_2AugSkim/LQToBEle/$year
 
 #rm -r dataset
 #cp -r $LQDATAEOS/BDT_7maySkim_10julxsec/LQToDEle/$year/dataset .
