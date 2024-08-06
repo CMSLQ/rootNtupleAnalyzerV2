@@ -117,7 +117,8 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain) 
         df = df.Define("perSampleWeight", str(weight)) 
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
-        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"  
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root" 
+        time.sleep(3)
         df.Snapshot("testTree",filename)
         time.sleep(2)
         testOutputTree.Add(filename)
@@ -140,6 +141,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"
         df.Snapshot("testTree",filename)
+        time.sleep(3)
         testOutputTree.Add(filename)
     else: #everything else goes in both. Also, amcatnlo should end up going through this part if we train with amcatnlo DY
         tchain.SetWeight(weight,"global")
@@ -1808,12 +1810,12 @@ if __name__ == "__main__":
 
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    skim = "21jun"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7maySkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    skim = "2Aug"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -1825,7 +1827,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "10jul2024"
+    xsectionDate = "2aug2024"
     xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
@@ -1841,7 +1843,6 @@ if __name__ == "__main__":
     # normTo = "Meejj"
     #lqMassesToUse = [300]#,1100,1200]
     lqMassesToUse = list(range(300, 3100, 100))
-    #lqMassesToUse = [2300,500,600]
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
     else:
