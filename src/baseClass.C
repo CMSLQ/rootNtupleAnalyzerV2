@@ -596,6 +596,7 @@ void baseClass::readCutFile()
             exit(-2);
           }
           thisCut.reset(new TMVACut(modelName, weightFile, trainingSelection));
+          thisCut->variableName = variableName;
           isTMVACut = true;
           if(splitByCommas.size() > 3) {
             for(int index = 3; index < splitByCommas.size(); ++index) {
@@ -1273,7 +1274,11 @@ void baseClass::runSystematics()
           }
         }
         // reevaluate since cuts were updated
-        evaluateCuts(systCutName_cut_, combCutNameToPassFail, orderedSystCutNames_);
+        try {
+          evaluateCuts(systCutName_cut_, combCutNameToPassFail, orderedSystCutNames_);
+        } catch (std::runtime_error& e) {
+          throw std::runtime_error("Caught exception when running systematics for "+syst.name+": "+e.what());
+        }
       }
       else {
         if(syst.formula) {
