@@ -69,6 +69,16 @@ class SimpleCut {
       return std::visit( [](auto&&x)->decltype(auto){ return std::to_string(x); }, value);
     }
 
+    bool isNaN() const {
+      return std::visit( [this](auto&&val)->bool{
+          using T = std::decay_t<decltype(val)>;
+          if constexpr (std::is_same_v<bool, T>)
+            return false;
+          else
+            return std::isnan(val);
+          }, value);
+    }
+
     template <typename T>
       const T& getValue() const {
         return std::get<T>(value);
@@ -205,17 +215,18 @@ class TMVACut : public cut {
 
     bool evaluateCut() override {
       std::string cutsNotFilled;
+      std::string cutsNaN;
       for(auto& cut : inputVariables) {
-        if(!cut->filled) {
+        if(!cut->filled)
           cutsNotFilled+=cut->variableName+" ";
-        }
+        else if(cut->isNaN())
+          cutsNaN+=cut->variableName+" ";
         //STDOUT("\tcut: " << cut->variableName << " value = " << cut->getValue<float>());
       }
-      if(!cutsNotFilled.empty()) {
-          STDOUT("ERROR: Cut(s) " << cutsNotFilled << " was not filled. Cannot evaluate TMVA model.");
-          //return false;
-          exit(-7);
-      }
+      if(!cutsNotFilled.empty())
+          throw std::runtime_error("ERROR: For " + this->variableName + " - Cut(s) " + cutsNotFilled + " was not filled. Cannot evaluate TMVA model.");
+      if(!cutsNaN.empty())
+          throw std::runtime_error("ERROR: For " + this->variableName + " - Cut(s) " + cutsNaN + " are NaN. Cannot evaluate TMVA model.");
       weight = (*(inputVariables.begin()))->weight; // FIXME: a bit of a gotcha here. to fix,
       // maybe we need to mark static variables as such so that we don't use them for the weight.
       value = static_cast<float>(reader->EvaluateMVA(modelName));
