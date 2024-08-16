@@ -16,10 +16,12 @@ import time
 from graphlib import TopologicalSorter
 from collections import OrderedDict
 import pprint
+import tempfile
 from termcolor import colored
 
 import combineCommon
 
+gROOT.SetBatch(True)
 
 def CheckForFile(filename):
     filename = filename.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
@@ -588,15 +590,12 @@ else:
     print("\bDone.  All root/dat files are present.")
     print()
 
+tempDir = None
 if options.outputDir.startswith("/eos/"):
     if options.outputDir.startswith("/eos/cms"):
         cmd = "EOS_MGM_URL=root://eoscms/ eos mkdir {}".format(options.outputDir)
-        #tfileOutputPath = options.outputDir.replace("/eos/cms/", "root://eoscms//")
-        tfileOutputPath = "/tmp"
     elif options.outputDir.startswith("/eos/user"):
         cmd = "EOS_MGM_URL=root://eosuser/ eos mkdir {}".format(options.outputDir)
-        #tfileOutputPath = options.outputDir.replace("/eos/cms/", "root://eosuser//")
-        tfileOutputPath = "/tmp"
     else:
         raise RuntimeError("Don't know how to handle output dir like '{}'".format(outputDir))
     if not os.path.isdir(options.outputDir):
@@ -607,22 +606,18 @@ if options.outputDir.startswith("/eos/"):
             print(colored("stdout = ", ex.stdout, "green"))
             print(colored("stderr = ", ex.stderr, "red"))
             raise RuntimeError("cmd {} failed".format(cmd))
+    tempDir = tempfile.TemporaryDirectory()
+    tfileOutputPath = tempDir.name
 else:
     if not os.path.isdir(options.outputDir):
         os.makedirs(options.outputDir)
     tfileOutputPath = options.outputDir
 
-if options.outputDir.startswith("/eos"):
-    outputTableFilename = "/tmp/"+options.analysisCode+"_tables.dat"
-else:
-    outputTableFilename = options.outputDir+"/"+options.analysisCode+"_tables.dat"
+outputTableFilename = tfileOutputPath+"/"+options.analysisCode+"_tables.dat"
 outputTableFile = open(outputTableFilename,"w")
 tfilePrefix = tfileOutputPath + "/" + options.analysisCode
 sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
-if options.outputDir.startswith("/eos/"):
-    sampleDatFileNameTemplate = "/tmp/"+options.analysisCode + "_{}_tables.dat"
-else:
-    sampleDatFileNameTemplate = options.outputDir + "/" + options.analysisCode + "_{}_tables.dat"
+sampleDatFileNameTemplate = tfileOutputPath+"/"+options.analysisCode + "_{}_tables.dat"
 
 dag = combineCommon.CreateGraphDict(dictSamples)
 visitedNodes = {key: False for key in dag.keys()}
@@ -860,33 +855,35 @@ if not options.tablesOnly:
     else:
         print("output plots at: {}".format(outputTFileNameHadd), flush=True)
 
-print("copy files to {}".format(options.outputDir))
-if os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
-    command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
+if tempDir is not None:
+    print("copy files to {}".format(options.outputDir))
+    # if os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
+    #     command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
+    #     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    command = ["xrdcp","{}/{}_plots.root".format(tfileOutputPath, options.analysisCode), "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
-
-command = ["xrdcp","/tmp/{}_plots.root".format(options.analysisCode), "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
-proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
-
-if os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
-    command = ["rm", "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
+    
+    if not os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
+        print("ERROR: failed to copy root file to eos")
+    else:
+        print("output plots copied to: {}/{}_plots.root".format(options.outputDir ,options.analysisCode))
+    
+    # if os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
+    #     command = ["rm", "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
+    #     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+     
+    command = ["xrdcp","/{}/{}_tables.dat".format(tfileOutputPath, options.analysisCode), "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
- 
-command = ["xrdcp","/tmp/{}_tables.dat".format(options.analysisCode), "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
-proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    # command = ["rm", "/tmp/{}_plots.root".format(options.analysisCode), "/tmp/{}_tables.dat".format(options.analysisCode)]
+    # proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
 
-command = ["rm", "/tmp/{}_plots.root".format(options.analysisCode), "/tmp/{}_tables.dat".format(options.analysisCode)]
-proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
+    if not os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
+        print("ERROR: failed to copy dat file to eos")
+    else:
+        print("output plots copied to: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode))
 
-if not os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
-    print("ERROR: failed to copy root file to eos")
-else:
-    print("output plots copied to: {}/{}_plots.root".format(options.outputDir ,options.analysisCode))
-
-if not os.path.isfile("{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)):
-    print("ERROR: failed to copy dat file to eos")
-else:
-    print("output plots copied to: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode))
 # ---TODO: CREATE LATEX TABLE (PYTEX?) ---#
 
 # for profiling
