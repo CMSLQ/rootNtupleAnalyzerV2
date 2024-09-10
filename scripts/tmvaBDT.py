@@ -104,12 +104,14 @@ def LoadChainFromTxtFile(txtFile, console=None):
     #     print(logString)
     return ch
 
-def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainingSample, testOutputTree, trainOutputTree, lqMass, eosDir):
+def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainingSample, testOutputTree, trainOutputTree, lqMass, eosDir, year):
     ROOT.DisableImplicitMT() #I need rdataframe Range, which doesn't work with implicit mt
-    if not os.path.isdir(eosDir+"/perSampleTrainingTrees"):
-        os.mkdir(eosDir+"/perSampleTrainingTrees")
-    if not os.path.isdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)):
-        os.mkdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass))
+    #if not os.path.isdir(eosDir+"/perSampleTrainingTrees"):
+    #    os.mkdir(eosDir+"/perSampleTrainingTrees")
+    #if not os.path.isdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)):
+    #    os.mkdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass))
+    #if not os.path.isdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year):
+    #    os.mkdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year)
     
     if "ZJet" in key and "amcatnlo" in key and not "amcatnlo" in ZJetTrainingSample: #amcatnlo DY goes in testing if we train with a different DY sample. If we train with amcatnlo, then we need to use the later code where we split the tree instead of using half the weight
         print("Use weight/2 for dataset "+datasetName)
@@ -117,7 +119,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain) 
         df = df.Define("perSampleWeight", str(weight)) 
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
-        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root" 
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_test"+str(lqMass)+".root" 
         time.sleep(3)
         df.Snapshot("testTree",filename)
         time.sleep(2)
@@ -128,7 +130,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain)
         df = df.Define("perSampleWeight", str(weight))
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
-        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_train"+str(lqMass)+".root"
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_train"+str(lqMass)+".root"
         df.Snapshot("trainTree", filename)
         time.sleep(2)
         trainOutputTree.Add(filename)
@@ -139,7 +141,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain)
         df = df.Define("perSampleWeight", str(weight))
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
-        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"
+        filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_test"+str(lqMass)+".root"
         df.Snapshot("testTree",filename)
         time.sleep(3)
         testOutputTree.Add(filename)
@@ -150,8 +152,8 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = df.Define("fullWeight","perSampleWeight * EventWeight")
         dfTrain = df.Range(0,0,2) #even entries
         dfTest = df.Range(1,0,2) #odd entries
-        filenameTrain = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_train"+str(lqMass)+".root"
-        filenameTest = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+datasetName+"_test"+str(lqMass)+".root"
+        filenameTrain = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_train"+str(lqMass)+".root"
+        filenameTest = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_test"+str(lqMass)+".root"
         nTrain = dfTrain.Count()
         nTest = dfTest.Count()
         dfTrain.Snapshot("trainTree", filenameTrain)
@@ -163,7 +165,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         testOutputTree.Add(filenameTest)
     ROOT.EnableImplicitMT(6) #Turn this back on when we're done
 
-def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", signal=False, loader=None, year=None, lqMass=None, nLQPoints=1):
+def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", signal=False, loader=None, years=None, lqMass=None, nLQPoints=1):
     #print("loadDatasets for dict: ")
     #print(datasetDict)
     nTotEvents = 0
@@ -177,20 +179,68 @@ def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", s
     cut = mycuts if signal else mycutb
     if loader is None:
         totalTChain = TChain("rootTupleTree/tree")
-    for key, value in datasetDict.items():
-        if "ZJet" in key and not "amcatnlo" in key:
-            if not key==ZJetTrainingSample:
-                continue #we have three DY samples and we only need at most two of them. We always need amcatnlo DY but not necessarily the others.
-        print("Loading tree for dataset={}; signal={}".format(key, signal))
-        if isinstance(value, list):
-            nSampleTotEvents = 0
-            nSampleSumWeights = 0
-            for count, txtFile in enumerate(value):
-                txtFile = txtFile.format(year, lqMass)
+    else:
+        #if not os.path.isdir(eosDir+"/perSampleTrainingTrees"):
+        #    os.mkdir(eosDir+"/perSampleTrainingTrees")
+        if not os.path.isdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)):
+            os.mkdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass))
+    for year in years:
+        if not loader is None:
+            if not os.path.isdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year):
+                os.mkdir(eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year)
+        print("Load datasets for year {}".format(year))
+        intLumi = intLumiDict[year]
+        xsectionFile = xsectionFiles[year]
+        ParseXSectionFile(xsectionFile)
+        for key, value in datasetDict.items():
+            if "QCDFakes_DATA" in key and not year in key:
+                print("INFO: skip key {} for year {}".format(key, year))
+                continue
+            if "ZJet" in key and not "amcatnlo" in key:
+                if not key==ZJetTrainingSample:
+                    continue #we have three DY samples and we only need at most two of them. We always need amcatnlo DY but not necessarily the others.
+            print("Loading tree for dataset={}; signal={}".format(key, signal))
+            if isinstance(value, list):
+                nSampleTotEvents = 0
+                nSampleSumWeights = 0
+                for count, txtFile in enumerate(value):
+                    txtFile = txtFile.format(year, lqMass)
+                    if year=="2016preVFP" and not "SinglePhoton" in txtFile:
+                        txtFile = txtFile.replace(".txt","_APV.txt")
+                    ch = LoadChainFromTxtFile(txtFile)
+                    if ch is None:
+                        continue
+                    nSampleTotEvents += ch.GetEntries()
+                    datasetName = os.path.basename(txtFile).replace(".txt", "")
+                    if "data" not in key.lower():
+                        sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
+                        weight = CalcWeight(datasetName, intLumi, sumWeights)
+                    else:
+                        weight = 1.0
+                    nSampleSumWeights = GetSumWeightsInChain(ch, cut, weight)
+                    print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
+                    if loader is not None:
+                #    if signal:
+                #        loader.AddSignalTree    ( ch, weight )
+                #    else:
+                #        loader.AddBackgroundTree( ch, weight/nLQPoints )
+                        print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
+                        if signal:
+                            PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeSig, trainTreeSig, lqMass, eosDir, year)
+                        else:
+                            PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeBkg, trainTreeBkg, lqMass, eosDir, year)
+                    else:
+                        totalTChain.Add(ch)
+                print("Loaded tree for sample {} with {} entries; sumWeights={}.".format(key, nSampleTotEvents, nSampleSumWeights))
+                nTotEvents += nSampleTotEvents
+                nTotSumWeights += nSampleSumWeights
+            else:
+                txtFile = value
+                txtFile = txtFile.format(lqMass)
                 ch = LoadChainFromTxtFile(txtFile)
                 if ch is None:
                     continue
-                nSampleTotEvents += ch.GetEntries()
+                nSampleTotEvents = ch.GetEntries()
                 datasetName = os.path.basename(txtFile).replace(".txt", "")
                 if "data" not in key.lower():
                     sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
@@ -200,52 +250,22 @@ def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", s
                 nSampleSumWeights = GetSumWeightsInChain(ch, cut, weight)
                 print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
                 if loader is not None:
-                #    if signal:
-                #        loader.AddSignalTree    ( ch, weight )
-                #    else:
-                #        loader.AddBackgroundTree( ch, weight/nLQPoints )
-                    print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
                     if signal:
-                        PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeSig, trainTreeSig, lqMass, eosDir)
+                        PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeSig, trainTreeSig, lqMass, eosDir, year)
                     else:
-                        PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeBkg, trainTreeBkg, lqMass, eosDir)
-                else:
-                    totalTChain.Add(ch)
-            print("Loaded tree for sample {} with {} entries; sumWeights={}.".format(key, nSampleTotEvents, nSampleSumWeights))
-            nTotEvents += nSampleTotEvents
-            nTotSumWeights += nSampleSumWeights
-        else:
-            txtFile = value
-            txtFile = txtFile.format(lqMass)
-            ch = LoadChainFromTxtFile(txtFile)
-            if ch is None:
-                continue
-            nSampleTotEvents = ch.GetEntries()
-            datasetName = os.path.basename(txtFile).replace(".txt", "")
-            if "data" not in key.lower():
-                sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
-                weight = CalcWeight(datasetName, intLumi, sumWeights)
-            else:
-                weight = 1.0
-            nSampleSumWeights = GetSumWeightsInChain(ch, cut, weight)
-            print("Add file={} with weight*1000={} to collection".format(txtFile, weight*1000))
-            if loader is not None:
-                if signal:
-                    PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName, ZJetTrainingSample, testTreeSig, trainTreeSig, lqMass, eosDir)
-                else:
-                    PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName,ZJetTrainingSample, testTreeBkg, trainTreeBkg, lqMass, eosdir)
+                        PrepareCustomTestAndTrainTrees(ch, weight, key, datasetName,ZJetTrainingSample, testTreeBkg, trainTreeBkg, lqMass, eosdir, year)
             #    if signal:
             #        loader.AddSignalTree    ( ch, weight )
             #    else:
             #        loader.AddBackgroundTree( ch, weight/nLQPoints )
-                print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
-            else:
-                totalTChain.Add(ch)
-            print("Loaded tree for sample {} with {} entries; sumWeights={}".format(key, nSampleTotEvents, nSampleSumWeights))
-            nTotEvents += nSampleTotEvents
-            nTotSumWeights += nSampleSumWeights
-    print("Total: loaded tree with {} entries; sumWeights={}".format(nTotEvents, nTotSumWeights))
-    sys.stdout.flush()
+                    print("Loaded tree from file {} with {} events and {} sumWeights.".format(txtFile, ch.GetEntries(), nSampleSumWeights))
+                else:
+                    totalTChain.Add(ch)
+                print("Loaded tree for sample {} with {} entries; sumWeights={}".format(key, nSampleTotEvents, nSampleSumWeights))
+                nTotEvents += nSampleTotEvents
+                nTotSumWeights += nSampleSumWeights
+        print("Total: loaded tree with {} entries; sumWeights={}".format(nTotEvents, nTotSumWeights))
+        sys.stdout.flush()
     if loader is None:
         return totalTChain
     else:
@@ -264,7 +284,7 @@ def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", s
 
 def TrainBDT(args):
     lqMassToUse = args[0]
-    year = args[1]
+    years = args[1]
     normVars = args[2]
     eosDir = args[3]
     ZJetTrainingSample = args[4]
@@ -286,8 +306,8 @@ def TrainBDT(args):
             factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
         
         loader = TMVA.DataLoader("dataset")
-        nEntriesTrainBkg = LoadDatasets(backgroundDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=False, loader=loader, lqMass=lqMassToUse, year=year)
-        nEntriesTrainSig = LoadDatasets(signalDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=True, loader=loader, lqMass=lqMassToUse, year=year)
+        nEntriesTrainBkg = LoadDatasets(backgroundDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=False, loader=loader, lqMass=lqMassToUse, years=years)
+        nEntriesTrainSig = LoadDatasets(signalDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=True, loader=loader, lqMass=lqMassToUse, years=years)
         
         #  Set individual event weights (the variables must exist in the original TTree)
         # if(analysisYear < 2018 && hasBranch("PrefireWeight") && !isData()) --> prefire weight
@@ -363,6 +383,14 @@ def TrainBDT(args):
             c1.Write("rocCurve_lqm"+str(lqMassToUse)+".png")
         
         outputFile.Close()
+
+        if not os.path.isfile(eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".root"):
+            raise Exception("Problem creating TMVA_ClassificationOutput file for LQ mass {}".format(lqMassToUse))
+        else:
+            if os.path.getsize(eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".root") < 1000000:
+                raise Exception("TMVA_ClassificationOutput file is too small for LQ mass {}".format(lqMassToUse))
+            else:
+                print("INFO: Finished training BDT for mass {}".format(lqMassToUse))
 
         if drawTrees:
             methodBDT = factory.GetMethod("dataset", "BDTG")
@@ -476,6 +504,8 @@ def GetTotalEventsHist(lqMassToUse, year, signalDict, signalNameTemplate):
     histName = "savedHists/EventCounter"
     tfiles = []
     for count, txtFile in enumerate(txtFiles):
+        if year=="2016preVFP" and not "_APV.txt" in txtFile:
+            txtFile=txtFile.replace(".txt","_APV.txt")
         txtFile = txtFile.format(year, lqMassToUse)
         with open(os.path.expandvars(txtFile), "r") as theTxtFile:
             for line in theTxtFile:
@@ -564,7 +594,7 @@ def EvaluateFigureOfMerit(nS, nB, efficiency, bkgEnts, figureOfMerit):
 
 
 def OptimizeBDTCut(args):
-    bdtWeightFileName, lqMassToUse, sharedOptValsDict, sharedOptHistsDict, sharedFOMInfoDict, year = args
+    bdtWeightFileName, lqMassToUse, sharedOptValsDict, sharedOptHistsDict, sharedFOMInfoDict, years = args
     startTime = time.time()
     try:
         signalDatasetsDict = {}
@@ -612,77 +642,108 @@ def OptimizeBDTCut(args):
         bkgHistsNegWeights = dict()
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
-        for sample in backgroundDatasetsDict.keys():
-            if "ZJet" in sample and not "amcatnlo" in sample:
-                continue #use only amcatnlo DY for optimization
-            bkgSampleIntegralOverCut = 0
-            bkgSampleIntegral = 0
-            bkgSampleIntegralHist = 0
-            bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1.001, 1.001)
-            bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
-            bkgHistsNegWeights[sample] = TH1D(histName.format(sample)+"_negWeightsOnly", histTitle.format(sample)+", negative weight events", binsToUse, -1.001, 1.001)
-            for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
-                txtFile = txtFile.format(year, lqMassToUse)
-                #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
-                tchainBkg = LoadChainFromTxtFile(txtFile)
-                if tchainBkg is None:
+        for year in years:
+            for sample in backgroundDatasetsDict.keys():
+                if "QCDFakes_DATA" in sample and not year in sample:
                     continue
-                df = RDataFrame(tchainBkg)
-                df = df.Filter(mycutb.GetTitle())  # will work for expressions valid in C++
-                if "LQCandidateMass" in variableList:
-                    df = df.Define("massInt", str(lqMassToUse))
-                    df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
-                varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
-                varNames = []
-                for v in varNamesVec:
-                    varNames.append(v)
-                if normalizeVars:
-                    # print("{} varNames: {}".format(len(varNames), varNames))
-                    l_varn = ROOT.std.vector['std::string']()
-                    for i_expr, expr in enumerate(varNames):
-                        varname = 'v_{}'.format(i_expr)
-                        l_varn.push_back(varname)
-                        df=df.Define(varname, '(float)({})'.format(expr))
-                    df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
+                if "ZJet" in sample and not "amcatnlo" in sample:
+                    continue #use only amcatnlo DY for optimization
+                bkgSampleIntegralOverCut = 0
+                bkgSampleIntegral = 0
+                bkgSampleIntegralHist = 0
+                if "QCDFakes_DATA" in sample:
+                    for s in ["QCDFakes_DATA", "QCDFakes_DATA_2FR"]:
+                        if not s in bkgHists:
+                            bkgHists[s] = TH1D(histName.format(s), histTitle.format(s), binsToUse, -1.001, 1.001)
+                        if not s in bkgHistsUnweightedUnscaled:
+                            bkgHistsUnweightedUnscaled[s] = TH1D(histName.format(s)+"_unweightedUnscaled", histTitle.format(s)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
+                        if not s in bkgHistsNegWeights:
+                            bkgHistsNegWeights[s] = TH1D(histName.format(s)+"_negWeightsOnly", histTitle.format(s)+", negative weight events", binsToUse, -1.001, 1.001)
                 else:
-                    print(getattr(ROOT, "computeBDT{}".format(lqMassToUse)))
-                    df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
-                df = df.Define('BDT', 'BDTv[0]')
-                df = df.Define('eventWeight', eventWeightExpression)
-                histName = "BDTVal_{}_{}".format(sample, idx)
-                hbkg = TH1D(histName, histName, binsToUse, -1.001, 1.001)
-                histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), "BDT", "eventWeight")
-                hbkgUnweighted =  TH1D(histName+"_unweighted", histName+"_unweighted", binsToUse, -1.001, 1.001)
-                histBkgUnweighted = df.Histo1D(ROOT.RDF.TH1DModel(hbkgUnweighted), "BDT")
-                hbkNegWeights = TH1D(histName+"_negWeights", histName+"_negWeights", binsToUse, -1.001, 1.001)
-                histBkgNegWeights = df.Filter('eventWeight < 0').Histo1D(ROOT.RDF.TH1DModel(hbkNegWeights),"BDT")
-                #bkgWeight = backgroundDatasetsWeightsTimesOneThousand[os.path.basename(txtFile).replace(".txt", "")]/1000.0
-                #bkgWeight = FindWeight(os.path.basename(txtFile).replace(".txt", ""), backgroundDatasetsWeightsTimesOneThousand)/1000.0
-                datasetName = os.path.basename(txtFile).replace(".txt", "")
-                if "data" not in sample.lower():
-                    sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
-                    bkgWeight = CalcWeight(datasetName, intLumi, sumWeights)
-                else:
-                    bkgWeight = 1.0
-                histBkg = histBkg.GetValue()
-                histBkg.Scale(bkgWeight)
-                bkgHists[sample].Add(histBkg)
-                bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted.GetValue())
-                bkgHistsNegWeights[sample].Add(histBkgNegWeights.GetValue())
-                bkgTotal.Add(histBkg)
-                #bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
-                bkgTotalUnweighted.Add(histBkgUnweighted.GetValue())
-                bkgTotalNegWeightsOnly.Add(histBkgNegWeights.GetValue())
-                #h = df.Histo1D(hbkg, "BDT", "eventWeight")
-                #h.Draw()
-                bkgIntegral = df.Sum("eventWeight").GetValue()*bkgWeight
-                # bkgIntegralOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Sum("eventWeight").GetValue()*bkgWeight
-                # bkgEntriesOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Count().GetValue()
-                print("subsample={}, bkgWeight={}".format(txtFile, bkgWeight), flush=True)
-                print("subsample={}, entries = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, histBkg.GetEntries(), histBkg.Integral()/bkgWeight, histBkg.Integral()), flush=True)
-                print("subsample={}, df entries = {}, df integral unweighted = {}, df integral weighted = {}".format(txtFile, df.Count().GetValue(), df.Sum("eventWeight").GetValue(), df.Sum("eventWeight").GetValue()*bkgWeight), flush=True)
-                # print("subsample={}, entries with BDT > {} = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, cutValForIntegral, bkgEntriesOverCut, bkgIntegralOverCut/bkgWeight, bkgIntegralOverCut))
-                sys.stdout.flush()
+                    if not sample in bkgHists:
+                        bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1.001, 1.001)
+                    if not sample in bkgHistsUnweightedUnscaled:
+                        bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
+                    if not sample in bkgHistsNegWeights:
+                        bkgHistsNegWeights[sample] = TH1D(histName.format(sample)+"_negWeightsOnly", histTitle.format(sample)+", negative weight events", binsToUse, -1.001, 1.001)
+                intLumi = intLumiDict[year]
+                xsectionFile = xsectionFiles[year]
+                ParseXSectionFile(xsectionFile)
+                for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
+                    txtFile = txtFile.format(year, lqMassToUse)
+                    if year=="2016preVFP" and not "SinglePhoton" in txtFile:
+                       txtFile = txtFile.replace(".txt", "_APV.txt")
+                    #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
+                    tchainBkg = LoadChainFromTxtFile(txtFile)
+                    if tchainBkg is None:
+                        continue
+                    df = RDataFrame(tchainBkg)
+                    df = df.Filter(mycutb.GetTitle())  # will work for expressions valid in C++
+                    if "LQCandidateMass" in variableList:
+                        df = df.Define("massInt", str(lqMassToUse))
+                        df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
+                    varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                    varNames = []
+                    for v in varNamesVec:
+                        varNames.append(v)
+                    if normalizeVars:
+                        # print("{} varNames: {}".format(len(varNames), varNames))
+                        l_varn = ROOT.std.vector['std::string']()
+                        for i_expr, expr in enumerate(varNames):
+                            varname = 'v_{}'.format(i_expr)
+                            l_varn.push_back(varname)
+                            df=df.Define(varname, '(float)({})'.format(expr))
+                        df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
+                    else:
+                        print(getattr(ROOT, "computeBDT{}".format(lqMassToUse)))
+                        df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
+                    df = df.Define('BDT', 'BDTv[0]')
+                    df = df.Define('eventWeight', eventWeightExpression)
+                    histNameBDT = "BDTVal_{}_{}_{}".format(sample, idx, year)
+                    print("Use hist name {}".format(histNameBDT))
+                    hbkg = TH1D(histNameBDT, histNameBDT, binsToUse, -1.001, 1.001)
+                    histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), "BDT", "eventWeight")
+                    hbkgUnweighted =  TH1D(histNameBDT+"_unweighted", histNameBDT+"_unweighted", binsToUse, -1.001, 1.001)
+                    histBkgUnweighted = df.Histo1D(ROOT.RDF.TH1DModel(hbkgUnweighted), "BDT")
+                    hbkNegWeights = TH1D(histNameBDT+"_negWeights", histNameBDT+"_negWeights", binsToUse, -1.001, 1.001)
+                    histBkgNegWeights = df.Filter('eventWeight < 0').Histo1D(ROOT.RDF.TH1DModel(hbkNegWeights),"BDT")
+                    #bkgWeight = backgroundDatasetsWeightsTimesOneThousand[os.path.basename(txtFile).replace(".txt", "")]/1000.0
+                    #bkgWeight = FindWeight(os.path.basename(txtFile).replace(".txt", ""), backgroundDatasetsWeightsTimesOneThousand)/1000.0
+                    datasetName = os.path.basename(txtFile).replace(".txt", "")
+                    if "data" not in sample.lower():
+                        sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
+                        bkgWeight = CalcWeight(datasetName, intLumi, sumWeights)
+                    else:
+                        bkgWeight = 1.0
+                    histBkg = histBkg.GetValue()
+                    histBkg.Scale(bkgWeight)
+                    if "QCDFakes_DATA" in sample:
+                        if not "2FR" in sample:
+                            bkgHists["QCDFakes_DATA"].Add(histBkg)
+                            bkgHistsUnweightedUnscaled["QCDFakes_DATA"].Add(histBkgUnweighted.GetValue())
+                            bkgHistsNegWeights["QCDFakes_DATA"].Add(histBkgNegWeights.GetValue())
+                        else:
+                            bkgHists["QCDFakes_DATA_2FR"].Add(histBkg)
+                            bkgHistsUnweightedUnscaled["QCDFakes_DATA_2FR"].Add(histBkgUnweighted.GetValue())
+                            bkgHistsNegWeights["QCDFakes_DATA_2FR"].Add(histBkgNegWeights.GetValue())
+                    else:
+                        bkgHists[sample].Add(histBkg)
+                        bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted.GetValue())
+                        bkgHistsNegWeights[sample].Add(histBkgNegWeights.GetValue())
+                    bkgTotal.Add(histBkg)
+                    #bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
+                    bkgTotalUnweighted.Add(histBkgUnweighted.GetValue())
+                    bkgTotalNegWeightsOnly.Add(histBkgNegWeights.GetValue())
+                    #h = df.Histo1D(hbkg, "BDT", "eventWeight")
+                    #h.Draw()
+                    bkgIntegral = df.Sum("eventWeight").GetValue()*bkgWeight
+                    # bkgIntegralOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Sum("eventWeight").GetValue()*bkgWeight
+                    # bkgEntriesOverCut = df.Filter("BDT > {}".format(cutValForIntegral)).Count().GetValue()
+                    print("subsample={}, bkgWeight={}".format(txtFile, bkgWeight), flush=True)
+                    print("subsample={}, entries = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, histBkg.GetEntries(), histBkg.Integral()/bkgWeight, histBkg.Integral()), flush=True)
+                    print("subsample={}, df entries = {}, df integral unweighted = {}, df integral weighted = {}".format(txtFile, df.Count().GetValue(), df.Sum("eventWeight").GetValue(), df.Sum("eventWeight").GetValue()*bkgWeight), flush=True)
+                    # print("subsample={}, entries with BDT > {} = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, cutValForIntegral, bkgEntriesOverCut, bkgIntegralOverCut/bkgWeight, bkgIntegralOverCut))
+                    sys.stdout.flush()
                 # print some entries
                 # if sample == "QCDFakes_DATA":
                 #     cols = ROOT.vector('string')()
@@ -720,43 +781,48 @@ def OptimizeBDTCut(args):
                 #     sys.stdout.flush()
                 #bkgTotIntegralOverCut += bkgIntegralOverCut
                 #bkgSampleIntegralOverCut += bkgIntegralOverCut
-                bkgSampleIntegral += bkgIntegral
-                bkgSampleIntegralHist += histBkg.Integral()
-            print("sample={}, events = {} [df], from hist = {}".format(sample, bkgSampleIntegral, bkgSampleIntegralHist), flush=True)
+                    bkgSampleIntegral += bkgIntegral
+                    bkgSampleIntegralHist += histBkg.Integral()
+                print("sample={}, events = {} [df], from hist = {}".format(sample, bkgSampleIntegral, bkgSampleIntegralHist), flush=True)
             #print("sample={}, events over BDT cut = {}".format(sample, bkgSampleIntegralOverCut))
         # print("bkgIntegralOverCut={}".format(bkgIntegralOverCut), flush=True)
 
         # signal
-        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, year=year)
-        dfSig = RDataFrame(tchainSig)
-        dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
+        histSig = copy.deepcopy(hsig)
+        histSigUnweighted = copy.deepcopy(hsigUnweighted)
+        for year in years:
+            intLumi = intLumiDict[year]
+            tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, years=[year])
+            dfSig = RDataFrame(tchainSig)
+            dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
         # dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-        varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
-        varNames = []
-        for v in varNamesVec:
-            varNames.append(v)
-        if normalizeVars:
-            # print("{} varNames: {}".format(len(varNames), varNames))
-            l_varn = ROOT.std.vector['std::string']()
-            for i_expr, expr in enumerate(varNames):
-                varname = 'v_{}'.format(i_expr)
-                l_varn.push_back(varname)
-                dfSig=dfSig.Define(varname, '(float)({})'.format(expr))
-            dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
-        else:
-            dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
-        dfSig = dfSig.Define('BDT', 'BDTv[0]')
-        dfSig = dfSig.Define('eventWeight', eventWeightExpression)
-        histSig = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), "BDT", "eventWeight")
-        histSigUnweighted = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsigUnweighted), "BDT")
-        #datasetName = os.path.basename(txtFile).replace(".txt", "")
-        sumWeights = GetSignalSumWeights(lqMassToUse, year)
-        signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
-        #signalWeight = signalDatasetsWeightsTimesOneThousand[signalDatasetName]/1000.0
-        print("multiply hist by signal weight ", signalWeight)
-        histSig.Scale(signalWeight)
-
+            varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+            varNames = []
+            for v in varNamesVec:
+                varNames.append(v)
+            if normalizeVars:
+                # print("{} varNames: {}".format(len(varNames), varNames))
+                l_varn = ROOT.std.vector['std::string']()
+                for i_expr, expr in enumerate(varNames):
+                    varname = 'v_{}'.format(i_expr)
+                    l_varn.push_back(varname)
+                    dfSig=dfSig.Define(varname, '(float)({})'.format(expr))
+                dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
+            else:
+                dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
+            dfSig = dfSig.Define('BDT', 'BDTv[0]')
+            dfSig = dfSig.Define('eventWeight', eventWeightExpression)
+            histSigThisYear = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), "BDT", "eventWeight")
+            histSigUnweightedThisYear = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsigUnweighted), "BDT")
+            #datasetName = os.path.basename(txtFile).replace(".txt", "")
+            sumWeights = GetSignalSumWeights(lqMassToUse, year)
+            signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
+            #signalWeight = signalDatasetsWeightsTimesOneThousand[signalDatasetName]/1000.0
+            print("multiply hist by signal weight ", signalWeight)
+            histSigThisYear.Scale(signalWeight)
+            histSig.Add(histSigThisYear.GetValue())
+            histSigUnweighted.Add(histSigUnweightedThisYear.GetValue())
         # print some entries
         # cols = ROOT.vector('string')()
         # cols.push_back("BDT")
@@ -837,10 +903,11 @@ def OptimizeBDTCut(args):
             #     print("Evaluate figure of merit for nS={}, nB={}, unweightedNs={}, unweightedNb={}".format(nS, nB, unweightedNs, unweightedNb), flush=True)
             #     exit(0)
             # require at least one background event expected
-            if "2016" in year:
-                minNB = 0.5
-            else:
-                minNB = 1
+            #if "2016" in year:
+            #    minNB = 0.5
+            #else:
+            #minNB = 3
+            minNB = 0
 
              
             if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
@@ -904,7 +971,7 @@ def OptimizeBDTCut(args):
             valList.append("no")
         sharedOptValsDict[lqMassToUse] = valList
         print(sharedOptValsDict)
-        sharedOptHistsDict[lqMassToUse] = [histSig.GetValue(), bkgTotal, histSigUnweighted.GetValue(), bkgTotalUnweighted, bkgTotalNegWeightsOnly]
+        sharedOptHistsDict[lqMassToUse] = [histSig, bkgTotal, histSigUnweighted, bkgTotalUnweighted, bkgTotalNegWeightsOnly]
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
         sharedFOMInfoDict[lqMassToUse]["nS"] = nSList
         sharedFOMInfoDict[lqMassToUse]["eff"] = effList
@@ -927,7 +994,7 @@ def OptimizeBDTCut(args):
         sharedFOMInfoDict[lqMassToUse]["nBUnweightedNoBDTCut"] = bkgTotalUnweighted.IntegralAndError(1, bkgTotal.GetNbinsX(), nBErr)
         sharedFOMInfoDict[lqMassToUse]["nBErrUnweightedNoBDTCut"] = nBErr.value
         #cutVal = maxVal[1][1]
-        cutVal = cutValInfoToUse[1]
+        cutVal = cutValInfoToUse[2]
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
         for sample, hist in bkgHists.items():
             cutBin = hist.FindFixBin(cutVal)
@@ -961,7 +1028,7 @@ def OptimizeBDTCut(args):
 
 
 def DoROCAndBDTPlots(args):
-    rocAndBDTPlots, bdtWeightFileName, lqMassToUse, year = args
+    rocAndBDTPlots, bdtWeightFileName, lqMassToUse, years = args
 #    rootFile, bdtWeightFileName, lqMassToUse, year = args
     try:
         #rootFile = TFile.Open(rootFileName, "update")
@@ -991,70 +1058,82 @@ def DoROCAndBDTPlots(args):
         for var in variableList+["BDT"]:
             if var == "LQCandidateMass":
                 continue
-            varHistsBkg[var] = TH1D(var+"_bkg", var+" bkg", *variableHistInfo[var])            
-        for sample in backgroundDatasetsDict.keys():
-            if "ZJet" in sample and not "amcatnlo" in sample:
-                continue #use only amcatnlo DY in BDTPlots step
-            for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
-                txtFile = txtFile.format(year, lqMassToUse)
-                #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
-                tchainBkg = LoadChainFromTxtFile(txtFile)
-                if tchainBkg is None:
+            varHistsBkg[var] = TH1D(var+"_bkg", var+" bkg", *variableHistInfo[var])
+        for year in years:
+            print("INFO: load datasets for year {}".format(year))
+            intLumi = intLumiDict[year]
+            xsectionFile = xsectionFiles[year]
+            ParseXSectionFile(xsectionFile)
+            for sample in backgroundDatasetsDict.keys():
+                if "QCDFakes_DATA" in sample and not year in sample:
+                    print("skip sample {} for year {}".format(sample, year))
                     continue
-                df = RDataFrame(tchainBkg)
-                df = df.Filter(mycutb.GetTitle())  # will work for expressions valid in C++
-                if "LQCandidateMass" in variableList:
-                    df = df.Define("massInt", str(lqMassToUse))
-                    df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
+                if "ZJet" in sample and not "amcatnlo" in sample:
+                    continue #use only amcatnlo DY in BDTPlots step
+                print("INFO: load datasets for sample {}".format(sample))
+                for idx, txtFile in enumerate(backgroundDatasetsDict[sample]):
+                    if year=="2016preVFP" and not "_APV.txt" in txtFile and not "SinglePhoton" in txtFile:
+                        txtFile = txtFile.replace(".txt", "_APV.txt")
+                    txtFile = txtFile.format(year, lqMassToUse)
+                    print("INFO: add txt file {}".format(txtFile))
+                    #tchainBkg = LoadChainFromTxtFile(txtFile.format(lqMassToUse))
+                    tchainBkg = LoadChainFromTxtFile(txtFile)
+                    if tchainBkg is None:
+                        continue
+                    df = RDataFrame(tchainBkg)
+                    df = df.Filter(mycutb.GetTitle())  # will work for expressions valid in C++
+                    if "LQCandidateMass" in variableList:
+                        df = df.Define("massInt", str(lqMassToUse))
+                        df = df.Redefine("LQCandidateMass", "Numba::GetMassFloat(massInt)")
                 # df = df.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
                 # df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-                varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
-                varNames = []
-                for v in varNamesVec:
-                    varNames.append(v)
-                if normalizeVars:
-                    l_varn = ROOT.std.vector['std::string']()
-                    for i_expr, expr in enumerate(varNames):
-                        varname = 'v_{}'.format(i_expr)
-                        l_varn.push_back(varname)
-                        df=df.Define(varname, '(float)({})'.format(expr))
-                    df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
-                else:
-                    df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
-                df = df.Define('BDT', 'BDTv[0]')
-                df = df.Define('eventWeight', eventWeightExpression)
+                    varNamesVec = getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames()
+                    varNames = []
+                    for v in varNamesVec:
+                        varNames.append(v)
+                    if normalizeVars:
+                        l_varn = ROOT.std.vector['std::string']()
+                        for i_expr, expr in enumerate(varNames):
+                            varname = 'v_{}'.format(i_expr)
+                            l_varn.push_back(varname)
+                            df=df.Define(varname, '(float)({})'.format(expr))
+                        df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
+                    else:
+                        df = df.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
+                    df = df.Define('BDT', 'BDTv[0]')
+                    df = df.Define('eventWeight', eventWeightExpression)
                 # df = df.Filter("BDT > -0.2 && BDT < 0.2")
-                datasetName = os.path.basename(txtFile).replace(".txt", "")
-                if "data" not in sample.lower():
-                    sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
-                    bkgWeight = CalcWeight(datasetName, intLumi, sumWeights)
-                else:
-                    bkgWeight = 1.0
-                df = df.Define("datasetWeight", str(bkgWeight))
-                df = df.Redefine("eventWeight", "eventWeight*datasetWeight")
-                temp_bkgMvaValues = df.Take["float"]("BDT")
-                temp_bkgWeights = df.Take["double"]("eventWeight")
+                    datasetName = os.path.basename(txtFile).replace(".txt", "")
+                    if "data" not in sample.lower():
+                        sumWeights = GetBackgroundSumWeights(datasetName, txtFile)
+                        bkgWeight = CalcWeight(datasetName, intLumi, sumWeights)
+                    else:
+                        bkgWeight = 1.0
+                    df = df.Define("datasetWeight", str(bkgWeight))
+                    df = df.Redefine("eventWeight", "eventWeight*datasetWeight")
+                    temp_bkgMvaValues = df.Take["float"]("BDT")
+                    temp_bkgWeights = df.Take["double"]("eventWeight")
                 
-                histosToRun = []
-                hbkg = {}
-                histBkg = {}
-                for var in variableList+["BDT"]:
-                    if var == "LQCandidateMass":
-                        continue
-                    histName = "{}_{}_{}".format(var, sample, idx)
-                    hbkg[var] = TH1D(histName, histName, *variableHistInfo[var])
-                    histBkg[var] = df.Histo1D(ROOT.RDF.TH1DModel(hbkg[var]), var, "eventWeight")
-                    # histBkg.Scale(bkgWeight)
-                    histosToRun.append(histBkg[var])
-                ROOT.RDF.RunGraphs(histosToRun)
+                    histosToRun = []
+                    hbkg = {}
+                    histBkg = {}
+                    for var in variableList+["BDT"]:
+                        if var == "LQCandidateMass":
+                            continue
+                        histName = "{}_{}_{}".format(var, sample, idx)
+                        hbkg[var] = TH1D(histName, histName, *variableHistInfo[var])
+                        histBkg[var] = df.Histo1D(ROOT.RDF.TH1DModel(hbkg[var]), var, "eventWeight")
+                        # histBkg.Scale(bkgWeight)
+                        histosToRun.append(histBkg[var])
+                    ROOT.RDF.RunGraphs(histosToRun)
 
-                bkgMvaValues.extend(temp_bkgMvaValues.GetValue())
-                bkgWeights.extend(temp_bkgWeights.GetValue())
+                    bkgMvaValues.extend(temp_bkgMvaValues.GetValue())
+                    bkgWeights.extend(temp_bkgWeights.GetValue())
 
-                for var in variableList+["BDT"]:
-                    if var == "LQCandidateMass":
-                        continue
-                    varHistsBkg[var].Add(histBkg[var].GetPtr())
+                    for var in variableList+["BDT"]:
+                        if var == "LQCandidateMass":
+                            continue
+                        varHistsBkg[var].Add(histBkg[var].GetPtr())
         plotDict = {}
         plotDict[str(lqMassToUse)] = {}
         plotDict[str(lqMassToUse)]["bkg"] = {}
@@ -1069,48 +1148,53 @@ def DoROCAndBDTPlots(args):
          #   varHist.Write()
 
         # signal
-        tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"", signal=True, loader=None, lqMass=lqMassToUse, year=year)
-        dfSig = RDataFrame(tchainSig)
-        dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
+        for year in years:
+            intLumi = intLumiDict[year]
+            tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"", signal=True, loader=None, lqMass=lqMassToUse, years=[year])
+            dfSig = RDataFrame(tchainSig)
+            dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
         # dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
-        if normalizeVars:
-            l_varn = ROOT.std.vector['std::string']()
-            for i_expr, expr in enumerate(varNames):
-                varname = 'v_{}'.format(i_expr)
-                l_varn.push_back(varname)
-                dfSig=dfSig.Define(varname, '(float)({})'.format(expr))
-            dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
-        else:
-            dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
-        dfSig = dfSig.Define('BDT', 'BDTv[0]')
-        dfSig = dfSig.Define('eventWeight', eventWeightExpression)
+            if normalizeVars:
+                l_varn = ROOT.std.vector['std::string']()
+                for i_expr, expr in enumerate(varNames):
+                    varname = 'v_{}'.format(i_expr)
+                    l_varn.push_back(varname)
+                    dfSig=dfSig.Define(varname, '(float)({})'.format(expr))
+                dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), l_varn)
+            else:
+                dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
+            dfSig = dfSig.Define('BDT', 'BDTv[0]')
+            dfSig = dfSig.Define('eventWeight', eventWeightExpression)
         # dfSig = dfSig.Filter("BDT > -0.2 && BDT < 0.2")
-        sumWeights = GetSignalSumWeights(lqMassToUse, year)
-        signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
-        dfSig = dfSig.Define("datasetWeight", str(signalWeight))
-        dfSig = dfSig.Redefine("eventWeight", "eventWeight*datasetWeight")
-        takeBDTSig = dfSig.Take["float"]("BDT")
-        takeEventWeightSig = dfSig.Take["double"]("eventWeight")
+            sumWeights = GetSignalSumWeights(lqMassToUse, year)
+            signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
+            dfSig = dfSig.Define("datasetWeight", str(signalWeight))
+            dfSig = dfSig.Redefine("eventWeight", "eventWeight*datasetWeight")
+            takeBDTSig = dfSig.Take["float"]("BDT")
+            takeEventWeightSig = dfSig.Take["double"]("eventWeight")
         # vars
         #rootFile.cd("LQM{}".format(lqMassToUse))
-        sigHists = {}
-        for var in variableList+["BDT"]:
-            if var == "LQCandidateMass":
-                continue
-            hsig = TH1D(var+"_LQ{}".format(lqMassToUse), var+" LQ{}".format(lqMassToUse), *variableHistInfo[var])
-            histSig = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), var, "eventWeight")
-            sigHists[var] = histSig
+            sigHists = {}
+            for var in variableList+["BDT"]:
+                if var == "LQCandidateMass":
+                    continue
+                hsig = TH1D(var+"_LQ{}".format(lqMassToUse), var+" LQ{}".format(lqMassToUse), *variableHistInfo[var])
+                histSig = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), var, "eventWeight")
+                sigHists[var] = histSig
             #histSig.Scale(signalWeight)
             #histSig.Write()
-        plotDict[str(lqMassToUse)]["sig"] = {}
-        for var in variableList+["BDT"]:
-            if var == "LQCandidateMass":
-                continue
+            plotDict[str(lqMassToUse)]["sig"] = {}
+            for var in variableList+["BDT"]:
+                if var == "LQCandidateMass":
+                    continue
             #histSig = histSig.GetPtr()
-            sigHists[var].Scale(signalWeight)
-            plotDict[str(lqMassToUse)]["sig"][var] = sigHists[var].GetPtr()
-
+                sigHists[var].Scale(signalWeight)
+                if not var in plotDict[str(lqMassToUse)]["sig"]:
+                    plotDict[str(lqMassToUse)]["sig"][var] = copy.deepcopy(sigHists[var].GetPtr())
+                else:
+                    plotDict[str(lqMassToUse)]["sig"][var].Add(sigHists[var].GetPtr())
+        '''
         # ROC
         rocCurve = TMVA.ROCCurve(takeBDTSig.GetValue(), bkgMvaValues, takeEventWeightSig.GetValue(), bkgWeights)
         rocGraph = rocCurve.GetROCCurve(100)
@@ -1134,9 +1218,9 @@ def DoROCAndBDTPlots(args):
                y = rocGraph.GetPointY(i)
                print("point",i,":",x,",",y) 
         #print(plotDict)
+        '''
         rocAndBDTPlots[str(lqMassToUse)].update(plotDict[str(lqMassToUse)])
         #rocAndBDTPlots[str(lqMassToUse)] = plotDict[str(lqMassToUse)]
-
         #rootFile.Close()
     except Exception as e:
         print("ERROR: exception in DoROCAndBDTPlots for lqMass={}".format(lqMassToUse))
@@ -1597,41 +1681,41 @@ def GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year):
             #]
     }
     if year == "2016preVFP":
-        qcdFakes["QCDFakes_DATA"] = [
+        qcdFakes["QCDFakes_DATA_2016preVFP"] = [
                     inputListQCD1FRBase+"SinglePhoton_Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v4.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     ]
-        qcdFakes["QCDFakes_DATA_2FR"] = [
+        qcdFakes["QCDFakes_DATA_2FR_2016preVFP"] = [
             inputListQCD2FRBase+"SinglePhoton_Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
             inputListQCD2FRBase+"SinglePhoton_Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v4.txt",
             inputListQCD2FRBase+"SinglePhoton_Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
             inputListQCD2FRBase+"SinglePhoton_Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
             inputListQCD2FRBase+"SinglePhoton_Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2.txt",
             ]
-        qcdFakes["QCDFakes_DYJ"] = [txtFile.replace(".txt", "_APV.txt") for txtFile in qcdFakes["QCDFakes_DYJ"]]
+        #qcdFakes["QCDFakes_DYJ"] = [txtFile.replace(".txt", "_APV.txt") for txtFile in qcdFakes["QCDFakes_DYJ"]]
     elif year == "2016postVFP":
-        qcdFakes["QCDFakes_DATA"] = [
+        qcdFakes["QCDFakes_DATA_2016postVFP"] = [
                     inputListQCD1FRBase+"SinglePhoton_Run2016H-UL2016_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2016G-UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2016F-UL2016_MiniAODv2_NanoAODv9-v1.txt",
                     ]
-        qcdFakes["QCDFakes_DATA_2FR"] = [
+        qcdFakes["QCDFakes_DATA_2FR_2016postVFP"] = [
                     inputListQCD2FRBase+"SinglePhoton_Run2016H-UL2016_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2016G-UL2016_MiniAODv2_NanoAODv9-v2.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2016F-UL2016_MiniAODv2_NanoAODv9-v1.txt",
                     ]
     elif year == "2017":
-        qcdFakes["QCDFakes_DATA"] = [
+        qcdFakes["QCDFakes_DATA_2017"] = [
                     inputListQCD1FRBase+"SinglePhoton_Run2017B-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2017C-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2017D-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2017E-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"SinglePhoton_Run2017F-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     ]
-        qcdFakes["QCDFakes_DATA_2FR"] = [
+        qcdFakes["QCDFakes_DATA_2FR_2017"] = [
                     inputListQCD2FRBase+"SinglePhoton_Run2017B-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2017C-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD2FRBase+"SinglePhoton_Run2017D-UL2017_MiniAODv2_NanoAODv9-v1.txt",
@@ -1639,13 +1723,13 @@ def GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year):
                     inputListQCD2FRBase+"SinglePhoton_Run2017F-UL2017_MiniAODv2_NanoAODv9-v1.txt",
                     ]
     elif year=="2018":
-        qcdFakes["QCDFakes_DATA"] = [
+        qcdFakes["QCDFakes_DATA_2018"] = [
                     inputListQCD1FRBase+"EGamma_Run2018A-UL2018_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"EGamma_Run2018B-UL2018_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"EGamma_Run2018C-UL2018_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD1FRBase+"EGamma_Run2018D-UL2018_MiniAODv2_NanoAODv9-v3.txt",
                     ]
-        qcdFakes["QCDFakes_DATA_2FR"] = [
+        qcdFakes["QCDFakes_DATA_2FR_2018"] = [
                     inputListQCD2FRBase+"EGamma_Run2018A-UL2018_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD2FRBase+"EGamma_Run2018B-UL2018_MiniAODv2_NanoAODv9-v1.txt",
                     inputListQCD2FRBase+"EGamma_Run2018C-UL2018_MiniAODv2_NanoAODv9-v1.txt",
@@ -1803,19 +1887,19 @@ if __name__ == "__main__":
     )
 
     (options, args) = parser.parse_args()
-    if len(args) != 1:
-        parser.print_help()
-        raise RuntimeError("Must specify year")
-    year = args[0]
-
+    #if len(args) != 1:
+    #    parser.print_help()
+    #    raise RuntimeError("Must specify year")
+    #year = args[0]
+    years = ["2016preVFP", "2016postVFP", "2017", "2018"]
     gROOT.SetBatch()
     dateStr = "9oct2023"
     skim = "2Aug"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/2AugSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/19AugSkim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/19AugSkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/19AugSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = True
+    use_BEle_samples = False
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -1828,10 +1912,12 @@ if __name__ == "__main__":
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
     xsectionDate = "2aug2024"
-    xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
-    xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
-    xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
-    xsectionFiles["2018"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    for year in years:
+        xsectionFiles[year] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    #xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    #xsectionFiles["2016preVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    #xsectionFiles["2017"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
+    #xsectionFiles["2018"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     train = options.train
     optimize = options.optimize
     roc = options.roc
@@ -1841,7 +1927,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [300]#,1100,1200]
+    #lqMassesToUse = [2500, 2900]#,2000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
@@ -1852,37 +1938,42 @@ if __name__ == "__main__":
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(1500)+"_APV_BDTG.weights.xml"
     #optimizationPlotFile = os.path.abspath(os.getcwd())+"/optimizationPlots.root"
     optimizationPlotFile = eosDir+"/optimizationPlots.root"
-    bdtPlotFile = os.path.abspath(os.getcwd())+"/bdtPlots.root"
+    bdtPlotFile = eosDir+"/bdtPlots.root"
 
     if not parametrized:
         neededBranches.remove("LQCandidateMass")
         variableList.remove("LQCandidateMass")
-    xsectionFile = xsectionFiles[year]
-    if year == "2016preVFP":
-        intLumi = 19497.897120
-        for dataset in backgroundDatasetsDict.keys():
-            if "QCDFakes_DATA" in dataset:
-                continue
-            backgroundDatasetsDict[dataset] = [txtFile.replace(".txt", "_APV.txt") for txtFile in backgroundDatasetsDict[dataset]]
-        if includeQCD:
+    #xsectionFile = xsectionFiles[year]
+    intLumiDict = dict()
+    #if year == "2016preVFP":
+    intLumiDict["2016preVFP"] = 19497.897120
+    intLumiDict["2016postVFP"] = 16812.151722
+    intLumiDict["2017"] = 41477.877399
+    intLumiDict["2018"] = 59827.449483
+    #    for dataset in backgroundDatasetsDict.keys():
+    #        if "QCDFakes_DATA" in dataset:
+    #            continue
+    #        backgroundDatasetsDict[dataset] = [txtFile.replace(".txt", "_APV.txt") for txtFile in backgroundDatasetsDict[dataset]]
+    if includeQCD:
+        for year in years:
             backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
-        signalNameTemplate+="_APV"
-    elif year == "2016postVFP":
-        intLumi = 16812.151722
-        if includeQCD:
-            backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
-    elif year == "2017":
-        if includeQCD:
-            backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
-        intLumi = 41477.877399
-    elif year == "2018":
-        if includeQCD:
-            backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
-        intLumi = 59827.449483
-    else:
-        raise RuntimeError("Did not understand 'year' parameter whose value is {}; must be one of 2016preVFP, 2016postVFP, 2017, 2018".format(year))
+#    signalNameTemplate+="_APV"
+    #elif year == "2016postVFP":
+    #    intLumi = 16812.151722
+       # if includeQCD:
+      #      backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
+    #elif year == "2017":
+    #    if includeQCD:
+       #     backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
+      #  intLumi = 41477.877399
+    #elif year == "2018":
+    #    if includeQCD:
+       #     backgroundDatasetsDict.update(GetQCDDatasetsDict(inputListQCD1FRBase, inputListQCD2FRBase, year))
+      #  intLumi = 59827.449483
+    #else:
+    #    raise RuntimeError("Did not understand 'year' parameter whose value is {}; must be one of 2016preVFP, 2016postVFP, 2017, 2018".format(year))
 
-    ParseXSectionFile(xsectionFile)
+    #ParseXSectionFile(xsectionFile)
     inputListSignalBase = inputListBkgBase
     allSignalDatasetsDict = {}
     massList = list(range(300, 3100, 100))
@@ -1892,6 +1983,8 @@ if __name__ == "__main__":
         allSignalDatasetsDict[signalName] = [inputListSignalBase+signalName+".txt"]
 
     if train:
+        if not os.path.isdir(eosDir+"/perSampleTrainingTrees"):
+            os.mkdir(eosDir+"/perSampleTrainingTrees")
         print("INFO: Begin {} training.".format("parametrized BDT" if parametrized else "BDT"))
         if parametrized:
             TrainParametrizedBDT(lqMassesToUse, year)
@@ -1903,7 +1996,7 @@ if __name__ == "__main__":
                 jobCount = 0
                 for mass in lqMassesToUse:
                     try:
-                        pool.apply_async(TrainBDT, [[mass, year, normalizeVars, eosDir, ZJetTrainingSample, drawTrainingTrees]], callback=log_result)
+                        pool.apply_async(TrainBDT, [[mass, years, normalizeVars, eosDir, ZJetTrainingSample, drawTrainingTrees]], callback=log_result)
                         jobCount += 1
                     except KeyboardInterrupt:
                         print("\n\nCtrl-C detected: Bailing.")
@@ -1925,7 +2018,7 @@ if __name__ == "__main__":
                     raise RuntimeError("ERROR: {} jobs had errors. Exiting.".format(jobCount-len(result_list)))
             else:
                 for mass in lqMassesToUse:
-                    TrainBDT([mass, year, normalizeVars, eosDir, ZJetTrainingSample, drawTrainingTrees])
+                    TrainBDT([mass, years, normalizeVars, eosDir, ZJetTrainingSample, drawTrainingTrees])
         print("INFO: Training {} done.".format("parametrized BDT" if parametrized else "BDT"))
     
     if optimize:
@@ -1946,7 +2039,7 @@ if __name__ == "__main__":
                     #weightFile = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/febSkims/negWeightComparison/include/dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
                 dictOptFOMInfo[mass] = manager.dict()
                 try:
-                    pool.apply_async(OptimizeBDTCut, [[weightFile.format(mass), mass, dictOptValues, dictOptHists, dictOptFOMInfo, year]], callback=log_result)
+                    pool.apply_async(OptimizeBDTCut, [[weightFile.format(mass), mass, dictOptValues, dictOptHists, dictOptFOMInfo, years]], callback=log_result)
                     jobCount += 1
                 except KeyboardInterrupt:
                     print("\n\nCtrl-C detected: Bailing.")
@@ -2003,7 +2096,7 @@ if __name__ == "__main__":
                         weightFileToUse = "dataset/weights/TMVAClassification_BDTG.weights.xml"
                     #rootFile.cd()
                     #rootFile.cd("LQM{}".format(mass))
-                    pool.apply_async(DoROCAndBDTPlots, [[rocAndBDTPlots, weightFileToUse, mass, year]], callback=log_result)
+                    pool.apply_async(DoROCAndBDTPlots, [[rocAndBDTPlots, weightFileToUse, mass, years]], callback=log_result)
                     #pool.apply_async(DoROCAndBDTPlots, [[rootFile, weightFileToUse, mass, year]], callback=log_result)
                     jobCount += 1
                 except KeyboardInterrupt:
@@ -2030,6 +2123,7 @@ if __name__ == "__main__":
                     signalDatasetName = signalNameTemplate.format(mass)
                     weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
                 DoROCAndBDTPlots([rocAndBDTPlots, weightFile, mass, year])
+        #print(rocAndBDTPlots)
         for mass in lqMassesToUse:
         #    print(rocAndBDTPlots)
             print("write hists for mass ", mass)
@@ -2040,5 +2134,5 @@ if __name__ == "__main__":
                     continue
                 rocAndBDTPlots[str(mass)]["sig"][var].Write()
                 rocAndBDTPlots[str(mass)]["bkg"][var].Write()
-            rocAndBDTPlots[str(mass)]["ROC"].Write()
+            #rocAndBDTPlots[str(mass)]["ROC"].Write()
         rootFile.Close()

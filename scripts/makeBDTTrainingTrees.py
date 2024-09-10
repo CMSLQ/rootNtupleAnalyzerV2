@@ -470,13 +470,13 @@ parallelize = True
 date = "9oct2023"
 includeQCD = True
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/2AugSkim/trainingTreeInputs/preselOnly"
-inputListQCD1FRBase = "$LQANA/config/myDatasets/"+str(year)+"/2AugSkim/trainingTreeInputs/singleFR/"
-inputListQCD2FRBase = "$LQANA/config/myDatasets/"+str(year)+"/2AugSkim/trainingTreeInputs/doubleFR/"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/19AugSkim/trainingTreeInputs/preselOnly"
+inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/19AugSkim/trainingTreeInputs/singleFR/"
+inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/19AugSkim/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/2AugSkims"
-#signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
-signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToDEle/"+str(year)+"/19AugSkims"
+signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+#signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
 if __name__ == "__main__":
     print("INFO: Using year = {}".format(year))
     print("INFO: Using signal name template: {}".format(signalNameTemplate))

@@ -4,11 +4,11 @@
 doTraining=true
 doOptimization=true
 doBDTPlots=true
-years='2016preVFP 2016postVFP 2017 2018'
+years='2018' # '2016preVFP 2016postVFP 2017 2018'
 
 for year in $years; do
 
-destDir=$LQDATAEOS/BDT_2AugSkim/LQToBEle/$year
+destDir=$LQDATAEOS/BDT_19AugSkim/LQToDEle/$year
 
 #rm -r dataset
 #cp -r $LQDATAEOS/BDT_7maySkim_10julxsec/LQToDEle/$year/dataset .
