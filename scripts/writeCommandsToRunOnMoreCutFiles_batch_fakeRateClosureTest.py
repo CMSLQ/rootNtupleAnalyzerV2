@@ -15,7 +15,7 @@ for analysisType in ["1P1F", "2F"]:
     #Output directory on AFS
     outdirpath = os.getenv("LQDATAAFS") + "/{}/qcdFRClosureTest/frClosureTest_{}/{}/condor".format(year,year,analysisType)
     #EOS directory
-    eosdir = os.getenv("LQDATAEOS")+ "/{}_DoubleEleTrigger/{}/{}".format(ananame,year,analysisType)
+    eosdir = os.getenv("LQDATAEOS")+ "/{}_17AugSkims/{}/{}".format(ananame,year,analysisType)
     #Input lists
     if analysisType == "1P1F":
         inputList = "config/myDatasets/{}HEEP/inputListAllCurrent.txt".format(year)
