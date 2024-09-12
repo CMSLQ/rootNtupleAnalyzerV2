@@ -34,15 +34,15 @@ int main(int argc, char* argv[])
       exit (1);
     };
 
-  string * inputList      = new  string(argv[1]);
-  string * cutFile        = new  string(argv[2]);
-  string * treeName       = new  string(argv[3]);
-  string * outputFileName = new  string(argv[4]);
-  string * cutEfficFile = outputFileName;
+  std::unique_ptr<string> inputList      = std::make_unique<string>(argv[1]);
+  std::unique_ptr<string> cutFile        = std::make_unique<string>(argv[2]);
+  std::unique_ptr<string> treeName       = std::make_unique<string>(argv[3]);
+  std::unique_ptr<string> outputFileName = std::make_unique<string>(argv[4]);
+  std::unique_ptr<string> cutEfficFile = std::make_unique<string>(*outputFileName.get());
   if(argc==6)
-    cutEfficFile   = new  string(argv[5]);
+    cutEfficFile   = std::make_unique<string>(argv[5]);
 
-  analysisClass analysisClass_(inputList, cutFile, treeName, outputFileName, cutEfficFile);
+  analysisClass analysisClass_(inputList.get(), cutFile.get(), treeName.get(), outputFileName.get(), cutEfficFile.get());
   analysisClass_.Loop();
 
 }
