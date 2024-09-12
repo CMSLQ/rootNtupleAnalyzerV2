@@ -54,14 +54,18 @@ def PrepareJobScript(outputname):
         outputfile.write("echo \"Running at site: $GLIDEIN_CMSSite\"\n")
         # hardcoded root is a bit nasty FIXME
         outputfile.write(' source /cvmfs/sft.cern.ch/lcg/views/LCG_104/x86_64-el9-gcc13-opt/setup.sh\n')
+        outputfile.write("echo \"Sourced LCG env.\"\n")
         # ROOT likes HOME set
         outputfile.write('[ -z "$HOME" ] && export HOME='+os.getenv('HOME')+'\n')
+        outputfile.write("echo \"Set HOME=$HOME.\"\n")
         outputfile.write('export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH\n')
+        outputfile.write("echo \"exported LD_LIBRARY_PATH.\"\n")
         inputList = inputfilename.split('/')[-1]
         # merge files if nano skim or reduced skim requested
         if options.reducedSkim or options.nanoSkim:
             with open(outputmain+"/input/"+inputList) as f:
                 outFileNames = f.read().splitlines()
+            outputfile.write("echo \"Running haddnano.py.\"\n")
             outputfile.write("./haddnano.py inputTree.root %s\n" % (" ".join(outFileNames)))
             # overwrite original inputList to just have inputTree.root
             with open(inputfilename, "w") as newInputList:
@@ -71,6 +75,7 @@ def PrepareJobScript(outputname):
             outputfile.write('  echo "./haddnano.py return error code=$retVal; quitting here."\n')
             outputfile.write('  exit $retVal\n')
             outputfile.write('fi\n')
+        outputfile.write("echo \"Running executable.\"\n")
         outputfile.write('./'+execName+' '+inputList+" "+cutfile.split('/')[-1]+" "+options.treeName+" "+outputPrefix+"_"+str(ijob)+" "+outputPrefix+"_"+str(ijob)+"\n")
         outputfile.write('retVal=$?\n')
         outputfile.write('if [ $retVal -ne 0 ]; then\n')
