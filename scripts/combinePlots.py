@@ -11,6 +11,7 @@ import multiprocessing
 import traceback
 import subprocess
 import shlex
+import shutil
 import copy
 import time
 from graphlib import TopologicalSorter
@@ -242,7 +243,10 @@ def MakeCombinedSample(args):
                     dataThisFile = combineCommon.FillTableErrors(data, rootFilename, sampleNameForHist)
                     if doWeightingThisFile:
                         data = combineCommon.CreateWeightedTable(dataThisFile, weight, xsection_X_intLumi)
+                        Ntot = float(data[0]["Npass"])
+                        print("INFO: inputDatFile={} for sample={}, NoCuts(weighted)={}".format(inputDatFile, sample, Ntot), flush=True)
                         sampleTable = combineCommon.UpdateTable(data, sampleTable)
+                        print("INFO: sampleTable for sample={} now has NoCuts(weighted)={}".format(sample, float(sampleTable[0]["Npass"])), flush=True)
                         tablesThisSample.append(data)
                     else:
                         thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
@@ -263,7 +267,10 @@ def MakeCombinedSample(args):
                     print(str(sumWeightsThisFile), flush=True)
                     combineCommon.ScaleHistos(histoDictThisSample, plotWeight)
                     data = combineCommon.CreateWeightedTable(thisPieceTable, weight, xsection_X_intLumi)
+                    Ntot = float(data[0]["Npass"])
+                    print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
                     sampleTable = combineCommon.UpdateTable(data, sampleTable)
+                    print("INFO: done with currentPiece={}, sampleTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(sampleTable[0]["Npass"])), flush=True)
                     tablesThisSample.append(data)
                 piecesAdded.append(matchingPiece)
 
@@ -606,8 +613,18 @@ if options.outputDir.startswith("/eos/"):
             print(colored("stdout = ", ex.stdout, "green"))
             print(colored("stderr = ", ex.stderr, "red"))
             raise RuntimeError("cmd {} failed".format(cmd))
-    tempDir = tempfile.TemporaryDirectory()
-    tfileOutputPath = tempDir.name
+    # tempDir = tempfile.TemporaryDirectory()
+    # tfileOutputPath = tempDir.name
+
+    # tempDir = "/tmp/scooper/testCombine/" #XXX FIXME SIC for testing - begin (commented above)
+    # try:
+    #     os.makedirs(tempDir)
+    # except OSError as error:
+    #     pass
+    tempDir = tempfile.mkdtemp()
+    tfileOutputPath = tempDir #XXX FIXME SIC for testing - END
+
+    print("INFO: Writing files to {}".format(tfileOutputPath))
 else:
     if not os.path.isdir(options.outputDir):
         os.makedirs(options.outputDir)
@@ -726,15 +743,18 @@ if not options.tablesOnly:
     outputTfile.cd()
 
 # --- Write tables
-for sample in dictSamples.keys():
-   combineCommon.WriteTable(dictFinalTables[sample], sample, outputTableFile)
 haveDatFile = True
+for sample in dictSamples.keys():
+    print("INFO: Writing final tables ==> sampleTable for sample={} now has NoCuts={}".format(sample, float(dictFinalTables[sample][0]["Npass"])), flush=True)
+    combineCommon.WriteTable(dictFinalTables[sample], sample, outputTableFile)
 # trust, but verify and try to write again if needed
 if not os.path.isfile(outputTableFilename):
-   combineCommon.WriteTable(dictFinalTables[sample], sample, outputTableFile)
-   if not os.path.isfile(outputTableFilename):
-       print("ERROR: something bad happened when trying to write the table file, as we didn't find a file here: {}".format(outputTableFilename))
-       haveDatFile = False
+    for sample in dictSamples.keys():
+        print("INFO: Re-writing final tables ==> sampleTable for sample={} now has NoCuts={}".format(sample, float(dictFinalTables[sample][0]["Npass"])), flush=True)
+        combineCommon.WriteTable(dictFinalTables[sample], sample, outputTableFile)
+    if not os.path.isfile(outputTableFilename):
+        print("ERROR: something bad happened when trying to write the table file, as we didn't find a file here: {}".format(outputTableFilename))
+        haveDatFile = False
 if haveDatFile:
     print("output tables at: {}".format(outputTableFilename), flush=True)
 
@@ -861,7 +881,7 @@ if tempDir is not None:
     #     command = ["rm", "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
     #     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
     
-    command = ["xrdcp","{}/{}_plots.root".format(tfileOutputPath, options.analysisCode), "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
+    command = ["xrdcp", "-f", "{}/{}_plots.root".format(tfileOutputPath, options.analysisCode), "{}/{}_plots.root".format(options.outputDir ,options.analysisCode)]
     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
     
     if not os.path.isfile("{}/{}_plots.root".format(options.outputDir ,options.analysisCode)):
@@ -873,7 +893,7 @@ if tempDir is not None:
     #     command = ["rm", "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
     #     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
      
-    command = ["xrdcp","/{}/{}_tables.dat".format(tfileOutputPath, options.analysisCode), "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
+    command = ["xrdcp", "-f", "/{}/{}_tables.dat".format(tfileOutputPath, options.analysisCode), "{}/{}_tables.dat".format(options.outputDir ,options.analysisCode)]
     proc = subprocess.run(command, check=True, universal_newlines=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE)
     
     # command = ["rm", "/tmp/{}_plots.root".format(options.analysisCode), "/tmp/{}_tables.dat".format(options.analysisCode)]
@@ -883,6 +903,13 @@ if tempDir is not None:
         print("ERROR: failed to copy dat file to eos")
     else:
         print("output plots copied to: {}/{}_tables.dat".format(options.outputDir ,options.analysisCode))
+
+    # delete dir if needed
+    if not options.keepInputFiles:
+        try:
+            shutil.rmtree(tempDir)
+        except OSError as e:
+            print("ERROR when deleting %s: %s - %s." % (tempDir, e.filename, e.strerror))
 
 # ---TODO: CREATE LATEX TABLE (PYTEX?) ---#
 
