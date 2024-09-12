@@ -965,7 +965,7 @@ def GetSampleHistosFromTFile(tfileName, sample, keepHistName=True):
     if len(sampleHistos) < 1:
         raise RuntimeError(
                 "GetSampleHistosFromTFile({}, {}) -- failed to read any histos for the sampleName from this file!".format(
-                    tfile.GetName(), sampleName))
+                    tfile.GetName(), sample))
     return sampleHistos
 
 
