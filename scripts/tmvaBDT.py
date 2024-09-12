@@ -613,11 +613,11 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
 
-        binsToUse = 100 # 10000
+        binsToUse = 200 #100 # 10000
         hname = "hsig_" + name + "_" + str(lqMassToUse)
         htitle = "Classifier Output on signal for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
-        hsig = TH1D(hname,htitle,binsToUse,-1.001,1.001)
-        hsigUnweighted = TH1D(hname+"_unweighted", htitle+" (unweighted)", binsToUse, -1.001, 1.001)
+        hsig = TH1D(hname,htitle,binsToUse,-1,1)
+        hsigUnweighted = TH1D(hname+"_unweighted", htitle+" (unweighted)", binsToUse, -1, 1)
         #hname = "hbkg_" + name + "_" + lqMassToUse
         #hbkg = ROOT.RDF.TH1DModel(hname,htitle,binsToUse,-1,1)
 
@@ -634,9 +634,9 @@ def OptimizeBDTCut(args):
         # backgrounds
         histTitle = "Classifier Output on {} background for " + name + ", M_{{LQ}} = " + str(lqMassToUse) + " GeV"
         histName = "BDTOutput{}LQM" + str(lqMassToUse)
-        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1.001, 1.001)
-        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1.001, 1.001)
-        bkgTotalNegWeightsOnly = TH1D(histName.format("TotalBackground")+"NegWeightsOnly",histTitle.format("all")+" (negative weight events only", binsToUse, -1.001,1.001)
+        bkgTotal = TH1D(histName.format("TotalBackground"), histTitle.format("all"), binsToUse, -1, 1)
+        bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1, 1)
+        bkgTotalNegWeightsOnly = TH1D(histName.format("TotalBackground")+"NegWeightsOnly",histTitle.format("all")+" (negative weight events only", binsToUse, -1,1)
         bkgHists = dict()
         bkgHistsUnweightedUnscaled = dict()
         bkgHistsNegWeights = dict()
@@ -654,18 +654,18 @@ def OptimizeBDTCut(args):
                 if "QCDFakes_DATA" in sample:
                     for s in ["QCDFakes_DATA", "QCDFakes_DATA_2FR"]:
                         if not s in bkgHists:
-                            bkgHists[s] = TH1D(histName.format(s), histTitle.format(s), binsToUse, -1.001, 1.001)
+                            bkgHists[s] = TH1D(histName.format(s), histTitle.format(s), binsToUse, -1, 1)
                         if not s in bkgHistsUnweightedUnscaled:
-                            bkgHistsUnweightedUnscaled[s] = TH1D(histName.format(s)+"_unweightedUnscaled", histTitle.format(s)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
+                            bkgHistsUnweightedUnscaled[s] = TH1D(histName.format(s)+"_unweightedUnscaled", histTitle.format(s)+", unweighted/unscaled", binsToUse, -1, 1)
                         if not s in bkgHistsNegWeights:
-                            bkgHistsNegWeights[s] = TH1D(histName.format(s)+"_negWeightsOnly", histTitle.format(s)+", negative weight events", binsToUse, -1.001, 1.001)
+                            bkgHistsNegWeights[s] = TH1D(histName.format(s)+"_negWeightsOnly", histTitle.format(s)+", negative weight events", binsToUse, -1, 1)
                 else:
                     if not sample in bkgHists:
-                        bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1.001, 1.001)
+                        bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
                     if not sample in bkgHistsUnweightedUnscaled:
-                        bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1.001, 1.001)
+                        bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
                     if not sample in bkgHistsNegWeights:
-                        bkgHistsNegWeights[sample] = TH1D(histName.format(sample)+"_negWeightsOnly", histTitle.format(sample)+", negative weight events", binsToUse, -1.001, 1.001)
+                        bkgHistsNegWeights[sample] = TH1D(histName.format(sample)+"_negWeightsOnly", histTitle.format(sample)+", negative weight events", binsToUse, -1, 1)
                 intLumi = intLumiDict[year]
                 xsectionFile = xsectionFiles[year]
                 ParseXSectionFile(xsectionFile)
@@ -701,11 +701,11 @@ def OptimizeBDTCut(args):
                     df = df.Define('eventWeight', eventWeightExpression)
                     histNameBDT = "BDTVal_{}_{}_{}".format(sample, idx, year)
                     print("Use hist name {}".format(histNameBDT))
-                    hbkg = TH1D(histNameBDT, histNameBDT, binsToUse, -1.001, 1.001)
+                    hbkg = TH1D(histNameBDT, histNameBDT, binsToUse, -1, 1)
                     histBkg = df.Histo1D(ROOT.RDF.TH1DModel(hbkg), "BDT", "eventWeight")
-                    hbkgUnweighted =  TH1D(histNameBDT+"_unweighted", histNameBDT+"_unweighted", binsToUse, -1.001, 1.001)
+                    hbkgUnweighted =  TH1D(histNameBDT+"_unweighted", histNameBDT+"_unweighted", binsToUse, -1, 1)
                     histBkgUnweighted = df.Histo1D(ROOT.RDF.TH1DModel(hbkgUnweighted), "BDT")
-                    hbkNegWeights = TH1D(histNameBDT+"_negWeights", histNameBDT+"_negWeights", binsToUse, -1.001, 1.001)
+                    hbkNegWeights = TH1D(histNameBDT+"_negWeights", histNameBDT+"_negWeights", binsToUse, -1, 1)
                     histBkgNegWeights = df.Filter('eventWeight < 0').Histo1D(ROOT.RDF.TH1DModel(hbkNegWeights),"BDT")
                     #bkgWeight = backgroundDatasetsWeightsTimesOneThousand[os.path.basename(txtFile).replace(".txt", "")]/1000.0
                     #bkgWeight = FindWeight(os.path.basename(txtFile).replace(".txt", ""), backgroundDatasetsWeightsTimesOneThousand)/1000.0
@@ -790,6 +790,7 @@ def OptimizeBDTCut(args):
         # signal
         histSig = copy.deepcopy(hsig)
         histSigUnweighted = copy.deepcopy(hsigUnweighted)
+        sumSigWeights = 0
         for year in years:
             intLumi = intLumiDict[year]
             tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, years=[year])
@@ -819,6 +820,7 @@ def OptimizeBDTCut(args):
             sumWeights = GetSignalSumWeights(lqMassToUse, year)
             signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
             #signalWeight = signalDatasetsWeightsTimesOneThousand[signalDatasetName]/1000.0
+            sumSigWeights += sumWeights*signalWeight
             print("multiply hist by signal weight ", signalWeight)
             histSigThisYear.Scale(signalWeight)
             histSig.Add(histSigThisYear.GetValue())
@@ -831,6 +833,12 @@ def OptimizeBDTCut(args):
         # d2.Print()
         print("For LQM={}, totalSignal={}, {} raw events".format(lqMassToUse, histSig.Integral(), histSigUnweighted.Integral()))
         print("For LQM={}, totalBackground={}, {} raw events".format(lqMassToUse, bkgTotal.Integral(), bkgTotalUnweighted.Integral()))
+        #Events with BDT score == 1 get put in overflow, so add them back into the last bin
+        hists = [histSig, histSigUnweighted, bkgTotal, bkgTotalUnweighted]
+        for h in hists:
+            nBins = h.GetNbinsX()
+            overflow = h.GetBinContent(nBins+1)
+            h.SetBinContent(nBins, h.GetBinContent(nBins)+overflow)
 
         # now optimize
         #totalSignalEventsUnscaled = GetSignalTotalEvents(lqMassToUse)
@@ -849,8 +857,8 @@ def OptimizeBDTCut(args):
             skipFOMCalc = False
             nSErr = ctypes.c_double()
             nS = histSig.IntegralAndError(iBin, hsig.GetNbinsX(), nSErr)
-            efficiency = nS/(signalWeight*sumWeights)
-            effErr = nSErr.value/(signalWeight*sumWeights)  # assuming sumWeights and signalWeight have zero error
+            efficiency = nS/(sumSigWeights)
+            effErr = nSErr.value/(sumSigWeights)  # assuming sumWeights and signalWeight have zero error
             # nBErr = ctypes.c_double()
             # nB = bkgTotal.IntegralAndError(iBin, hbkg.GetNbinsX(), nBErr)
             nB = 0
@@ -906,8 +914,8 @@ def OptimizeBDTCut(args):
             #if "2016" in year:
             #    minNB = 0.5
             #else:
-            #minNB = 3
-            minNB = 0
+            minNB = 1
+            #minNB = 0
 
              
             if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
@@ -997,12 +1005,14 @@ def OptimizeBDTCut(args):
         cutVal = cutValInfoToUse[2]
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
         for sample, hist in bkgHists.items():
+            sharedOptHistsDict[lqMassToUse].append(hist)
             cutBin = hist.FindFixBin(cutVal)
             nBErr = ctypes.c_double()
             nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
             nBErr = nBErr.value
             bkgIntegral = hist.Integral()
             rawEventsHist = bkgHistsUnweightedUnscaled[sample]
+            sharedOptHistsDict[lqMassToUse].append(rawEventsHist)
             nBEventsErr = ctypes.c_double()
             nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
             nBEventsErr = nBEventsErr.value
@@ -1339,6 +1349,7 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
         c = TCanvas("optLQ"+str(lqMass))
         c.cd()
         c.SetLogy()
+        '''
         signalHist = optHistsList[0]
         signalHist.SetLineWidth(2)
         signalHist.SetLineColor(signalColor)
@@ -1361,6 +1372,17 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
         bkgNegWeightHist.SetLineColor(backgroundColor)
         bkgNegWeightHist.SetLineWidth(2)
         bkgNegWeightHist.Write()
+        '''
+        for i,hist in enumerate(optHistsList):
+            if i==0 or i==2:
+                color = signalColor
+            else:
+                color = backgroundColor
+            hist.SetLineWidth(2)
+            hist.SetLineColor(color)
+            hist.SetMarkerColor(color)
+            hist.Write()
+
         # now make overlay canvas
         signalHist.Rebin(rebinFactor)
         bkgHist.Rebin(rebinFactor)
