@@ -1,15 +1,15 @@
 #!/bin/bash
 
 #Script loops over all specified years and runs the specified steps of the BDT training/optimization/plots, then copies the dataset directory to EOS if one was created.
-doTraining=false
-doOptimization=true
-doBDTPlots=true
+doTraining=true
+doOptimization=false
+doBDTPlots=false
 #years='2018' # '2016preVFP 2016postVFP 2017 2018'
 
 #for year in $years; do
 
 #destDir=$LQDATAEOS/BDT_19AugSkim/LQToDEle/$year
-destDir=$LQDATAEOS/testBDTAllYears/combinedTest
+destDir=$LQDATAEOS/testBDTAllYears/maxTasksTest
 #rm -r dataset
 #cp -r $LQDATAEOS/BDT_7maySkim_10julxsec/LQToDEle/$year/dataset .
 
@@ -32,8 +32,8 @@ fi
 
 if [ "$doOptimization" = true ]; then
 echo "optimize BDT"
-python scripts/tmvaBDT.py -o -d $destDir | tee bdtOptimization-200Bin-minNB1.log
-mv bdtOptimization-200Bin-minNB1.log $destDir
+python scripts/tmvaBDT.py -o -d $destDir | tee bdtOptimization-testmaxtasks.log
+mv bdtOptimization-testmaxtasks.log $destDir
 echo "*************************************************************************"
 fi 
 

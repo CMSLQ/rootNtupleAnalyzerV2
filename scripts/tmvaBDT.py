@@ -978,7 +978,7 @@ def OptimizeBDTCut(args):
         else:
             valList.append("no")
         sharedOptValsDict[lqMassToUse] = valList
-        print(sharedOptValsDict)
+    #    print(sharedOptValsDict)
         sharedOptHistsDict[lqMassToUse] = [histSig, bkgTotal, histSigUnweighted, bkgTotalUnweighted, bkgTotalNegWeightsOnly]
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
         sharedFOMInfoDict[lqMassToUse]["nS"] = nSList
@@ -1012,7 +1012,7 @@ def OptimizeBDTCut(args):
             nBErr = nBErr.value
             bkgIntegral = hist.Integral()
             rawEventsHist = bkgHistsUnweightedUnscaled[sample]
-            sharedOptHistsDict[lqMassToUse].append(rawEventsHist)
+    #        sharedOptHistsDict[lqMassToUse].append(rawEventsHist)
             nBEventsErr = ctypes.c_double()
             nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
             nBEventsErr = nBEventsErr.value
@@ -1382,7 +1382,7 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
             hist.SetLineColor(color)
             hist.SetMarkerColor(color)
             hist.Write()
-
+        '''
         # now make overlay canvas
         signalHist.Rebin(rebinFactor)
         bkgHist.Rebin(rebinFactor)
@@ -1401,6 +1401,7 @@ def WriteOptimizationHists(rootFileName, optHistsDict, optValsDict, fomInfoDict)
         c.Update()
         c.Write()
         #
+        '''
         fomVals = fomInfoDict[lqMass]["FOM"]
         bdtCutVals = fomInfoDict[lqMass]["cutVal"]
         fomValVsBDTCutGraph = TGraph(len(bdtCutVals), np.array(bdtCutVals), np.array(fomVals))
@@ -1949,7 +1950,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [2500, 2900]#,2000]
+    #lqMassesToUse = [2700]#, 2900]#,2000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
@@ -2014,7 +2015,7 @@ if __name__ == "__main__":
             if parallelize:
                 # ncores = multiprocessing.cpu_count()
                 ncores = 4  # only use 4 parallel jobs to be nice
-                pool = multiprocessing.Pool(ncores)
+                pool = multiprocessing.Pool(ncores,maxtasksperchild=1)
                 jobCount = 0
                 for mass in lqMassesToUse:
                     try:
@@ -2052,7 +2053,7 @@ if __name__ == "__main__":
         if parallelize:
             # ncores = multiprocessing.cpu_count()
             ncores = 4  # only use 4 parallel jobs to be nice
-            pool = multiprocessing.Pool(ncores)
+            pool = multiprocessing.Pool(ncores,maxtasksperchild=1)
             jobCount = 0
             for mass in lqMassesToUse:
                 if not parametrized:

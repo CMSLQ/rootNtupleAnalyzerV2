@@ -44,9 +44,9 @@ bdtPlotFile = base_folder+"/bdtPlots.root"
 
 modelName = "LQToDEle"#_{}".format(year)
 
-pdf_folder = base_folder+"/plots"
+pdf_folder = base_folder+"/plots200Bins"
 outFileName = base_folder+"/"+modelName+"Plots.root"
-plotsForAN = base_folder+"/plots/plotsForAN_{}.pdf".format(modelName)
+plotsForAN = base_folder+"/plots200Bins/plotsForAN_{}.pdf".format(modelName)
 
 gROOT.SetBatch(True)
 

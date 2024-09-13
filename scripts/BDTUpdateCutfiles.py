@@ -6,26 +6,38 @@ import subprocess
 #Then, it gets the lines with the actual cuts from the log of the optimization step and updates the cutfiles with that too.
 #If running for 2017 or 2018, use era = ""
 
-year = "2016"
-era = "postVFP"
-date = "5aug2024"
+years = ["2016preVFP", "2016postVFP","2017","2018"]
+#era = "postVFP"
+date = "12Sep2024"
 
 #weight files
-weightFiles = os.getenv("LQDATAEOS")+"/BDT_2AugSkim/LQToBEle/{}{}/dataset/weights".format(year,era)
-weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToBEle/{}{}/HTLO-amcatnlo_{}/weights".format(year,era,date)
+weightFiles = os.getenv("LQDATAEOS")+"/testBDTAllYears/combinedTest/dataset/weights"#.format(year,era)
+weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToDEle/HTLO-amcatnlo_{}/weights".format(date)
 print("copying weight files to "+weightFilesDest)
 
 #optimization results
-optResults = os.getenv("LQDATAEOS")+"/BDT_2AugSkim/LQToBEle/{}{}/bdtOptimization.log".format(year,era)
+optResults = os.getenv("LQDATAEOS")+"/testBDTAllYears/combinedTest/bdtOptimization-testmaxtasks.log"#.format(year,era)
 
 #cut files
-filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")
+#filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")
 #filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}HTLO-amcatnlo/".format(year,era+"/")
-filesToUpdate = [
+filenames = [
     "cutTable_lq_eejj_BDT.txt",
     "cutTable_lq_eejj_QCD_doubleFR.txt",
     "cutTable_lq_eejj_QCD_singleFR.txt",
 ]
+filesToUpdate = []
+for year in years:
+    for f in filenames:
+        if year=="2016preVFP":
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/HTLO-amcatnlo/"
+        elif year=="2016postVFP":
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/HTLO-amcatnlo/"
+        else:
+            directory = os.getenv("LQMACRO")+"/config{}/Analysis/HTLO-amcatnlo/".format(year)
+        fullPath = directory+f
+        print("add file {}".format(fullPath))
+        filesToUpdate.append(fullPath)
 
 #Copy weight files
 if not os.path.isdir(weightFilesDest):
@@ -67,9 +79,9 @@ for i in range(nLines-nLinesToKeep, nLines):
 
 #update cutfiles
 for f in filesToUpdate:
-    path = filenameBase+f
-    print(path)
-    with open(path, 'r') as cutfile:
+    #path = filenameBase+f
+    print(f)
+    with open(f, 'r') as cutfile:
         cutfile.seek(0)
         lines = cutfile.readlines()
 
@@ -94,6 +106,6 @@ for f in filesToUpdate:
         lines[i] = cutValLines[j]
         j+=1
 
-    with open(path, 'w') as cutfile:
+    with open(f, 'w') as cutfile:
         cutfile.writelines(lines)
 
