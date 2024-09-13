@@ -2193,6 +2193,7 @@ std::vector<double> baseClass::getSumArrayFromTree(const std::string& fName, con
       if(arraySize > 0 && arraySize != sumWeightArray.size())
           sumWeightArray.resize(arraySize);
       std::string exp = weightName;
+      chain->SetNotify(nullptr); // otherwise, we get a useless TNotify-related warning otherwise (somehow related to the TTreeReaderTools)
       // suppress info messages
       int prevLevel = gErrorIgnoreLevel;
       gErrorIgnoreLevel = kWarning;
@@ -2215,16 +2216,15 @@ std::vector<double> baseClass::getSumArrayFromTree(const std::string& fName, con
 double baseClass::getSumOfExpressionFromTree(const std::string& fName, const std::string& treeName, const std::string& exp, const std::vector<std::string>& inputBranches)
 {
     double toReturn = 0;
-    auto chain = std::shared_ptr<TChain>(new TChain(treeName.c_str()));
+    auto chain = std::unique_ptr<TChain>(new TChain(treeName.c_str()));
     int retVal = chain->AddFile(fName.c_str(), -1);
     if(!retVal)
     {
         STDOUT("ERROR: Something went wrong. Could not find Events TTree in the inputfile '" << fName << "'. Quit here.");
         exit(-2);
     }
-    auto readerTools = std::unique_ptr<TTreeReaderTools>(new TTreeReaderTools(chain));
     for(const auto& branchName : inputBranches)
-        if(!readerTools->GetTree()->GetBranch(branchName.c_str())) // data may not have the branch we want
+        if(!chain->GetBranch(branchName.c_str())) // data may not have the branch we want
             return toReturn;
     // suppress info messages
     int prevLevel = gErrorIgnoreLevel;
