@@ -132,8 +132,11 @@ class JMEUncertainties {
       return m_data->readerTools_->ReadValueBranch<T>(branchName);
     }
     template <typename T = float> RVec<T> GetRVecFromBranchName(const std::string& branchName) {
-      return RVec<T>(static_cast<T*>(m_data->readerTools_->ReadArrayBranch<T>(branchName).GetAddress()),
-          m_data->readerTools_->ReadArrayBranch<T>(branchName).GetSize());
+      RVec<T> result;
+      unsigned int arraySize = m_data->readerTools_->ReadArrayBranch<T>(branchName).GetSize();
+      for(unsigned int index = 0; index < arraySize; ++index)
+        result.emplace_back(m_data->readerTools_->ReadArrayBranch<T>(branchName, index));
+      return result;
     }
     template <typename T = float> RVec<T> GetRVecFromJetCollection(CollectionPtr jetCollection, const std::string& varName) {
       RVec<T> result;
