@@ -154,6 +154,8 @@ harmlessErrorMessages.append("INFO:    /etc/singularity/ exists;")
 harmlessErrorMessages.append("security protocol 'ztn' disallowed for non-TLS connections.")
 harmlessErrorMessages.append("tac: write error: Broken pipe")  # no idea what this is about, but apparently harmless
 harmlessErrorMessages.append("Info in <TCanvas::MakeDefCanvas>:  created default TCanvas with name c1")
+harmlessErrorMessages.append("/cvmfs/sft.cern.ch/lcg/releases/R/4.3.0-09c47/x86_64-el9-gcc13-opt/lib64/R/bin/exec/R: error while loading shared libraries: libtirpc.so.3: cannot open shared object file: No such file or directory")  # happens when using LCG_104 for some reason
+harmlessErrorMessages.append("gnuplot: error while loading shared libraries: libQt5Core.so.5: cannot open shared object file: No such file or directory") # also happens when using LCG104 sometimes for some reason
 
 harmlessOutMessages = ["xrdfs locate"]
 harmlessOutMessages = ["use default XRootD redirector"]
