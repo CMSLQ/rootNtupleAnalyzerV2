@@ -119,8 +119,8 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain) 
         df = df.Define("perSampleWeight", str(weight)) 
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
+        df = df.Filter("Meejj > "+str(lqMass))
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_test"+str(lqMass)+".root" 
-        time.sleep(3)
         df.Snapshot("testTree",filename)
         time.sleep(2)
         testOutputTree.Add(filename)
@@ -130,6 +130,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain)
         df = df.Define("perSampleWeight", str(weight))
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
+        df = df.Filter("Meejj > "+str(lqMass))
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_train"+str(lqMass)+".root"
         df.Snapshot("trainTree", filename)
         time.sleep(2)
@@ -141,6 +142,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain)
         df = df.Define("perSampleWeight", str(weight))
         df = df.Define("fullWeight","perSampleWeight * EventWeight / 2")
+        df = df.Filter("Meejj > "+str(lqMass))
         filename = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_test"+str(lqMass)+".root"
         df.Snapshot("testTree",filename)
         time.sleep(3)
@@ -150,6 +152,7 @@ def PrepareCustomTestAndTrainTrees(tchain, weight, key, datasetName, ZJetTrainin
         df = RDataFrame(tchain)
         df = df.Define("perSampleWeight", str(weight))
         df = df.Define("fullWeight","perSampleWeight * EventWeight")
+        df = df.Filter("Meejj > "+str(lqMass))
         dfTrain = df.Range(0,0,2) #even entries
         dfTest = df.Range(1,0,2) #odd entries
         filenameTrain = eosDir+"/perSampleTrainingTrees/"+str(lqMass)+"/"+year+"/"+datasetName+"_train"+str(lqMass)+".root"
@@ -170,6 +173,8 @@ def LoadDatasets(datasetDict, neededBranches, ZJetTrainingSample, eosDir = "", s
     #print(datasetDict)
     nTotEvents = 0
     nTotSumWeights = 0
+    mycuts = mycutsDict[str(lqMass)]
+    mycutb = mycutbDict[str(lqMass)]
     if signal:
         testTreeSig = TChain("testTree","testSig")
         trainTreeSig = TChain("trainTree","trainSig")
@@ -291,6 +296,8 @@ def TrainBDT(args):
     drawTrees = args[5]
     # just one use the single LQ signal specified by mass just above
     try:
+        mycuts = mycutsDict[str(lqMassToUse)]
+        mycutb = mycutbDict[str(lqMassToUse)]
         signalDatasetsDict = {}
         signalDatasetName = signalNameTemplate.format(lqMassToUse)
         signalDatasetsDict[signalDatasetName] = allSignalDatasetsDict[signalDatasetName]
@@ -504,8 +511,9 @@ def GetTotalEventsHist(lqMassToUse, year, signalDict, signalNameTemplate):
     histName = "savedHists/EventCounter"
     tfiles = []
     for count, txtFile in enumerate(txtFiles):
-        if year=="2016preVFP" and not "_APV.txt" in txtFile:
-            txtFile=txtFile.replace(".txt","_APV.txt")
+        if year=="2016preVFP" and not "SinglePhoton" in txtFile:
+            if not "_APV" in txtFile:
+                txtFile=txtFile.replace(".txt","_APV.txt")
         txtFile = txtFile.format(year, lqMassToUse)
         with open(os.path.expandvars(txtFile), "r") as theTxtFile:
             for line in theTxtFile:
@@ -597,6 +605,8 @@ def OptimizeBDTCut(args):
     bdtWeightFileName, lqMassToUse, sharedOptValsDict, sharedOptHistsDict, sharedFOMInfoDict, years = args
     startTime = time.time()
     try:
+        mycuts = mycutsDict[str(lqMassToUse)]
+        mycutb = mycutbDict[str(lqMassToUse)]
         signalDatasetsDict = {}
         signalDatasetName = signalNameTemplate.format(lqMassToUse)
         signalDatasetsDict[signalDatasetName] = allSignalDatasetsDict[signalDatasetName]
@@ -916,7 +926,8 @@ def OptimizeBDTCut(args):
             #else:
             minNB = 1
             #minNB = 0
-
+            if not nB > minNB:
+                skipFOMCalc = True
              
             if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
                 # fom = EvaluateFigureOfMerit(nS, nB if nB > 0.0 else 0.0, efficiency, bkgTotalUnweighted.Integral(iBin, hbkg.GetNbinsX()), "punzi")
@@ -940,6 +951,7 @@ def OptimizeBDTCut(args):
             effErrList.append(effErr)
 
         cutValInfoToUse = []
+        '''
         if lqMassToUse>=1000:
             infoLastBin = fomValueToCutInfoDict[hbkg.GetNbinsX()]
             nBLastBin = infoLastBin[5]
@@ -956,12 +968,13 @@ def OptimizeBDTCut(args):
                         break
 
         else:
-            # sort by FOM
-            sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
-            # now the max FOM value should be the first entry
-            maxVal = next(iter(sortedDict.items()))
-            cutValInfoToUse = [maxVal[0]]
-            cutValInfoToUse.extend(maxVal[1])
+        '''
+        # sort by FOM
+        sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
+        # now the max FOM value should be the first entry
+        maxVal = next(iter(sortedDict.items()))
+        cutValInfoToUse = [maxVal[0]]
+        cutValInfoToUse.extend(maxVal[1])
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(lqMassToUse, maxVal[0], *maxVal[1]))
         # testVals=list(fomValueToCutInfoDict.items())
         # testVal=testVals[9949]
@@ -1045,6 +1058,8 @@ def DoROCAndBDTPlots(args):
         #rootFile.cd()
         #rootFile.mkdir("LQM{}".format(lqMassToUse))
         #rootFile.cd("LQM{}".format(lqMassToUse))
+        mycuts = mycutsDict[str(lqMassToUse)]
+        mycutb = mycutbDict[str(lqMassToUse)]
         signalDatasetsDict = {}
         signalDatasetName = signalNameTemplate.format(lqMassToUse)
         signalDatasetsDict[signalDatasetName] = allSignalDatasetsDict[signalDatasetName]
@@ -1798,6 +1813,7 @@ if __name__ == "__main__":
         "MejMin",
         "MejMax",
         "Meejj",
+#        "Meejjj",
         "LQCandidateMass"
     ]
     variableHistInfo = {}
@@ -1833,6 +1849,7 @@ if __name__ == "__main__":
     variableHistInfo["MejMin"] = [350, 0, 3500]
     variableHistInfo["MejMax"] = [350, 0, 3500]
     variableHistInfo["Meejj"] = [700, 0, 7000]
+    variableHistInfo["Meejjj"] = [700, 0, 10000]
     variableHistInfo["BDT"] = [200, -1, 1]
     eventWeightExpression = "EventWeight"
     #eventWeightExpression = "Weight*PrefireWeight*puWeight*FakeRateEffective*MinPrescale*Ele1_RecoSF*Ele2_RecoSF*EventTriggerScaleFactor*ZVtxSF"
@@ -1850,8 +1867,11 @@ if __name__ == "__main__":
     #neededBranches.extend(["Ele1_HEEPSF", "Ele2_HEEPSF"])
     neededBranches.extend(variableList)
     # Apply additional cuts on the signal and background samples (can be different)
-    mycuts = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1")
-    mycutb = mycuts
+    #mycuts = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1")
+    mycutsDict = {}
+    for mass in list(range(300,3100,100)):
+        mycutsDict[str(mass)] = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1 && Meejj > "+str(mass))
+    mycutbDict = mycutsDict
     #mycutb = TCut("M_e1e2 > 220 && sT_eejj > 400 && PassTrigger==1 && sT_eejj < 4000 && Meejj <  5000")
     # mycuts = TCut("M_e1e2 > 200 && sT_eejj > 400 && PassTrigger==1")
     # mycutb = TCut("M_e1e2 > 200 && sT_eejj > 400 && PassTrigger==1")
@@ -1950,7 +1970,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [2700]#, 2900]#,2000]
+    #lqMassesToUse = [1300,1400,1500,1600,1700]#, 2900]#,2000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"

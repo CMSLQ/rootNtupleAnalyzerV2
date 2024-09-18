@@ -92,6 +92,20 @@ ROOT.gInterpreter.Declare('''
        }
 ''')
 
+ROOT.gInterpreter.Declare('''
+        float CalcMeejjj(float Ele1_Pt, float Ele1_Eta, float Ele1_Phi, float Ele2_Pt, float Ele2_Eta, float Ele2_Phi,
+        float Jet1_Pt, float Jet1_Eta, float Jet1_Phi, float Jet2_Pt, float Jet2_Eta, float Jet2_Phi, float Jet3_Pt, float Jet3_Eta, float Jet3_Phi) {
+        TLorentzVector e1, j1, e2, j2, j3, eejjj;
+        e1.SetPtEtaPhiM ( Ele1_Pt, Ele1_Eta, Ele1_Phi, 0.0 );
+        e2.SetPtEtaPhiM ( Ele2_Pt, Ele2_Eta, Ele2_Phi, 0.0 );
+        j1.SetPtEtaPhiM ( Jet1_Pt, Jet1_Eta, Jet1_Phi, 0.0 );
+        j2.SetPtEtaPhiM ( Jet2_Pt, Jet2_Eta, Jet2_Phi, 0.0 );
+        j3.SetPtEtaPhiM ( Jet3_Pt, Jet3_Eta, Jet3_Phi, 0.0 );
+        eejjj = e1 + e2 + j1 + j2 + j3;
+        return eejjj.M();
+        }
+''')
+
 
 def log_result(result):
     # This is called whenever foo_pool(i) returns a result.
@@ -123,6 +137,7 @@ def ProcessDataset(args):
         df = df.Define("MejMax", "Numba::CalcMejMax(M_e1j1, M_e2j2, M_e1j2, M_e2j1)")
         df = df.Define("MejMin", "Numba::CalcMejMin(M_e1j1, M_e2j2, M_e1j2, M_e2j1)")
         df = df.Define("Meejj", "CalcMeejj(Ele1_Pt, Ele1_Eta, Ele1_Phi, Ele2_Pt, Ele2_Eta, Ele2_Phi,Jet1_Pt, Jet1_Eta, Jet1_Phi, Jet2_Pt, Jet2_Eta, Jet2_Phi)")
+        df = df.Define("Meejjj", "CalcMeejjj(Ele1_Pt, Ele1_Eta, Ele1_Phi, Ele2_Pt, Ele2_Eta, Ele2_Phi,Jet1_Pt, Jet1_Eta, Jet1_Phi, Jet2_Pt, Jet2_Eta, Jet2_Phi, Jet3_Pt, Jet3_Eta, Jet3_Phi)")
         df = df.Define("LQCandidateMassInt", str(mass))
         df = df.Define("LQCandidateMass", "Numba::GetMassFloat(LQCandidateMassInt)")
         if makeWeightsNegative:
@@ -257,7 +272,7 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
             "TTbar_powheg" : [
                 inputListBkgBase+"TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8.txt",
                 #inputListBkgBase+"TTToHadronic_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8.txt",
                 ],
             "DIBOSON_nlo" : [
                 # inputListBkgBase+"WWTo4Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
@@ -460,6 +475,7 @@ branchesToSave = [
         "MejMin",
         "MejMax",
         "Meejj",
+        "Meejjj",
         "LQCandidateMass"
 ]
 qcdSamplesToSub = ["QCDFakes_DATA_2FR", "QCDFakes_DYJ"]
@@ -470,13 +486,13 @@ parallelize = True
 date = "9oct2023"
 includeQCD = True
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/19AugSkim/trainingTreeInputs/preselOnly"
-inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/19AugSkim/trainingTreeInputs/singleFR/"
-inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/19AugSkim/trainingTreeInputs/doubleFR/"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/16sep/trainingTreeInputs/preselOnly"
+inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/16sep/trainingTreeInputs/singleFR/"
+inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/16sep/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToDEle/"+str(year)+"/19AugSkims"
-signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
-#signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/16SepSkims"
+#signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
 if __name__ == "__main__":
     print("INFO: Using year = {}".format(year))
     print("INFO: Using signal name template: {}".format(signalNameTemplate))
