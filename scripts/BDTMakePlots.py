@@ -33,20 +33,20 @@ import math
 
 minMLQ = int(sys.argv[1])
 maxMLQ = int(sys.argv[2])
-year = str(sys.argv[3])
+#year = str(sys.argv[3])
 parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_2AugSkim/LQToBEle/{}".format(year)
+base_folder = os.getenv("LQDATAEOS")+"/BDT_19AugSkim/LQToDEle/allYears/Meejjj"#{}".format(year)
 optimizationFile = base_folder+"/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 
-modelName = "LQToDEle_{}".format(year)
+modelName = "LQToDEle"#_{}".format(year)
 
 pdf_folder = base_folder+"/plots"
 outFileName = base_folder+"/"+modelName+"Plots.root"
-plotsForAN = base_folder+"/plots/plotsForAN.pdf"
+plotsForAN = base_folder+"/plots/plotsForAN_{}.pdf".format(modelName)
 
 gROOT.SetBatch(True)
 
@@ -54,7 +54,7 @@ if not os.path.isdir(pdf_folder):
     os.mkdir(pdf_folder)
 
 outFile = TFile(outFileName,"recreate")
-variables = ["sT_eejj", "PFMET_Type1_Pt", "M_e1e2", "M_e1j1", "M_e1j2", "M_e2j1", "M_e2j2", "Ele1_Pt", "Ele2_Pt", "MejMin", "MejMax", "Meejj","Jet1_Pt", "Jet2_Pt", "Jet3_Pt"]
+variables = ["sT_eejj", "PFMET_Type1_Pt", "M_e1e2", "M_e1j1", "M_e1j2", "M_e2j1", "M_e2j2", "Ele1_Pt", "Ele2_Pt", "MejMin", "MejMax", "Meejj", "Meejjj","Jet1_Pt", "Jet2_Pt", "Jet3_Pt"]
 LQmasses = list(range(minMLQ,maxMLQ+1,100))
 #LQmasses = [1300, 2000, 2200, 2300]
 print(LQmasses)
