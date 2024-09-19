@@ -182,8 +182,8 @@ for year in years:
     filenames[year]["1P1F"] = fileTemplate.format(year, "1P1F")
     filenames[year]["FR"] = os.getenv("LQINPUTS")+"/fakeRate/{}/fr2D{}.root".format(year, year.replace("2016",""))
 
-WJetSample = "WJet_HTBinned_IncStitch"
-#WJetSample = "WJet_amcatnlo_jetBinned"
+#WJetSample = "WJet_HTBinned_IncStitch"
+WJetSample = "WJet_amcatnlo_jetBinned"
 #WJetSample = "WJetSherpa"
 GJetSample = "GJets_amcatnlo"
 
@@ -195,19 +195,6 @@ if not os.path.isdir(pdf_folder):
 for year in years + ["fullRunII"]:
     if not os.path.isdir(pdf_folder+"/"+year):
         os.mkdir(pdf_folder+"/"+year)
-
-#Scale factors
-scaleFactors = {}
-for year in years:
-    scaleFactors[year] = {}
-scaleFactors["2016preVFP"]["DY"] = 0.978
-scaleFactors["2016postVFP"]["DY"] = 1.032
-scaleFactors["2017"]["DY"] = 1.057
-scaleFactors["2018"]["DY"] = 1.026
-scaleFactors["2016preVFP"]["TTBar"] = 0.862
-scaleFactors["2016postVFP"]["TTBar"] = 0.955
-scaleFactors["2017"]["TTBar"] = 0.886
-scaleFactors["2018"]["TTBar"] = 0.897
 
 variableNameList = [
     "Pt1stEle_PAS",
@@ -356,12 +343,6 @@ for iyear,year in enumerate(years):
      #       if year=="2017" and "Mee" in var:
      #           histo.Rebin(10)
             c = colors[i]
-            #if "WJet" in name:
-             #   histo.Scale(1.3)
-            #if "ZJet" in name:
-            #    histo.Scale(scaleFactors[year]["DY"])
-            #if "TTBar" in name:
-            #    histo.Scale(scaleFactors[year]["TTBar"])
             histo.SetLineColor(c)
             histo.SetFillColor(c)
             histo.SetMarkerColor(c)
@@ -612,7 +593,9 @@ if len(years)==4:
 else:
     yearsToPlot = years
 
+fitResults = {}
 for year in yearsToPlot:
+    fitResults[year] = {}
     for var in variableNameList+variablesWPeakStudy:
         title = var.replace("_tight"," BDT training region")
         title = var.replace("_PAS"," preselection")
@@ -685,12 +668,15 @@ for year in yearsToPlot:
         l = TLegend(0.6,0.8,0.9,0.9)
         l.AddEntry(histoFR, "predicted fakes", "lp")
         l.AddEntry(histoMCSub,"observed fakes", "lp")
+        histoMCSub.SetStats(0)
+        histoFR.SetStats(0)
         histoMCSub.Draw()
         histoFR.Draw("ESAME")
         l.Draw("SAME")
 
         ratioPlot = copy.deepcopy(histoFR)
         ratioPlot.Divide(histoMCSub)
+        ratioPlot.SetStats(0)
         fPads2.cd()
         if "MET" in var:
             ratioPlot.GetXaxis().SetRangeUser(0,100)
@@ -704,6 +690,14 @@ for year in yearsToPlot:
         ratioPlot.GetXaxis().SetLabelSize(0.08)
         ratioPlot.GetXaxis().SetTitleSize(0.08)
         ratioPlot.GetXaxis().SetTitle(title+" GeV")
+        if var in variableNameList:
+            fitFunction = TF1("fit","pol0",ratioPlot.GetXaxis().GetXmin(), ratioPlot.GetXaxis().GetXmax())
+            fit = ratioPlot.Fit(fitFunction,"S","",ratioPlot.GetXaxis().GetXmin(), ratioPlot.GetXaxis().GetXmax())
+            fitResults[year][var] = {}
+            fitResults[year][var]["value"] = fit.Parameter(0)
+            fitResults[year][var]["error"] = fit.ParError(0)
+            fitResults[year][var]["chi2"] = fit.Chi2()
+            fitResults[year][var]["ndf"] = fit.Ndf()
         ratioPlot.Draw()
         errWindow.Draw("SAME")
         ratioPlot.Draw("SAME")
@@ -712,6 +706,65 @@ for year in yearsToPlot:
             c.Print(pdf_folder+"/closureTestPlots.pdf)","pdf")
         else:
             c.Print(pdf_folder+"/closureTestPlots.pdf","pdf")
+
+#Plot fit results and print numbers to txt file
+fitResultsFile = pdf_folder+"/fitResults.txt"
+fitResultsPlots = pdf_folder+"/fitResultsPlots.pdf"
+with open(fitResultsFile, 'w') as f:
+    for year in years+["fullRunII"]:
+        f.write(year+"\n\n")
+        headers = ["variable","Fit value","error","Chi2","NDF","Chi2 / NDF"]
+        tablePresel = []
+        tableBDT = []
+        for var in variableNameList:
+            if "Mt_MET" in var:
+                continue
+            varForTable = var.replace("_tight","")
+            varForTable = varForTable.replace("_PAS","")
+            tableRow = [var, fitResults[year][var]["value"],fitResults[year][var]['error'],fitResults[year][var]['chi2'],fitResults[year][var]['ndf'], fitResults[year][var]['chi2'] / fitResults[year][var]['ndf']]
+            if 'tight' in var:
+                tableBDT.append(tableRow)
+            if "PAS" in var:
+                tablePresel.append(tableRow)
+        f.write("Preselection:\n\n")
+        f.write(tabulate(tablePresel, headers=headers))
+        f.write("\n\n")
+        f.write(tabulate(tablePresel, headers=headers,tablefmt='latex'))
+        f.write("\n\nBDT selection:\n\n")
+        f.write(tabulate(tableBDT, headers=headers))
+        f.write("\n\n")
+        f.write(tabulate(tableBDT, headers=headers,tablefmt='latex'))
+        f.write("\n\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+        nVars = int(len(variableNameList)/2 - 1) #-1 because we don't need Mt in this case
+        fitsHistPresel = TH1D("fitsPresel"+year, "Fit results "+str(year)+" preselection", nVars, 0, nVars)
+        fitsHistBDT = TH1D("fitsBDT"+year, "Fit results "+str(year)+" BDT region", nVars, 0, nVars)
+        for i in range(nVars):
+            fitsHistPresel.SetBinContent(i+1, fitResults[year][variableNameList[i]]['value'])
+            fitsHistPresel.SetBinError(i+1, fitResults[year][variableNameList[i]]['error'])
+            fitsHistPresel.GetXaxis().SetBinLabel(i+1, variableNameList[i].replace("_PAS",""))
+            fitsHistPresel.SetLineWidth(2)
+            fitsHistPresel.SetStats(0)
+            fitsHistPresel.GetYaxis().SetRangeUser(0.5,1.5)
+
+            fitsHistBDT.SetBinContent(i+1,fitResults[year][variableNameList[nVars+i+1]]['value'])
+            fitsHistBDT.SetBinError(i+1,fitResults[year][variableNameList[nVars+i+1]]['error'])
+            fitsHistBDT.GetXaxis().SetBinLabel(i+1,variableNameList[nVars+i+1].replace("_tight",""))
+            fitsHistBDT.SetLineWidth(2)
+            fitsHistBDT.SetStats(0)
+            fitsHistBDT.GetYaxis().SetRangeUser(0.5,1.5)
+
+        c = TCanvas()
+        c.SetGridy()
+        fitsHistPresel.Draw()
+        if year==years[0]:
+            c.Print(fitResultsPlots+"(","pdf")
+        else:
+            c.Print(fitResultsPlots,"pdf")
+        fitsHistBDT.Draw()
+        if year=="fullRunII":
+            c.Print(fitResultsPlots+")","pdf")
+        else:
+            c.Print(fitResultsPlots,"pdf")
 
 #Do uncertainty calc
 resultsFile = pdf_folder+"/results_{}_{}.txt".format(WJetSample, GJetSample)
