@@ -3,6 +3,7 @@ from __future__ import print_function
 from ROOT import (
     gROOT,
     gPad,
+    gStyle,
     TFile,
     TH1D,
     TH2D,
@@ -172,7 +173,7 @@ filenames = {}
 for year in years:
     filenames[year] = {}
 
-fileTemplate = "$LQDATAEOS/qcdFRClosureTest_allYears_DoubleEleTrigger/{}/{}/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
+fileTemplate = "$LQDATAEOS/qcdFRClosureTest_allYears_17AugSkims/{}/{}/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_plots.root"
 
 for year in years:
     #filenames[year]["2F"] = "$LQDATAEOS/qcdFRClosureTest_allYears_newMtPlots/{}/2F/output_cutTable_lq_QCD_FakeRateClosureTest/qcdFRClosureTest_allYears_newMtPlots_plots.root".format(year)
@@ -181,7 +182,12 @@ for year in years:
     filenames[year]["1P1F"] = fileTemplate.format(year, "1P1F")
     filenames[year]["FR"] = os.getenv("LQINPUTS")+"/fakeRate/{}/fr2D{}.root".format(year, year.replace("2016",""))
 
-pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears_DoubleEleTrigger/plotsResscaledWJets"
+#WJetSample = "WJet_HTBinned_IncStitch"
+WJetSample = "WJet_amcatnlo_jetBinned"
+#WJetSample = "WJetSherpa"
+GJetSample = "GJets_amcatnlo"
+
+pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears_17AugSkims/plots_{}_{}".format(WJetSample, GJetSample)
 
 if not os.path.isdir(pdf_folder):
     os.mkdir(pdf_folder)
@@ -233,6 +239,7 @@ variablesWPeakStudy = [
 #    "HEEPEle2_Pt",
     "nHEEPEle",
     "MET_WPeakReg",
+    "MeeControlReg",
 ]
 
 for var in variableNameList+variablesWPeakStudy:
@@ -245,10 +252,14 @@ histoNameData = "histo1D__QCDFakes_DATA__"
 #mcSamples = {}
 mcSamples = [
     "ZJet_amcatnlo_ptBinned_IncStitch",
-    "WJet_HTBinned_IncStitch",
+    WJetSample,
+    #"WJet_HTBinned_IncStitch",
+    #"WJetSherpa",
+    #"WJet_amcatnlo_jetBinned",
     "TTBar_powheg", 
     "SingleTop", 
-    "GJets", 
+    GJetSample,
+    #"GJets_amcatnlo", 
     "DIBOSON_nlo",
 ]
 '''
@@ -296,6 +307,8 @@ for name in mcSamples:
     histos1P1F["fullRunII"]["histo1D__"+name+"__"] = {}
     histos2F["fullRunII"]["histo1D__"+name+"__"] = {}
 
+gStyle.SetOptStat("ioume")
+
 data2DHists = {}
 #Get hists 
 for iyear,year in enumerate(years):
@@ -312,7 +325,7 @@ for iyear,year in enumerate(years):
         print("Get 1P1F hist "+histToGet)
         histoData = tfile.Get(histToGet)
         histoData.SetLineWidth(2)
-        histoData.SetStats(0)
+        #histoData.SetStats(0)
         #if "MET" in var:
         #    histoData.GetXaxis().SetRangeUser(0,100)
         histos1P1F[year]["data"][var] = copy.deepcopy(histoData)
@@ -330,13 +343,11 @@ for iyear,year in enumerate(years):
      #       if year=="2017" and "Mee" in var:
      #           histo.Rebin(10)
             c = colors[i]
-            #if "WJet" in name:
-             #   histo.Scale(1.3)
             histo.SetLineColor(c)
             histo.SetFillColor(c)
             histo.SetMarkerColor(c)
             histo.SetLineWidth(2)
-            histo.SetStats(0)
+         #   histo.SetStats(0)
             histos1P1F[year][name][var] = copy.deepcopy(histo)
             if iyear==0:
                 histos1P1F["fullRunII"][name][var] = copy.deepcopy(histo)
@@ -361,7 +372,7 @@ for iyear,year in enumerate(years):
     else:
         HEMRegions = [""]
     tfileFR = TFile.Open(filenames[year]["FR"])
-    frHistBaseName = "fr2D_1Jet_TrkIsoHEEP7vsHLTPt_{}"
+    frHistBaseName = "fr2D_2Jet_TrkIsoHEEP7vsHLTPt_{}"
     frHists = {}
     if year == "2018":
         for hem in HEMRegions:
@@ -397,7 +408,7 @@ for iyear,year in enumerate(years):
         histoData.SetMarkerColor(c)
         histoData.SetFillColor(c)
         histoData.SetLineWidth(2)
-        histoData.SetStats(0)
+        #histoData.SetStats(0)
         #print(histoData)
         histoNameErr = histoNameData+"errFRsq_"+var.replace("_PAS","")
         #print(histoNameErr)
@@ -414,6 +425,31 @@ for iyear,year in enumerate(years):
 
 #print(histos1P1F)
 #print(histos2F)
+#Draw MC and data hists
+c = TCanvas()
+c.SetLogy()
+c.SetGridy()
+for year in years+["fullRunII"]:
+    for var in variableNameList+variablesWPeakStudy:
+        shortVar = var.replace("_tight", " BDT")
+        shortVar = shortVar.replace("_PAS", " preselection")
+        for sample in histoNamesMC+["MCTotal","data"]:
+            if "__" in sample:
+                shortSample = sample.split("__")[1]
+            else:
+                shortSample = sample
+            histos1P1F[year][sample][var].GetXaxis().SetTitle("GeV")
+            histos1P1F[year][sample][var].GetYaxis().SetRangeUser(0.05,5e3)
+            histos1P1F[year][sample][var].SetTitle(shortSample + ",  " + shortVar)
+            histos1P1F[year][sample][var].Draw()
+            c.Print(pdf_folder+"/"+year+"/"+var+"/"+sample+".pdf")
+        if var == variablesWPeakStudy[0]:
+            break
+        histos2F[year][var].GetXaxis().SetTitle("GeV")
+        histos2F[year][var].GetYaxis().SetRangeUser(0.1,1e3)
+        histos2F[year][var].SetTitle("predicted fakes,  "+shortVar)
+        histos2F[year][var].Draw()
+        c.Print(pdf_folder+"/"+year+"/"+var+"/predictedFakes.pdf")
 
 binsDict = {}
 #rebin histos
@@ -557,7 +593,9 @@ if len(years)==4:
 else:
     yearsToPlot = years
 
+fitResults = {}
 for year in yearsToPlot:
+    fitResults[year] = {}
     for var in variableNameList+variablesWPeakStudy:
         title = var.replace("_tight"," BDT training region")
         title = var.replace("_PAS"," preselection")
@@ -630,12 +668,15 @@ for year in yearsToPlot:
         l = TLegend(0.6,0.8,0.9,0.9)
         l.AddEntry(histoFR, "predicted fakes", "lp")
         l.AddEntry(histoMCSub,"observed fakes", "lp")
+        histoMCSub.SetStats(0)
+        histoFR.SetStats(0)
         histoMCSub.Draw()
         histoFR.Draw("ESAME")
         l.Draw("SAME")
 
         ratioPlot = copy.deepcopy(histoFR)
         ratioPlot.Divide(histoMCSub)
+        ratioPlot.SetStats(0)
         fPads2.cd()
         if "MET" in var:
             ratioPlot.GetXaxis().SetRangeUser(0,100)
@@ -649,6 +690,14 @@ for year in yearsToPlot:
         ratioPlot.GetXaxis().SetLabelSize(0.08)
         ratioPlot.GetXaxis().SetTitleSize(0.08)
         ratioPlot.GetXaxis().SetTitle(title+" GeV")
+        if var in variableNameList:
+            fitFunction = TF1("fit","pol0",ratioPlot.GetXaxis().GetXmin(), ratioPlot.GetXaxis().GetXmax())
+            fit = ratioPlot.Fit(fitFunction,"S","",ratioPlot.GetXaxis().GetXmin(), ratioPlot.GetXaxis().GetXmax())
+            fitResults[year][var] = {}
+            fitResults[year][var]["value"] = fit.Parameter(0)
+            fitResults[year][var]["error"] = fit.ParError(0)
+            fitResults[year][var]["chi2"] = fit.Chi2()
+            fitResults[year][var]["ndf"] = fit.Ndf()
         ratioPlot.Draw()
         errWindow.Draw("SAME")
         ratioPlot.Draw("SAME")
@@ -658,14 +707,76 @@ for year in yearsToPlot:
         else:
             c.Print(pdf_folder+"/closureTestPlots.pdf","pdf")
 
+#Plot fit results and print numbers to txt file
+fitResultsFile = pdf_folder+"/fitResults.txt"
+fitResultsPlots = pdf_folder+"/fitResultsPlots.pdf"
+with open(fitResultsFile, 'w') as f:
+    for year in years+["fullRunII"]:
+        f.write(year+"\n\n")
+        headers = ["variable","Fit value","error","Chi2","NDF","Chi2 / NDF"]
+        tablePresel = []
+        tableBDT = []
+        for var in variableNameList:
+            if "Mt_MET" in var:
+                continue
+            varForTable = var.replace("_tight","")
+            varForTable = varForTable.replace("_PAS","")
+            tableRow = [var, fitResults[year][var]["value"],fitResults[year][var]['error'],fitResults[year][var]['chi2'],fitResults[year][var]['ndf'], fitResults[year][var]['chi2'] / fitResults[year][var]['ndf']]
+            if 'tight' in var:
+                tableBDT.append(tableRow)
+            if "PAS" in var:
+                tablePresel.append(tableRow)
+        f.write("Preselection:\n\n")
+        f.write(tabulate(tablePresel, headers=headers))
+        f.write("\n\n")
+        f.write(tabulate(tablePresel, headers=headers,tablefmt='latex'))
+        f.write("\n\nBDT selection:\n\n")
+        f.write(tabulate(tableBDT, headers=headers))
+        f.write("\n\n")
+        f.write(tabulate(tableBDT, headers=headers,tablefmt='latex'))
+        f.write("\n\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+        nVars = int(len(variableNameList)/2 - 1) #-1 because we don't need Mt in this case
+        fitsHistPresel = TH1D("fitsPresel"+year, "Fit results "+str(year)+" preselection", nVars, 0, nVars)
+        fitsHistBDT = TH1D("fitsBDT"+year, "Fit results "+str(year)+" BDT region", nVars, 0, nVars)
+        for i in range(nVars):
+            fitsHistPresel.SetBinContent(i+1, fitResults[year][variableNameList[i]]['value'])
+            fitsHistPresel.SetBinError(i+1, fitResults[year][variableNameList[i]]['error'])
+            fitsHistPresel.GetXaxis().SetBinLabel(i+1, variableNameList[i].replace("_PAS",""))
+            fitsHistPresel.SetLineWidth(2)
+            fitsHistPresel.SetStats(0)
+            fitsHistPresel.GetYaxis().SetRangeUser(0.5,1.5)
+
+            fitsHistBDT.SetBinContent(i+1,fitResults[year][variableNameList[nVars+i+1]]['value'])
+            fitsHistBDT.SetBinError(i+1,fitResults[year][variableNameList[nVars+i+1]]['error'])
+            fitsHistBDT.GetXaxis().SetBinLabel(i+1,variableNameList[nVars+i+1].replace("_tight",""))
+            fitsHistBDT.SetLineWidth(2)
+            fitsHistBDT.SetStats(0)
+            fitsHistBDT.GetYaxis().SetRangeUser(0.5,1.5)
+
+        c = TCanvas()
+        c.SetGridy()
+        fitsHistPresel.Draw()
+        if year==years[0]:
+            c.Print(fitResultsPlots+"(","pdf")
+        else:
+            c.Print(fitResultsPlots,"pdf")
+        fitsHistBDT.Draw()
+        if year=="fullRunII":
+            c.Print(fitResultsPlots+")","pdf")
+        else:
+            c.Print(fitResultsPlots,"pdf")
+
 #Do uncertainty calc
-resultsFile = pdf_folder+"/results.txt"
+resultsFile = pdf_folder+"/results_{}_{}.txt".format(WJetSample, GJetSample)
 with open(resultsFile, 'w') as f:
     f.write("fake rate closure test results \n\n")
 variables = ["Mee_PAS", "Mee_tight"]
 #variables = ["Mee_tight"]
+ratios = {}
 for var in variables:
+    ratios[var] = {}
     for year in yearsToPlot:
+        ratios[var][year] = {}
         DataErr = ctypes.c_double()
         DataHist = histos1P1F[year]["data"][var]
         DataYield = DataHist.IntegralAndError(DataHist.GetXaxis().GetFirst(), DataHist.GetXaxis().GetLast(), DataErr)
@@ -682,6 +793,8 @@ for var in variables:
 
         ratio = FRPred / obsFakes
         ratioErr = math.sqrt(((1/obsFakes)*FRPredErr.value)**2 + ((FRPred/obsFakes**2)*obsFakesErr)**2)
+        ratios[var][year]["value"] = ratio
+        ratios[var][year]["error"] = ratioErr
         #Make a table
         headers = ["", "yield", "error"]
         table = [
@@ -733,4 +846,29 @@ for var in variables:
             f.write("\n\nlatex table:\n")
             f.write(tabulate(tableMC, headers=headers+["% of total MC"], tablefmt='latex', stralign="left"))
             f.write("\n++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+
+for var in variables:
+    ratioPlot = TH1D("ratios_"+var,"Closure test results by year", 4,-0.5,3.5)
+    l = TLegend(0.75,0.9,0.99,0.99)
+    ratioPlot.SetStats(0)
+    for iyear, year in enumerate(years):
+        ratioPlot.SetBinContent(iyear+1, ratios[var][year]["value"])
+        ratioPlot.SetBinError(iyear+1,ratios[var][year]["error"])
+        ratioPlot.GetXaxis().SetBinLabel(iyear+1, year)
+    c = TCanvas()
+    c.SetGridy()
+    l.AddEntry(ratioPlot, "result for each year", "l")
+    ratioPlot.GetYaxis().SetRangeUser(0.5,1.5)
+    ratioPlot.Draw()
+    runIILine = TLine(-0.5, ratios[var]["fullRunII"]["value"], 3.5, ratios[var]["fullRunII"]["value"])
+    runIILine.SetLineStyle(7)
+    runIILine.SetLineWidth(2)
+    l.AddEntry(runIILine, "result for full run II", "l")
+    runIILine.Draw("same")
+    runIIBox = TBox(-0.5, ratios[var]["fullRunII"]["value"] - ratios[var]["fullRunII"]["error"], 3.5, ratios[var]["fullRunII"]["value"]+ratios[var]["fullRunII"]["error"])
+    runIIBox.SetFillColorAlpha(kGray, 0.3)
+    runIIBox.Draw("same")
+    l.Draw("same")
+    ratioPlot.Draw("Esame")
+    c.Print(pdf_folder+"/ratios_{}.pdf".format(var))
 print("tables written to "+resultsFile)
