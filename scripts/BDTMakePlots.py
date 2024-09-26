@@ -38,15 +38,15 @@ parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_19AugSkim/LQToDEle/allYears/Meejjj"#{}".format(year)
-optimizationFile = base_folder+"/optimizationPlots.root"
+base_folder = os.getenv("LQDATAEOS")+"/BDT_19AugSkim/LQToDEle/allYears"#{}".format(year)
+optimizationFile = base_folder+"/robustnessCheck/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 
 modelName = "LQToDEle"#_{}".format(year)
 
-pdf_folder = base_folder+"/plots"
-outFileName = base_folder+"/"+modelName+"Plots.root"
-plotsForAN = base_folder+"/plots/plotsForAN_{}.pdf".format(modelName)
+pdf_folder = base_folder+"/robustnessCheck/plots"
+outFileName = base_folder+"/robustnessCheck/"+modelName+"Plots.root"
+plotsForAN = base_folder+"/robustnessCheck/plots/plotsForAN_{}.pdf".format(modelName)
 
 gROOT.SetBatch(True)
 
@@ -54,7 +54,7 @@ if not os.path.isdir(pdf_folder):
     os.mkdir(pdf_folder)
 
 outFile = TFile(outFileName,"recreate")
-variables = ["sT_eejj", "PFMET_Type1_Pt", "M_e1e2", "M_e1j1", "M_e1j2", "M_e2j1", "M_e2j2", "Ele1_Pt", "Ele2_Pt", "MejMin", "MejMax", "Meejj", "Meejjj","Jet1_Pt", "Jet2_Pt", "Jet3_Pt"]
+variables = ["sT_eejj", "PFMET_Type1_Pt", "M_e1e2", "M_e1j1", "M_e1j2", "M_e2j1", "M_e2j2", "Ele1_Pt", "Ele2_Pt", "MejMin", "MejMax", "Meejj","Jet1_Pt", "Jet2_Pt", "Jet3_Pt"]
 LQmasses = list(range(minMLQ,maxMLQ+1,100))
 #LQmasses = [1300, 2000, 2200, 2300]
 print(LQmasses)
@@ -448,7 +448,7 @@ outFile.cd()
 bkgRejection.Write()
 cEff.Print(pdf_folder+"/bkgRejVsMLQ.pdf")
 
-bdtTFile = TFile.Open(bdtPlotFile)
+#bdtTFile = TFile.Open(bdtPlotFile)
 #ROC curve and integral
 rocaucVsMLQPlot = TGraph(len(LQmasses))
 rocaucVsMLQPlot.SetName("rocaucVsMLQ")
@@ -456,7 +456,7 @@ oneMaucVsMLQPlot = TGraph(len(LQmasses))
 oneMaucVsMLQPlot.SetName("1-rocaucVsMLQ")
 for i, mass in enumerate(LQmasses):
     c3 = TCanvas()
-    rocPlot = bdtTFile.Get("LQM"+str(mass)+"/Graph")
+#    rocPlot = bdtTFile.Get("LQM"+str(mass)+"/Graph")
     #plotForIntegral = copy.deepcopy(rocPlot)
     #plotForIntegral.AddPoint(0,0)
 #    rocauc = plotForIntegral.Integral()

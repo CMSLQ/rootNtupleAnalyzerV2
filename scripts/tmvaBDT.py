@@ -1938,11 +1938,11 @@ if __name__ == "__main__":
     gROOT.SetBatch()
     dateStr = "9oct2023"
     skim = "2Aug"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/19AugSkim/tmvaInputs/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/19AugSkim/tmvaInputs/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/19AugSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -1954,7 +1954,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "2aug2024"
+    xsectionDate = "16sep2024"
     for year in years:
         xsectionFiles[year] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     #xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
