@@ -182,10 +182,10 @@ for year in years:
     filenames[year]["1P1F"] = fileTemplate.format(year, "1P1F")
     filenames[year]["FR"] = os.getenv("LQINPUTS")+"/fakeRate/{}/fr2D{}.root".format(year, year.replace("2016",""))
 
-#WJetSample = "WJet_HTBinned_IncStitch"
-WJetSample = "WJet_amcatnlo_jetBinned"
+WJetSample = "WJet_HTBinned_IncStitch"
+#WJetSample = "WJet_amcatnlo_jetBinned"
 #WJetSample = "WJetSherpa"
-GJetSample = "GJets_amcatnlo"
+GJetSample = "GJets"
 
 pdf_folder = os.getenv("LQDATAEOS")+"/qcdFRClosureTest_allYears_17AugSkims/plots_{}_{}".format(WJetSample, GJetSample)
 
@@ -598,16 +598,19 @@ for year in yearsToPlot:
     fitResults[year] = {}
     for var in variableNameList+variablesWPeakStudy:
         title = var.replace("_tight"," BDT training region")
-        title = var.replace("_PAS"," preselection")
-        title = var.replace("_fewCuts","")
+        title = title.replace("_PAS"," preselection")
+        title = title.replace("_fewCuts","")
+        if not year=="fullRunII":
+            title+=" "+year
         fPads1.cd()
-        histos1P1F[year]["data"][var].SetTitle(title+" "+year)
+        histos1P1F[year]["data"][var].SetTitle(title)
         if "MET" in var and not "Mt" in var and not "WPeak" in var:
             histos1P1F[year]["data"][var].GetXaxis().SetRangeUser(0,100)
         if var in variableNameList:
             histos1P1F[year]["data"][var].GetYaxis().SetRangeUser(1,1e5)
         else:
             histos1P1F[year]["data"][var].GetYaxis().SetRangeUser(1,1e11)
+        histos1P1F[year]["data"][var].SetStats(0)
         histos1P1F[year]["data"][var].Draw()
         stackAllBkg[year][var].Draw("histSame")
         histos1P1F[year]["data"][var].Draw("SAME")
@@ -662,7 +665,7 @@ for year in yearsToPlot:
 
         histoMCSub = histos1P1F[year]["data"][var] - histos1P1F[year]["MCTotal"][var]
         histoFR = histos2F[year][var]
-        histoMCSub.SetTitle(title+" "+year)
+        histoMCSub.SetTitle(title)
         histoMCSub.GetYaxis().SetRangeUser(0.1,1e4)
         fPads1.cd()
         l = TLegend(0.6,0.8,0.9,0.9)
@@ -689,7 +692,7 @@ for year in yearsToPlot:
         ratioPlot.GetYaxis().SetTitleSize(0.06)
         ratioPlot.GetXaxis().SetLabelSize(0.08)
         ratioPlot.GetXaxis().SetTitleSize(0.08)
-        ratioPlot.GetXaxis().SetTitle(title+" GeV")
+        ratioPlot.GetXaxis().SetTitle(var.split("_")[0]+" (GeV)")
         if var in variableNameList:
             fitFunction = TF1("fit","pol0",ratioPlot.GetXaxis().GetXmin(), ratioPlot.GetXaxis().GetXmax())
             fit = ratioPlot.Fit(fitFunction,"S","",ratioPlot.GetXaxis().GetXmin(), ratioPlot.GetXaxis().GetXmax())
@@ -721,7 +724,7 @@ with open(fitResultsFile, 'w') as f:
                 continue
             varForTable = var.replace("_tight","")
             varForTable = varForTable.replace("_PAS","")
-            tableRow = [var, fitResults[year][var]["value"],fitResults[year][var]['error'],fitResults[year][var]['chi2'],fitResults[year][var]['ndf'], fitResults[year][var]['chi2'] / fitResults[year][var]['ndf']]
+            tableRow = [varForTable, fitResults[year][var]["value"],fitResults[year][var]['error'],fitResults[year][var]['chi2'],fitResults[year][var]['ndf'], fitResults[year][var]['chi2'] / fitResults[year][var]['ndf']]
             if 'tight' in var:
                 tableBDT.append(tableRow)
             if "PAS" in var:
