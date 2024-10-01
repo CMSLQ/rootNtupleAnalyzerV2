@@ -1286,10 +1286,10 @@ backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 selectionPoints = ["preselection", "trainingSelection"] + mass_points
 selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in selectionPoints]
 additionalBkgSystsDict = {}
-# QCDNorm is 0.60 [60% norm uncertainty for eejj = uncertaintyPerElectron*2]
+# QCDNorm is 0.40 [40% norm uncertainty for eejj = uncertaintyPerElectron*2]
 # lumi uncertainty from https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2#Combination_and_correlations
 if doEEJJ:
-    qcdNormDeltaXOverX = 0.6
+    qcdNormDeltaXOverX = 0.4
     if do2016:
         lumiDeltaXOverX = 0.01
         lumiCorrelatedDeltaXOverX = 0.006
@@ -1310,7 +1310,7 @@ if doEEJJ:
         dyNormDeltaXOverX = 0.01  # rounded up
         ttBarNormDeltaXOverX = 0.05  # rounded up
 else:
-    qcdNormDeltaXOverX = 0.3
+    qcdNormDeltaXOverX = 0.2
 
 n_background = len(background_names)
 # all bkg systematics, plus stat 'systs' for all bkg plus signal plus 3 backNormSysts
@@ -1803,7 +1803,13 @@ if doSystematics:
         for selection in d_totalBkgSysts[syst].keys():
             # total = d_totalBkgSysts["totalYield"][selection]
             total = sum([d_systNominals[sampleName][syst][selection] for sampleName in background_names])
-            tableRow.append(100*math.sqrt(d_totalBkgSysts[syst][selection])/total)
+            try:
+                tableRow.append(100*math.sqrt(d_totalBkgSysts[syst][selection])/total)
+            except ZeroDivisionError as e:
+                print("Caught a ZeroDivisionError! total is {}. Examine background yields for syst={}, selection={}".format(total, syst, selection))
+                for sampleName in background_names:
+                    print("sampleName={}, systNominal (bkgYield) = {}".format(sampleName, d_systNominals[sampleName][syst][selection]))
+                raise e
         totalBkgSystTable.append(tableRow)
         if "norm" in syst.lower():
             print("DEBUG: QCDFakes_DATA, syst={}, d_systNominals[{}][{}], total sum = {}".format(
