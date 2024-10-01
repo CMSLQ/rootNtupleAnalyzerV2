@@ -576,6 +576,11 @@ void baseClass::readCutFile()
           //std::string varTypeName = std::visit( [](auto&&x)->decltype(auto){ return typeid(x).name(); }, thisCut->value );
           //STDOUT("INFO: saving variable " << variableName << " using branchType=" << thisCut->branchType << "; its value _now_ has type " << varTypeName);
         }
+        else if(flag.find("minselection:") != string::npos ) {
+          string minSel = flagOrig.substr(flag.find("minselection:")+13);
+          thisCut->evaluatePreviousCuts = false;
+          thisCut->minimumSelectionToPass = minSel;
+        }
         // TMVA cuts
         // format: TMVACut:ModelName,preCutWeightFileName,trainingSelectionCut[,staticVar=value,staticVar2=value,...]
         else if(flag.find("tmvacut:") != string::npos ) {
