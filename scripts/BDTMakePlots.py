@@ -2,6 +2,7 @@ from __future__ import print_function
 
 from ROOT import (
     gROOT,
+    gPad,
     TFile,
     TH1D,
     TGraphErrors,
@@ -10,6 +11,7 @@ from ROOT import (
     TLegend,
     kRed,
     kBlue,
+    kCyan,
     kGreen,
     kAzure,
     kOrange,
@@ -38,15 +40,15 @@ parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_19AugSkim/LQToDEle/allYears"#{}".format(year)
-optimizationFile = base_folder+"/robustnessCheck/optimizationPlots.root"
+base_folder = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToDEle"#{}".format(year)
+optimizationFile = base_folder+"/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 
 modelName = "LQToDEle"#_{}".format(year)
 
-pdf_folder = base_folder+"/robustnessCheck/plots"
-outFileName = base_folder+"/robustnessCheck/"+modelName+"Plots.root"
-plotsForAN = base_folder+"/robustnessCheck/plots/plotsForAN_{}.pdf".format(modelName)
+pdf_folder = base_folder+"/plots"
+outFileName = base_folder+"/"+modelName+"Plots.root"
+plotsForAN = pdf_folder+"/plotsForAN_{}.pdf".format(modelName)
 
 gROOT.SetBatch(True)
 
@@ -55,6 +57,23 @@ if not os.path.isdir(pdf_folder):
 
 outFile = TFile(outFileName,"recreate")
 variables = ["sT_eejj", "PFMET_Type1_Pt", "M_e1e2", "M_e1j1", "M_e1j2", "M_e2j1", "M_e2j2", "Ele1_Pt", "Ele2_Pt", "MejMin", "MejMax", "Meejj","Jet1_Pt", "Jet2_Pt", "Jet3_Pt"]
+
+bkgSamples = [
+    "QCD",
+    "SingleTop",
+    "DIBOSON_nlo",
+    "TTbar_powheg",
+    "ZJet_amcatnlo_ptBinned",
+]
+
+bkgColors = [
+    kCyan,
+    kGreen+1,
+    kBlue-7,
+    kBlue,
+    kRed,
+]
+
 LQmasses = list(range(minMLQ,maxMLQ+1,100))
 #LQmasses = [1300, 2000, 2200, 2300]
 print(LQmasses)
@@ -80,7 +99,7 @@ outFile.cd()
 cutVsMLQPlot.Write()
 c1.Print(pdf_folder+"/optCutValVsLQMass.pdf")
 c1.Print(plotsForAN+"(","pdf")
-print(cutValues)
+#print(cutValues)
 
 #plot max FOM vs. LQ mass
 FOMVsMLQPlot = TGraph(len(LQmasses))
@@ -328,7 +347,7 @@ for i,mass in enumerate(LQmasses):
         else:
             Y = 1.0
         X = nS/nSTot
-        print("MLQ{}: ({}, {})".format(mass,X,Y))
+        #print("MLQ{}: ({}, {})".format(mass,X,Y))
         ROCCurve.SetPointX(ibin,X)
         ROCCurve.SetPointY(ibin,Y)
         #print("X = {}/{} = {}".format(nS,nSTot,X))
@@ -375,8 +394,53 @@ for i,mass in enumerate(LQmasses):
     line.Draw("same")
     l.Draw("same")
     c.Print(pdf_folder+"/"+str(mass)+"/normalizedBDTOutputMLQ"+str(mass)+".pdf")
-    
+    '''    
+    c.SetLogy()
+    stack = THStack()
+    l = TLegend(0.3,0.7,0.7,0.9)
+    #combine QCD into a single hist
+    qcdHist = optTFile.Get("LQM{}/BDTOutputQCDFakes_DYJLQM{}".format(mass,mass))
+    qcd1FRHist = optTFile.Get("LQM{}/BDTOutputQCDFakes_DATALQM{}".format(mass,mass))
+    qcd2FRHist = optTFile.Get("LQM{}/BDTOutputQCDFakes_DATA_2FRLQM{}".format(mass,mass))
+    qcdHist.Add(qcd1FRHist)
+    qcdHist.Add(qcd2FRHist)
+    for i, sample in enumerate(bkgSamples):
+        if "QCD" in sample:
+            hist = qcdHist
+        else:
+            print("get hist LQM{}/BDTOutput{}LQM{}".format(mass, sample, mass))
+            histName = "LQM{}/BDTOutput{}LQM{}".format(mass, sample, mass)
+            hist = optTFile.Get(histName)
+        if "QCD" in sample or "ZJet" in sample:
+            nBins = hist.GetNbinsX()
+            for ibin in range(1, nBins+1):
+                if hist.GetBinContent(ibin) < 0:
+                    hist.SetBinContent(ibin,0)
+        hist.SetMinimum(1e6)
+        hist.SetLineColor(bkgColors[i])
+        hist.SetFillColor(bkgColors[i])
+        l.AddEntry(hist, sample, "l")
+        stack.Add(hist)
+    sigPlot.SetLineColor(kBlack)
+    sigPlot.SetMarkerColor(kBlack)
+    sigPlot.SetStats(0)
+    sigPlot.GetYaxis().SetRangeUser(1e-4, 1e4)
+    sigPlot.SetTitle("BDT output for MLQ = {}".format(mass))
+    line.SetLineColor(kGray+2)
+    l.AddEntry(sigPlot, "signal", "l")
+    l.AddEntry(line, "Cut value", "l")
+    sigPlot.Draw()
+    stack.Draw("histSame")
+    sigPlot.Draw("SAME")
+    line.Draw("same")
+    #l.Draw("SAME")
+    gPad.RedrawAxis()
+    gPad.RedrawAxis("G")
+    l.Draw("SAME")
+    c.Print(pdf_folder+"/"+str(mass)+"/BDTOutputStack.pdf")
+    '''
     #signal and bkg efficiencies at opt cut value vs. MLQ
+    print(sigVsMLQ["yield"][str(mass)], sigVsMLQ["total"][str(mass)])
     sigEff = sigVsMLQ["yield"][str(mass)] / sigVsMLQ["total"][str(mass)]
     sigEfficiency.SetPoint(i,mass,sigEff)
 
@@ -384,7 +448,6 @@ for i,mass in enumerate(LQmasses):
     bkgRejection.SetPoint(i,mass,bkgRej)
     
     sigEffVsBkgRejMLQ.SetPoint(i,bkgRej,sigEff)
-
 c = TCanvas()
 c.SetGridy()
 sigEffVsBkgRejMLQ.SetTitle("BDT cut efficiency vs bkg rejection")
