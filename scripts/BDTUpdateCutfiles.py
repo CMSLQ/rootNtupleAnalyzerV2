@@ -11,12 +11,12 @@ years = ["2016preVFP", "2016postVFP","2017","2018"]
 date = "20Sep2024"
 
 #weight files
-weightFiles = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToBEle/dataset/weights"#.format(year,era)
-weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToBEle/HTLO-amcatnlo_{}/weights".format(date)
+weightFiles = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToDEle/dataset/weights"#.format(year,era)
+weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToDEle/HTLO-amcatnlo_{}/weights".format(date)
 print("copying weight files to "+weightFilesDest)
 
 #optimization results
-optResults = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToBEle/bdtOptimization.log"#.format(year,era)
+optResults = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToDEle/testNewOptHists/bdtOptimization.log"#.format(year,era)
 
 #cut files
 #filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")
@@ -30,11 +30,11 @@ filesToUpdate = []
 for year in years:
     for f in filenames:
         if year=="2016preVFP":
-            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/LQToBEle/"
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/HTLO-amcatnlo/"
         elif year=="2016postVFP":
-            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/LQToBEle/"
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/HTLO-amcatnlo/"
         else:
-            directory = os.getenv("LQMACRO")+"/config{}/Analysis/LQToBEle/".format(year)
+            directory = os.getenv("LQMACRO")+"/config{}/Analysis/HTLO-amcatnlo/".format(year)
         fullPath = directory+f
         print("add file {}".format(fullPath))
         filesToUpdate.append(fullPath)
@@ -74,8 +74,28 @@ optLines.pop()
 nLinesToKeep = 112
 nLines = len(optLines)
 cutValLines = []
-for i in range(nLines-nLinesToKeep, nLines):
-    cutValLines.append(optLines[i])
+#for i in range(nLines-nLinesToKeep, nLines):
+#    cutValLines.append(optLines[i])
+
+cutValsDict = {}
+for l in optLines:
+    if "BDTOutput" in l:
+        mass = l.split()[0]
+        mass = mass.split("LQ")[1]
+        l = l.replace("trainingSelection","MeejjLQ{}".format(mass))
+        cutValsDict[mass] = l
+    else:
+        continue
+
+for mass in range(300, 3100, 100):
+    cutValLines.append("#------------------------------------------------------------------------------------------------------------------\n")
+    cutValLines.append("# LQ M {} optimization\n".format(mass))
+    cutValLines.append("#------------------------------------------------------------------------------------------------------------------\n")
+    cutValLines.append("MeejjLQ{}                   {}                 +inf                    -                   -   2       500 0 5000 minselection:trainingSelection\n".format(mass, mass))
+    cutValLines.append(cutValsDict[str(mass)])
+
+for l in cutValLines:
+    print(l)
 
 #update cutfiles
 for f in filesToUpdate:
@@ -94,6 +114,12 @@ for f in filesToUpdate:
         iWeightFiles = i+2 #The first weight file is 2 lines after this
         break
 
+    for i,l in enumerate(lines):
+        if not "CUTS" in l:
+            continue
+        iCutVals = i+2
+        break
+
     #replace weight files 
     j = 0
     for i in range(iWeightFiles, iWeightFiles+28): #28 masses
@@ -101,10 +127,15 @@ for f in filesToUpdate:
         j+=1
 
     #replace cut values
+    '''
     j = 0
     for i in range(len(lines)-len(cutValLines), len(lines)):
         lines[i] = cutValLines[j]
         j+=1
+    '''
+    lines = lines[:iCutVals+1]
+    for l in cutValLines:
+        lines.append(l)
 
     with open(f, 'w') as cutfile:
         cutfile.writelines(lines)

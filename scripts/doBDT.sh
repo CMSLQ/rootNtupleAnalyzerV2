@@ -3,7 +3,7 @@
 #Script loops over all specified years and runs the specified steps of the BDT training/optimization/plots, then copies the dataset directory to EOS if one was created.
 makeInputLists=false
 makeTrainingTrees=false
-doTraining=true
+doTraining=false
 doOptimization=true
 doBDTPlots=false
 years='2017' #'2016preVFP 2016postVFP 2017 2018' # '2016preVFP 2016postVFP 2017 2018'
@@ -30,7 +30,7 @@ done
 fi
 
 years='2016preVFP 2016postVFP 2017 2018'
-destDir=$LQDATAEOS/BDT_16SepSkim/LQToBEle
+destDir=$LQDATAEOS/BDT_16SepSkim/LQToDEle/testNewOptHists
 #destDir=testingBDTs
 #rm -r dataset
 #cp -r $LQDATAEOS/BDT_7maySkim_10julxsec/LQToDEle/$year/dataset .
@@ -40,13 +40,13 @@ if [ ! -d $destDir ]; then
     mkdir $destDir
 fi
 
+# if [ "$doTraining" = true ]; then
+#for year in $years; do
+#	echo "Make input lists for $year"
+#	./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/16SepSkim/tmvaInputs $LQDATAEOS/BDTTrainingTrees/LQToDEle/$year/16SepSkims
+	#./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/16SepSkim/tmvaInputsLQToBEle $LQDATAEOS/BDTTrainingTrees/LQToBEle/$year/16SepSkims
+#done
 if [ "$doTraining" = true ]; then
-for year in $years; do
-	echo "Make input lists for $year"
-	#./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/16SepSkim/tmvaInputs $LQDATAEOS/BDTTrainingTrees/LQToDEle/$year/16SepSkims
-	./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/16SepSkim/tmvaInputsLQToBEle $LQDATAEOS/BDTTrainingTrees/LQToBEle/$year/16SepSkims
-done
-
 echo "removing existing directory dataset"
 rm -r dataset
 fi 

@@ -727,22 +727,32 @@ def OptimizeBDTCut(args):
                         bkgWeight = 1.0
                     histBkg = histBkg.GetValue()
                     histBkg.Scale(bkgWeight)
+                    histBkgUnweighted = histBkgUnweighted.GetValue()
+                    for h in [histBkg, histBkgUnweighted]:
+                        nBins = h.GetNbinsX()
+                        overflow = h.GetBinContent(nBins+1)
+                        h.SetBinContent(nBins, h.GetBinContent(nBins)+overflow)
+                        if "QCD" in sample:
+                            continue
+                        for ibin in range(1,nBins+1):
+                            if h.GetBinContent(ibin) < 0:
+                                h.SetBinContent(ibin, 0)
                     if "QCDFakes_DATA" in sample:
                         if not "2FR" in sample:
                             bkgHists["QCDFakes_DATA"].Add(histBkg)
-                            bkgHistsUnweightedUnscaled["QCDFakes_DATA"].Add(histBkgUnweighted.GetValue())
+                            bkgHistsUnweightedUnscaled["QCDFakes_DATA"].Add(histBkgUnweighted)
                             bkgHistsNegWeights["QCDFakes_DATA"].Add(histBkgNegWeights.GetValue())
                         else:
                             bkgHists["QCDFakes_DATA_2FR"].Add(histBkg)
-                            bkgHistsUnweightedUnscaled["QCDFakes_DATA_2FR"].Add(histBkgUnweighted.GetValue())
+                            bkgHistsUnweightedUnscaled["QCDFakes_DATA_2FR"].Add(histBkgUnweighted)
                             bkgHistsNegWeights["QCDFakes_DATA_2FR"].Add(histBkgNegWeights.GetValue())
                     else:
                         bkgHists[sample].Add(histBkg)
-                        bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted.GetValue())
+                        bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted)
                         bkgHistsNegWeights[sample].Add(histBkgNegWeights.GetValue())
                     bkgTotal.Add(histBkg)
                     #bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
-                    bkgTotalUnweighted.Add(histBkgUnweighted.GetValue())
+                    bkgTotalUnweighted.Add(histBkgUnweighted)
                     bkgTotalNegWeightsOnly.Add(histBkgNegWeights.GetValue())
                     #h = df.Histo1D(hbkg, "BDT", "eventWeight")
                     #h.Draw()
@@ -844,7 +854,7 @@ def OptimizeBDTCut(args):
         print("For LQM={}, totalSignal={}, {} raw events".format(lqMassToUse, histSig.Integral(), histSigUnweighted.Integral()))
         print("For LQM={}, totalBackground={}, {} raw events".format(lqMassToUse, bkgTotal.Integral(), bkgTotalUnweighted.Integral()))
         #Events with BDT score == 1 get put in overflow, so add them back into the last bin
-        hists = [histSig, histSigUnweighted, bkgTotal, bkgTotalUnweighted]
+        hists = [histSig, histSigUnweighted]
         for h in hists:
             nBins = h.GetNbinsX()
             overflow = h.GetBinContent(nBins+1)
@@ -1014,11 +1024,29 @@ def OptimizeBDTCut(args):
         nBErr = ctypes.c_double()
         sharedFOMInfoDict[lqMassToUse]["nBUnweightedNoBDTCut"] = bkgTotalUnweighted.IntegralAndError(1, bkgTotal.GetNbinsX(), nBErr)
         sharedFOMInfoDict[lqMassToUse]["nBErrUnweightedNoBDTCut"] = nBErr.value
+        sharedFOMInfoDict[lqMassToUse]["table"] = {}
         #cutVal = maxVal[1][1]
         cutVal = cutValInfoToUse[2]
+        headers = [
+            "LQM={}".format(lqMassToUse),
+            "sample",
+            "yield (BDT Cut)",
+            "raw events (BDT Cut)",
+            "yield (sT, Mee, Meejj cuts)"
+        ]
+        table = []
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
+        totQCDYield = 0
+        totQCDYieldErr = 0
+        totQCDRawEvents = 0
+        totQCDRawEventsErr = 0
+        totQCDFullYield = 0
         for sample, hist in bkgHists.items():
-            sharedOptHistsDict[lqMassToUse].append(hist)
+            valsForTable = []
+            #print("add hist {} for sample {} to sharedOptHistsDict".format(hist, sample))
+            histList = sharedOptHistsDict[lqMassToUse]
+            histList.append(hist)
+            sharedOptHistsDict[lqMassToUse] = histList
             cutBin = hist.FindFixBin(cutVal)
             nBErr = ctypes.c_double()
             nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
@@ -1029,7 +1057,20 @@ def OptimizeBDTCut(args):
             nBEventsErr = ctypes.c_double()
             nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
             nBEventsErr = nBEventsErr.value
-            print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+            if "QCD" in sample:
+                totQCDYield+=nB
+                totQCDYieldErr = math.sqrt(totQCDYieldErr**2 + nBErr**2)
+                totQCDRawEvents+=nBEvents
+                totQCDRawEventsErr = math.sqrt(totQCDRawEventsErr**2 + nBEventsErr**2)
+                totQCDFullYield+=bkgIntegral
+            valsForTable.append("")
+            valsForTable.append(sample)
+            valsForTable.append(f"{nB:4.6f}+/-{nBErr:4.6f}")
+            valsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
+            valsForTable.append(f"{bkgIntegral:4.6f}")
+            table.append(valsForTable)
+        table.append(["","QCD_total", f"{totQCDYield:4.6f}+/-{totQCDYieldErr:4.6f}",f"{totQCDRawEvents:4.6f}+/-{totQCDRawEventsErr:4.6f}",f"{totQCDFullYield:4.6f}"])
+            #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
         cutBin = bkgTotal.FindFixBin(cutVal)
         nBErr = ctypes.c_double()
         nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
@@ -1039,7 +1080,17 @@ def OptimizeBDTCut(args):
         nBEventsErr = ctypes.c_double()
         nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
         nBEventsErr = nBEventsErr.value
-        print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+        totalsForTable = []
+        totalsForTable.append("")
+        totalsForTable.append("Background total")
+        totalsForTable.append(f"{nB:4.6f}+/-{nBErr:4.6f}")
+        totalsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
+        totalsForTable.append(f"{bkgIntegral:4.6f}")
+        table.append(totalsForTable)
+        sharedFOMInfoDict[lqMassToUse]["table"] = table
+        #print("\n",tabulate(table, headers, stralign="left", tablefmt="pretty"))
+        #print(tabulate(table, headers, stralign="left", tablefmt="latex"))
+        #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -1258,7 +1309,16 @@ def GetMassFloat(mass):
     return float(mass)
 
 
-def PrintBDTCuts(optValsDict, parametrized):
+def PrintBDTCuts(optValsDict, parametrized, fomInfoDict):
+    sortedFOMDict = OrderedDict(sorted(fomInfoDict.items()))
+    for mass in sortedFOMDict.keys():
+        headers = ["LQM={}".format(mass),"sample", "yield (BDT cut)", "raw events (BDT cut)", "yield (sT, Mee, Meejj cuts)"]
+        table = sortedFOMDict[mass]["table"]
+        print("\n", tabulate(table, headers, tablefmt="latex"))
+    for mass in sortedFOMDict.keys():
+        headers = ["LQM={}".format(mass),"sample", "yield (BDT cut)", "raw events (BDT cut)", "yield (sT, Mee, Meejj cuts)"]
+        table = sortedFOMDict[mass]["table"]
+        print("\n", tabulate(table, headers, tablefmt="pretty"))
     sortedDictMass = OrderedDict(sorted(optValsDict.items()))
     dataForTable = []
     headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr"] #, "min. bkg limited"]
@@ -1942,7 +2002,7 @@ if __name__ == "__main__":
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = True
+    use_BEle_samples = False
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -1970,7 +2030,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [1300,1400,1500,1600,1700]#, 2900]#,2000]
+    #lqMassesToUse = [1200]#,1400,1500,1600,1700]#, 2900]#,2000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
@@ -2106,7 +2166,7 @@ if __name__ == "__main__":
             for mass in lqMassesToUse:
                 dictOptFOMInfo[mass] = manager.dict()
                 OptimizeBDTCut([weightFile.format(mass), mass, dictOptValues, dictOptHists, dictOptFOMInfo, year])
-        PrintBDTCuts(dictOptValues, parametrized)
+        PrintBDTCuts(dictOptValues, parametrized, dictOptFOMInfo)
         WriteOptimizationHists(optimizationPlotFile, dictOptHists, dictOptValues, dictOptFOMInfo)
 
     if roc:
