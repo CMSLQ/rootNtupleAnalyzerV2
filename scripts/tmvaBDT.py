@@ -648,11 +648,15 @@ def OptimizeBDTCut(args):
         bkgTotalUnweighted = TH1D(histName.format("TotalBackground")+"Unweighted", histTitle.format("all")+" (unweighted)", binsToUse, -1, 1)
         bkgTotalNegWeightsOnly = TH1D(histName.format("TotalBackground")+"NegWeightsOnly",histTitle.format("all")+" (negative weight events only", binsToUse, -1,1)
         bkgHists = dict()
+        bkgHists["fullRunII"] = dict()
         bkgHistsUnweightedUnscaled = dict()
+        bkgHistsUnweightedUnscaled["fullRunII"] = dict()
         bkgHistsNegWeights = dict()
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
         for year in years:
+            bkgHists[year] = dict()
+            bkgHistsUnweightedUnscaled[year] = dict()
             for sample in backgroundDatasetsDict.keys():
                 if "QCDFakes_DATA" in sample and not year in sample:
                     continue
@@ -663,17 +667,25 @@ def OptimizeBDTCut(args):
                 bkgSampleIntegralHist = 0
                 if "QCDFakes_DATA" in sample:
                     for s in ["QCDFakes_DATA", "QCDFakes_DATA_2FR"]:
-                        if not s in bkgHists:
-                            bkgHists[s] = TH1D(histName.format(s), histTitle.format(s), binsToUse, -1, 1)
-                        if not s in bkgHistsUnweightedUnscaled:
-                            bkgHistsUnweightedUnscaled[s] = TH1D(histName.format(s)+"_unweightedUnscaled", histTitle.format(s)+", unweighted/unscaled", binsToUse, -1, 1)
+                        if not s in bkgHists[year]:
+                            bkgHists[year][s] = TH1D(histName.format(s)+"_"+year, histTitle.format(s), binsToUse, -1, 1)
+                        if not s in bkgHists["fullRunII"]:
+                            bkgHists["fullRunII"][s] = TH1D(histName.format(s), histTitle.format(s), binsToUse, -1, 1)
+                        if not s in bkgHistsUnweightedUnscaled[year]:
+                            bkgHistsUnweightedUnscaled[year][s] = TH1D(histName.format(s)+"_unweightedUnscaled_"+year, histTitle.format(s)+", unweighted/unscaled", binsToUse, -1, 1)
+                        if not s in bkgHistsUnweightedUnscaled["fullRunII"]:
+                            bkgHistsUnweightedUnscaled["fullRunII"][s] = TH1D(histName.format(s)+"_unweightedUnscaled", histTitle.format(s)+", unweighted/unscaled", binsToUse, -1, 1)
                         if not s in bkgHistsNegWeights:
                             bkgHistsNegWeights[s] = TH1D(histName.format(s)+"_negWeightsOnly", histTitle.format(s)+", negative weight events", binsToUse, -1, 1)
                 else:
-                    if not sample in bkgHists:
-                        bkgHists[sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
-                    if not sample in bkgHistsUnweightedUnscaled:
-                        bkgHistsUnweightedUnscaled[sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
+                    if not sample in bkgHists[year]:
+                        bkgHists[year][sample] = TH1D(histName.format(sample)+"_"+year, histTitle.format(sample), binsToUse, -1, 1)
+                    if not sample in bkgHists["fullRunII"]:
+                        bkgHists["fullRunII"][sample] = TH1D(histName.format(sample), histTitle.format(sample), binsToUse, -1, 1)
+                    if not sample in bkgHistsUnweightedUnscaled[year]:
+                        bkgHistsUnweightedUnscaled[year][sample] = TH1D(histName.format(sample)+"_unweightedUnscaled_"+year, histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
+                    if not sample in bkgHistsUnweightedUnscaled["fullRunII"]:
+                        bkgHistsUnweightedUnscaled["fullRunII"][sample] = TH1D(histName.format(sample)+"_unweightedUnscaled", histTitle.format(sample)+", unweighted/unscaled", binsToUse, -1, 1)
                     if not sample in bkgHistsNegWeights:
                         bkgHistsNegWeights[sample] = TH1D(histName.format(sample)+"_negWeightsOnly", histTitle.format(sample)+", negative weight events", binsToUse, -1, 1)
                 intLumi = intLumiDict[year]
@@ -739,16 +751,22 @@ def OptimizeBDTCut(args):
                                 h.SetBinContent(ibin, 0)
                     if "QCDFakes_DATA" in sample:
                         if not "2FR" in sample:
-                            bkgHists["QCDFakes_DATA"].Add(histBkg)
-                            bkgHistsUnweightedUnscaled["QCDFakes_DATA"].Add(histBkgUnweighted)
+                            bkgHists[year]["QCDFakes_DATA"].Add(histBkg)
+                            bkgHists["fullRunII"]["QCDFakes_DATA"].Add(histBkg)
+                            bkgHistsUnweightedUnscaled[year]["QCDFakes_DATA"].Add(histBkgUnweighted)
+                            bkgHistsUnweightedUnscaled["fullRunII"]["QCDFakes_DATA"].Add(histBkgUnweighted)
                             bkgHistsNegWeights["QCDFakes_DATA"].Add(histBkgNegWeights.GetValue())
                         else:
-                            bkgHists["QCDFakes_DATA_2FR"].Add(histBkg)
-                            bkgHistsUnweightedUnscaled["QCDFakes_DATA_2FR"].Add(histBkgUnweighted)
+                            bkgHists[year]["QCDFakes_DATA_2FR"].Add(histBkg)
+                            bkgHists["fullRunII"]["QCDFakes_DATA_2FR"].Add(histBkg)
+                            bkgHistsUnweightedUnscaled[year]["QCDFakes_DATA_2FR"].Add(histBkgUnweighted)
+                            bkgHistsUnweightedUnscaled["fullRunII"]["QCDFakes_DATA_2FR"].Add(histBkgUnweighted)
                             bkgHistsNegWeights["QCDFakes_DATA_2FR"].Add(histBkgNegWeights.GetValue())
                     else:
-                        bkgHists[sample].Add(histBkg)
-                        bkgHistsUnweightedUnscaled[sample].Add(histBkgUnweighted)
+                        bkgHists[year][sample].Add(histBkg)
+                        bkgHists["fullRunII"][sample].Add(histBkg)
+                        bkgHistsUnweightedUnscaled[year][sample].Add(histBkgUnweighted)
+                        bkgHistsUnweightedUnscaled["fullRunII"][sample].Add(histBkgUnweighted)
                         bkgHistsNegWeights[sample].Add(histBkgNegWeights.GetValue())
                     bkgTotal.Add(histBkg)
                     #bkgTotalUnweighted.Add(histBkgUnweighted.GetPtr())
@@ -811,6 +829,8 @@ def OptimizeBDTCut(args):
         histSig = copy.deepcopy(hsig)
         histSigUnweighted = copy.deepcopy(hsigUnweighted)
         sumSigWeights = 0
+        sigHistDict = dict()
+        sigHistDictUnweighted = dict()
         for year in years:
             intLumi = intLumiDict[year]
             tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, years=[year])
@@ -843,6 +863,12 @@ def OptimizeBDTCut(args):
             sumSigWeights += sumWeights*signalWeight
             print("multiply hist by signal weight ", signalWeight)
             histSigThisYear.Scale(signalWeight)
+            for h in [histSigThisYear, histSigUnweightedThisYear]:
+                nBins = h.GetNbinsX()
+                overflow = h.GetBinContent(nBins+1)
+                h.SetBinContent(nBins, h.GetBinContent(nBins)+overflow)
+            sigHistDict[year] = histSigThisYear
+            sigHistDictUnweighted[year] = histSigUnweightedThisYear
             histSig.Add(histSigThisYear.GetValue())
             histSigUnweighted.Add(histSigUnweightedThisYear.GetValue())
         # print some entries
@@ -854,11 +880,11 @@ def OptimizeBDTCut(args):
         print("For LQM={}, totalSignal={}, {} raw events".format(lqMassToUse, histSig.Integral(), histSigUnweighted.Integral()))
         print("For LQM={}, totalBackground={}, {} raw events".format(lqMassToUse, bkgTotal.Integral(), bkgTotalUnweighted.Integral()))
         #Events with BDT score == 1 get put in overflow, so add them back into the last bin
-        hists = [histSig, histSigUnweighted]
-        for h in hists:
-            nBins = h.GetNbinsX()
-            overflow = h.GetBinContent(nBins+1)
-            h.SetBinContent(nBins, h.GetBinContent(nBins)+overflow)
+        #hists = [histSig, histSigUnweighted]
+        #for h in hists:
+        #    nBins = h.GetNbinsX()
+        #    overflow = h.GetBinContent(nBins+1)
+        #    h.SetBinContent(nBins, h.GetBinContent(nBins)+overflow)
 
         # now optimize
         #totalSignalEventsUnscaled = GetSignalTotalEvents(lqMassToUse)
@@ -884,7 +910,7 @@ def OptimizeBDTCut(args):
             nB = 0
             nBErr = 0
             cutVal = histSig.GetBinLowEdge(iBin)
-            for sample, hist in bkgHists.items():
+            for sample, hist in bkgHists["fullRunII"].items():
                 if "qcd" in sample.lower():
                     continue
                 nBThisProcessErr = ctypes.c_double()
@@ -898,12 +924,12 @@ def OptimizeBDTCut(args):
                 nBErr += nBThisProcessErr*nBThisProcessErr
             if includeQCD:
                 qcd1FRDataErr = ctypes.c_double()
-                qcd1FRDataYield = bkgHists["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
+                qcd1FRDataYield = bkgHists["fullRunII"]["QCDFakes_DATA"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDataErr)
                 # print("INFO: Fot cutVal={}, Got qcd1FRDataYield={} from hist with integral={} and entries={}".format(cutVal, qcd1FRDataYield, bkgHists["QCDFakes_DATA"].Integral(), bkgHists["QCDFakes_DATA"].GetEntries()))
                 qcd1FRDYJErr = ctypes.c_double()
-                qcd1FRDYJYield = bkgHists["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
+                qcd1FRDYJYield = bkgHists["fullRunII"]["QCDFakes_DYJ"].IntegralAndError(iBin, hist.GetNbinsX(), qcd1FRDYJErr)
                 qcd2FRDataErr = ctypes.c_double()
-                qcd2FRDataYield = bkgHists["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
+                qcd2FRDataYield = bkgHists["fullRunII"]["QCDFakes_DATA_2FR"].IntegralAndError(iBin, hist.GetNbinsX(), qcd2FRDataErr)
                 qcd1FRYield = qcd1FRDataYield+qcd1FRDYJYield
                 if qcd1FRYield < 0:
                     # print("INFO: Limiting 1 FR QCD yield for cutVal {} to zero; old qcd1FRYield = 1FRData-DYJ = {} + {} = {}".format(
@@ -918,7 +944,7 @@ def OptimizeBDTCut(args):
                 if nB<0: #after we're done adding things to nB, if it's still negative then we need to not do the FOM calc.
                     skipFOMCalc = True
                 nBErr += pow(qcd1FRDataErr.value, 2)+pow(qcd1FRDYJErr.value, 2)+pow(qcd2FRDataErr.value, 2)
-                nBErr = math.sqrt(nBErr)
+            nBErr = math.sqrt(nBErr)
             # if nB < 3:
             # if nS < 5:
             #      fomValueToCutInfoDict[iBin] = [-1.0, cutVal, nS, efficiency, nB]
@@ -1029,6 +1055,7 @@ def OptimizeBDTCut(args):
         cutVal = cutValInfoToUse[2]
         headers = [
             "LQM={}".format(lqMassToUse),
+            "year",
             "sample",
             "yield (BDT Cut)",
             "raw events (BDT Cut)",
@@ -1036,57 +1063,88 @@ def OptimizeBDTCut(args):
         ]
         table = []
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
-        totQCDYield = 0
-        totQCDYieldErr = 0
-        totQCDRawEvents = 0
-        totQCDRawEventsErr = 0
-        totQCDFullYield = 0
-        for sample, hist in bkgHists.items():
-            valsForTable = []
-            #print("add hist {} for sample {} to sharedOptHistsDict".format(hist, sample))
-            histList = sharedOptHistsDict[lqMassToUse]
-            histList.append(hist)
-            sharedOptHistsDict[lqMassToUse] = histList
-            cutBin = hist.FindFixBin(cutVal)
-            nBErr = ctypes.c_double()
-            nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
-            nBErr = nBErr.value
-            bkgIntegral = hist.Integral()
-            rawEventsHist = bkgHistsUnweightedUnscaled[sample]
+        for year in years +["fullRunII"]:
+            table.append(["",year,"","","",""])
+            totQCDYield = 0
+            totQCDYieldErr = 0
+            totQCDRawEvents = 0
+            totQCDRawEventsErr = 0
+            totQCDFullYield = 0
+            totNB = 0
+            totNBErr = 0
+            totNBRaw = 0
+            totNBRawErr = 0
+            nBFullYield = 0
+            for sample, hist in bkgHists[year].items():
+                valsForTable = []
+                #print("add hist {} for sample {} to sharedOptHistsDict".format(hist, sample))
+                histList = sharedOptHistsDict[lqMassToUse]
+                histList.append(hist)
+                sharedOptHistsDict[lqMassToUse] = histList
+                cutBin = hist.FindFixBin(cutVal)
+                nBErr = ctypes.c_double()
+                nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
+                nBErr = nBErr.value
+                totNB += nB
+                totNBErr += nBErr**2
+                bkgIntegral = hist.Integral()
+                nBFullYield += bkgIntegral
+                rawEventsHist = bkgHistsUnweightedUnscaled[year][sample]
     #        sharedOptHistsDict[lqMassToUse].append(rawEventsHist)
-            nBEventsErr = ctypes.c_double()
-            nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
-            nBEventsErr = nBEventsErr.value
-            if "QCD" in sample:
-                totQCDYield+=nB
-                totQCDYieldErr = math.sqrt(totQCDYieldErr**2 + nBErr**2)
-                totQCDRawEvents+=nBEvents
-                totQCDRawEventsErr = math.sqrt(totQCDRawEventsErr**2 + nBEventsErr**2)
-                totQCDFullYield+=bkgIntegral
-            valsForTable.append("")
-            valsForTable.append(sample)
-            valsForTable.append(f"{nB:4.6f}+/-{nBErr:4.6f}")
-            valsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
-            valsForTable.append(f"{bkgIntegral:4.6f}")
-            table.append(valsForTable)
-        table.append(["","QCD_total", f"{totQCDYield:4.6f}+/-{totQCDYieldErr:4.6f}",f"{totQCDRawEvents:4.6f}+/-{totQCDRawEventsErr:4.6f}",f"{totQCDFullYield:4.6f}"])
+                nBEventsErr = ctypes.c_double()
+                nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
+                nBEventsErr = nBEventsErr.value
+                totNBRaw += nBEvents
+                totNBRawErr += nBEventsErr**2
+                if "QCD" in sample:
+                    totQCDYield+=nB
+                    totQCDYieldErr = math.sqrt(totQCDYieldErr**2 + nBErr**2)
+                    totQCDRawEvents+=nBEvents
+                    totQCDRawEventsErr = math.sqrt(totQCDRawEventsErr**2 + nBEventsErr**2)
+                    totQCDFullYield+=bkgIntegral
+                valsForTable.append("")
+                valsForTable.append("")
+                valsForTable.append(sample)
+                valsForTable.append(f"{nB:4.6f}+/-{nBErr:4.6f}")
+                valsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
+                valsForTable.append(f"{bkgIntegral:4.6f}")
+                table.append(valsForTable)
+            totNBErr = math.sqrt(totNBErr)
+            totNBRawErr = math.sqrt(totNBRawErr)
+            table.append(["","","QCD_total", f"{totQCDYield:4.6f}+/-{totQCDYieldErr:4.6f}",f"{totQCDRawEvents:4.6f}+/-{totQCDRawEventsErr:4.6f}",f"{totQCDFullYield:4.6f}"])
+            table.append(["","","bkg total",f"{totNB:4.6f}+/-{totNBErr:4.6f}",f"{totNBRaw:4.6f}+/-{totNBRawErr:4.6f}",f"{nBFullYield:4.6f}"])
+            if not year=="fullRunII":
+                hist = sigHistDict[year]
+                rawEventsHist = sigHistDictUnweighted[year]
+            else:
+                hist = histSig
+                rawEventsHist = histSigUnweighted
+            cutBin = hist.FindFixBin(cutVal)
+            nSErr = ctypes.c_double()
+            nS = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nSErr)
+            nSErr = nSErr.value
+            nSEventsErr = ctypes.c_double()
+            nSEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nSEventsErr)
+            nSEventsErr = nSEventsErr.value
+            sigIntegral = hist.Integral()
+            table.append(["","","signal",f"{nS:4.6f}+/-{nSErr:4.6f}",f"{nSEvents:4.6f}+/-{nSEventsErr:4.6f}",f"{sigIntegral:4.6f}"])
             #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
-        cutBin = bkgTotal.FindFixBin(cutVal)
-        nBErr = ctypes.c_double()
-        nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
-        nBErr = nBErr.value
-        bkgIntegral = bkgTotal.Integral()
-        rawEventsHist = bkgTotalUnweighted
-        nBEventsErr = ctypes.c_double()
-        nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
-        nBEventsErr = nBEventsErr.value
-        totalsForTable = []
-        totalsForTable.append("")
-        totalsForTable.append("Background total")
-        totalsForTable.append(f"{nB:4.6f}+/-{nBErr:4.6f}")
-        totalsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
-        totalsForTable.append(f"{bkgIntegral:4.6f}")
-        table.append(totalsForTable)
+        #cutBin = bkgTotal.FindFixBin(cutVal)
+        #nBErr = ctypes.c_double()
+        #nB = bkgTotal.IntegralAndError(cutBin, bkgTotal.GetNbinsX(), nBErr)
+        #nBErr = nBErr.value
+        #bkgIntegral = bkgTotal.Integral()
+        #rawEventsHist = bkgTotalUnweighted
+        #nBEventsErr = ctypes.c_double()
+        #nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
+        #nBEventsErr = nBEventsErr.value
+        #totalsForTable = []
+        #totalsForTable.append("")
+        #totalsForTable.append("Background total")
+        #totalsForTable.append(f"{nB:4.6f}+/-{nBErr:4.6f}")
+        #totalsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
+        #totalsForTable.append(f"{bkgIntegral:4.6f}")
+        #table.append(totalsForTable)
         sharedFOMInfoDict[lqMassToUse]["table"] = table
         #print("\n",tabulate(table, headers, stralign="left", tablefmt="pretty"))
         #print(tabulate(table, headers, stralign="left", tablefmt="latex"))
@@ -1309,16 +1367,19 @@ def GetMassFloat(mass):
     return float(mass)
 
 
-def PrintBDTCuts(optValsDict, parametrized, fomInfoDict):
+def PrintBDTCuts(optValsDict, parametrized, fomInfoDict, optTablesTxtFile):
     sortedFOMDict = OrderedDict(sorted(fomInfoDict.items()))
+    with open(optTablesTxtFile,'w') as txtfile:
+        for mass in sortedFOMDict.keys():
+            headers = ["LQM={}".format(mass),"year","sample", "yield (BDT cut)", "raw events (BDT cut)", "yield (sT, Mee, Meejj cuts)"]
+            table = sortedFOMDict[mass]["table"]
+            print("\n", tabulate(table, headers, tablefmt="latex"))
+            txtfile.write('\nTable for LQM={}\n'.format(mass))
+            txtfile.write(tabulate(table, headers, tablefmt="latex"))
     for mass in sortedFOMDict.keys():
-        headers = ["LQM={}".format(mass),"sample", "yield (BDT cut)", "raw events (BDT cut)", "yield (sT, Mee, Meejj cuts)"]
+        headers = ["LQM={}".format(mass),"year","sample", "yield (BDT cut)", "raw events (BDT cut)", "yield (sT, Mee, Meejj cuts)"]
         table = sortedFOMDict[mass]["table"]
-        print("\n", tabulate(table, headers, tablefmt="latex"))
-    for mass in sortedFOMDict.keys():
-        headers = ["LQM={}".format(mass),"sample", "yield (BDT cut)", "raw events (BDT cut)", "yield (sT, Mee, Meejj cuts)"]
-        table = sortedFOMDict[mass]["table"]
-        print("\n", tabulate(table, headers, tablefmt="pretty"))
+        print("\n", tabulate(table, headers, tablefmt="pretty", stralign='left'))
     sortedDictMass = OrderedDict(sorted(optValsDict.items()))
     dataForTable = []
     headers = ["mass", "bin", "max FOM", "cut value", "nS", "nSErr", "eff", "nB", "nBErr"] #, "min. bkg limited"]
@@ -1343,6 +1404,9 @@ def PrintBDTCuts(optValsDict, parametrized, fomInfoDict):
     print(114*"-")
     print("Table in LaTex format:")
     print(tableLaTex)
+    with open(optTablesTxtFile,'a') as txtfile:
+        txtfile.write('\nCut values table:\n')
+        txtfile.write(tableLaTex)
     print(114*"-")
     print("data for cutfiles:")
     sortedDictCutVal = OrderedDict(sorted(optValsDict.items(), key=lambda t: float(t[1][2])))
@@ -2166,7 +2230,8 @@ if __name__ == "__main__":
             for mass in lqMassesToUse:
                 dictOptFOMInfo[mass] = manager.dict()
                 OptimizeBDTCut([weightFile.format(mass), mass, dictOptValues, dictOptHists, dictOptFOMInfo, year])
-        PrintBDTCuts(dictOptValues, parametrized, dictOptFOMInfo)
+        optTablesTxtFile = optimizationPlotFile.replace("Plots.root","Tables.txt")
+        PrintBDTCuts(dictOptValues, parametrized, dictOptFOMInfo, optTablesTxtFile)
         WriteOptimizationHists(optimizationPlotFile, dictOptHists, dictOptValues, dictOptFOMInfo)
 
     if roc:
