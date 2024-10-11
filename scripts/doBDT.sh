@@ -30,7 +30,7 @@ done
 fi
 
 years='2016preVFP 2016postVFP 2017 2018'
-destDir=$LQDATAEOS/BDT_16SepSkim/LQToDEle/testNewOptHists/perYearTables
+destDir=$LQDATAEOS/BDT_16SepSkim/LQToDEle/testNewOptHists/rdataframeTables
 #destDir=testingBDTs
 #rm -r dataset
 #cp -r $LQDATAEOS/BDT_7maySkim_10julxsec/LQToDEle/$year/dataset .

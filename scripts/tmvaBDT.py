@@ -15,12 +15,13 @@ import copy
 import numpy as np
 import ctypes
 import time
+import tempfile
 from optparse import OptionParser
 from tabulate import tabulate
 from combineCommon import ParseXSectionFile, lookupXSection
 
 import ROOT
-from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad, RooStats, TColor, TPaveText, gStyle
+from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad, RooStats, TColor, TPaveText, gStyle, gSystem
 ROOT.EnableImplicitMT(6)
 
 
@@ -304,14 +305,19 @@ def TrainBDT(args):
         print(signalDatasetsDict)
         
         outputFile = TFile.Open(eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".root", "RECREATE")
-        
+        outputLog = eosDir+"/TMVA_ClassificationOutput_"+signalDatasetName+".txt"
+        if os.path.isfile(outputLog):
+            os.remove(outputLog)
+        #logfile = open(outputLog,'w')
+        cmd = "gSystem->RedirectOutput(\""+outputLog+"\");"
+        #gSystem.RedirectOutput(logfile)
         TMVA.Tools.Instance()
         if drawTrees:
             factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification:ModelPersistence=False")
             print("WARN: Drawing BDT training trees for mass {}; no model XML files can be written.".format(lqMassToUse))
         else:
             factory = TMVA.Factory("TMVAClassification_"+signalDatasetName, outputFile, "!V:ROC:!Silent:Color:DrawProgressBar:AnalysisType=Classification")
-        
+        ROOT.gROOT.ProcessLine(cmd)#now output to per-mass log
         loader = TMVA.DataLoader("dataset")
         nEntriesTrainBkg = LoadDatasets(backgroundDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=False, loader=loader, lqMass=lqMassToUse, years=years)
         nEntriesTrainSig = LoadDatasets(signalDatasetsDict, neededBranches, ZJetTrainingSample, eosDir, signal=True, loader=loader, lqMass=lqMassToUse, years=years)
@@ -455,7 +461,9 @@ def TrainBDT(args):
                     # pdfName, hadNegBkgNode = DrawTree(treeToDraw, iTree, lqMassToUse, "_negWeightEvents")
                     # pdfNames.append(pdfName)
             os.system("pdfunite "+" ".join(pdfNames)+" dataset/plots/BDTG_trainingTrees_lqm{}.pdf".format(lqMassToUse))
-
+        ROOT.gROOT.ProcessLine("gSystem->RedirectOutput(0);")
+        #print("INFO: Finished training BDT for mass {}".format(lqMassToUse))
+        #logfile.close()
     except Exception as e:
         print("ERROR: exception in TrainBDT for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -622,7 +630,9 @@ def OptimizeBDTCut(args):
         # methodNames = [name]
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
-
+        tempDir = "/tmp/LQM{}".format(lqMassToUse)
+        if not os.path.isdir(tempDir):
+            os.mkdir(tempDir)
         binsToUse = 200 #100 # 10000
         hname = "hsig_" + name + "_" + str(lqMassToUse)
         htitle = "Classifier Output on signal for " + name + ", M_{LQ} = " + str(lqMassToUse) + " GeV"
@@ -652,6 +662,7 @@ def OptimizeBDTCut(args):
         bkgHistsUnweightedUnscaled = dict()
         bkgHistsUnweightedUnscaled["fullRunII"] = dict()
         bkgHistsNegWeights = dict()
+        emptySamples = []
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
         for year in years:
@@ -737,6 +748,7 @@ def OptimizeBDTCut(args):
                         bkgWeight = CalcWeight(datasetName, intLumi, sumWeights)
                     else:
                         bkgWeight = 1.0
+                    df = df.Define("fullWeight", "eventWeight * {}".format(bkgWeight))
                     histBkg = histBkg.GetValue()
                     histBkg.Scale(bkgWeight)
                     histBkgUnweighted = histBkgUnweighted.GetValue()
@@ -781,6 +793,17 @@ def OptimizeBDTCut(args):
                     print("subsample={}, entries = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, histBkg.GetEntries(), histBkg.Integral()/bkgWeight, histBkg.Integral()), flush=True)
                     print("subsample={}, df entries = {}, df integral unweighted = {}, df integral weighted = {}".format(txtFile, df.Count().GetValue(), df.Sum("eventWeight").GetValue(), df.Sum("eventWeight").GetValue()*bkgWeight), flush=True)
                     # print("subsample={}, entries with BDT > {} = {}, integral unweighted = {}, integral weighted = {}".format(txtFile, cutValForIntegral, bkgEntriesOverCut, bkgIntegralOverCut/bkgWeight, bkgIntegralOverCut))
+                    fileToWrite = datasetName
+                    if year=='2016preVFP':
+                        fileToWrite = fileToWrite.replace("_APV","")
+                    if sample == "QCDFakes_DYJ":
+                        fileToWrite += "_QCD"
+                    if "_2FR" in sample:
+                        fileToWrite += "_2FR"
+                    if df.Count().GetValue() <= 0:
+                        emptySamples.append(fileToWrite)
+                    else:
+                        df.Snapshot('tree',tempDir+'/{}_{}_{}.root'.format(fileToWrite,lqMassToUse,year))
                     sys.stdout.flush()
                 # print some entries
                 # if sample == "QCDFakes_DATA":
@@ -859,6 +882,7 @@ def OptimizeBDTCut(args):
             #datasetName = os.path.basename(txtFile).replace(".txt", "")
             sumWeights = GetSignalSumWeights(lqMassToUse, year)
             signalWeight = CalcWeight(signalDatasetName, intLumi, sumWeights)
+            dfSig = dfSig.Define("fullWeight","eventWeight*{}".format(signalWeight))
             #signalWeight = signalDatasetsWeightsTimesOneThousand[signalDatasetName]/1000.0
             sumSigWeights += sumWeights*signalWeight
             print("multiply hist by signal weight ", signalWeight)
@@ -871,6 +895,7 @@ def OptimizeBDTCut(args):
             sigHistDictUnweighted[year] = histSigUnweightedThisYear
             histSig.Add(histSigThisYear.GetValue())
             histSigUnweighted.Add(histSigUnweightedThisYear.GetValue())
+            dfSig.Snapshot('tree',tempDir+"/signal{}_{}.root".format(lqMassToUse, year))
         # print some entries
         # cols = ROOT.vector('string')()
         # cols.push_back("BDT")
@@ -1019,14 +1044,14 @@ def OptimizeBDTCut(args):
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
         # testVal=testVals[9950]
         # print("test FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(testVal[0], *testVal[1]))
-        valList = cutValInfoToUse
+        #valList = cutValInfoToUse
         #valList.extend(cutValInfoToUse)
-        if len(unusedFOMs)>0 and max(unusedFOMs) > valList[1]:
-            unusedVal = max(unusedFOMs)
-            valList.append("yes")
-        else:
-            valList.append("no")
-        sharedOptValsDict[lqMassToUse] = valList
+        #if len(unusedFOMs)>0 and max(unusedFOMs) > valList[1]:
+        #    unusedVal = max(unusedFOMs)
+        #    valList.append("yes")
+        #else:
+        #    valList.append("no")
+        #sharedOptValsDict[lqMassToUse] = valList
     #    print(sharedOptValsDict)
         sharedOptHistsDict[lqMassToUse] = [histSig, bkgTotal, histSigUnweighted, bkgTotalUnweighted, bkgTotalNegWeightsOnly]
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
@@ -1063,7 +1088,11 @@ def OptimizeBDTCut(args):
         ]
         table = []
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
-        for year in years +["fullRunII"]:
+        fullRunIIValues = {}
+        for sample in ["ZJet_amcatnlo_ptBinned", "TTbar_powheg", "DIBOSON_nlo", "SingleTop", "QCDFakes_DYJ", "QCDFakes_DATA", "QCDFakes_DATA_2FR", "signal"]:
+            fullRunIIValues[sample] = [0]*4
+            #nB, nBErr, nBRawEvents, bkgIntegral
+        for year in years: #+["fullRunII"]:
             table.append(["",year,"","","",""])
             totQCDYield = 0
             totQCDYieldErr = 0
@@ -1075,25 +1104,61 @@ def OptimizeBDTCut(args):
             totNBRaw = 0
             totNBRawErr = 0
             nBFullYield = 0
-            for sample, hist in bkgHists[year].items():
+            for sample in backgroundDatasetsDict.keys():#, hist in bkgHists[year].items():
+                if 'QCDFakes_DATA' in sample and not str(year) in sample:
+                    continue
+                if "ZJet" in sample and not "amcatnlo" in sample:
+                    continue
+                ch = TChain('tree','chain_'+sample)
                 valsForTable = []
                 #print("add hist {} for sample {} to sharedOptHistsDict".format(hist, sample))
-                histList = sharedOptHistsDict[lqMassToUse]
-                histList.append(hist)
-                sharedOptHistsDict[lqMassToUse] = histList
-                cutBin = hist.FindFixBin(cutVal)
-                nBErr = ctypes.c_double()
-                nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
-                nBErr = nBErr.value
+                #histList = sharedOptHistsDict[lqMassToUse]
+                #histList.append(hist)
+                #sharedOptHistsDict[lqMassToUse] = histList
+                #cutBin = hist.FindFixBin(cutVal)
+                #nBErr = ctypes.c_double()
+                #nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
+                #nBErr = nBErr.value
+                for dataset in backgroundDatasetsDict[sample]:
+                    name = dataset.split("/")[-1]
+                    name = name.replace(".txt","")
+                    if sample=='QCDFakes_DYJ':
+                        name += "_QCD"
+                    if "_2FR" in sample:
+                        name+= "_2FR"
+                    if name in emptySamples:
+                        continue
+                    filename = tempDir+"/{}_{}_{}.root".format(name, lqMassToUse, year)
+                    ch.Add(filename)
+                #tfile = TFile.Open(filename)
+                #ttree = tfile.Get('tree')
+                #print("Got tree from file "+filename)
+                df = RDataFrame(ch)
+                nB = df.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
+                df = df.Define("weightSquared","fullWeight*fullWeight")
+                nBErr = df.Filter("BDT > "+str(cutVal)).Sum('weightSquared')
+                bkgIntegral = df.Sum('fullWeight')
+                nBEvents = df.Filter("BDT > "+str(cutVal)).Count()
+                nB = nB.GetValue()
+                nBErr = math.sqrt(nBErr.GetValue())
+                bkgIntegral = bkgIntegral.GetValue()
+                nBEvents = nBEvents.GetValue()
+                nBEventsErr = math.sqrt(nBEvents)
                 totNB += nB
                 totNBErr += nBErr**2
-                bkgIntegral = hist.Integral()
+                sample = sample.replace("_{}".format(year),"")
+                fullRunIIValues[sample][0] += nB
+                fullRunIIValues[sample][1] += nBErr**2
+                fullRunIIValues[sample][2] += nBEvents
+                fullRunIIValues[sample][3] += bkgIntegral
+                #print("Yields: {}, {}, {}".format(nB, nBEvents, bkgIntegral))
+                #bkgIntegral = hist.Integral()
                 nBFullYield += bkgIntegral
-                rawEventsHist = bkgHistsUnweightedUnscaled[year][sample]
+                #rawEventsHist = bkgHistsUnweightedUnscaled[year][sample]
     #        sharedOptHistsDict[lqMassToUse].append(rawEventsHist)
-                nBEventsErr = ctypes.c_double()
-                nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
-                nBEventsErr = nBEventsErr.value
+                #nBEventsErr = ctypes.c_double()
+                #nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
+                #nBEventsErr = nBEventsErr.value
                 totNBRaw += nBEvents
                 totNBRawErr += nBEventsErr**2
                 if "QCD" in sample:
@@ -1113,20 +1178,39 @@ def OptimizeBDTCut(args):
             totNBRawErr = math.sqrt(totNBRawErr)
             table.append(["","","QCD_total", f"{totQCDYield:4.6f}+/-{totQCDYieldErr:4.6f}",f"{totQCDRawEvents:4.6f}+/-{totQCDRawEventsErr:4.6f}",f"{totQCDFullYield:4.6f}"])
             table.append(["","","bkg total",f"{totNB:4.6f}+/-{totNBErr:4.6f}",f"{totNBRaw:4.6f}+/-{totNBRawErr:4.6f}",f"{nBFullYield:4.6f}"])
-            if not year=="fullRunII":
-                hist = sigHistDict[year]
-                rawEventsHist = sigHistDictUnweighted[year]
-            else:
-                hist = histSig
-                rawEventsHist = histSigUnweighted
-            cutBin = hist.FindFixBin(cutVal)
-            nSErr = ctypes.c_double()
-            nS = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nSErr)
-            nSErr = nSErr.value
-            nSEventsErr = ctypes.c_double()
-            nSEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nSEventsErr)
-            nSEventsErr = nSEventsErr.value
-            sigIntegral = hist.Integral()
+            #if not year=="fullRunII":
+            #    hist = sigHistDict[year]
+            #    rawEventsHist = sigHistDictUnweighted[year]
+            #else:
+            #    hist = histSig
+            #    rawEventsHist = histSigUnweighted
+            #cutBin = hist.FindFixBin(cutVal)
+            #nSErr = ctypes.c_double()
+            #nS = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nSErr)
+            #nSErr = nSErr.value
+            #nSEventsErr = ctypes.c_double()
+            #nSEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nSEventsErr)
+            #nSEventsErr = nSEventsErr.value
+            #sigIntegral = hist.Integral()
+            filenameSig = tempDir+"/signal{}_{}.root".format(lqMassToUse,year)
+            tfileSig = TFile.Open(filenameSig)
+            ttreeSig = tfileSig.Get("tree")
+            dfSig = RDataFrame(ttreeSig)
+            nS = dfSig.Filter('BDT>'+str(cutVal)).Sum('fullWeight')
+            dfSig = dfSig.Define('weightSquared','fullWeight*fullWeight')
+            nSErr = dfSig.Filter('BDT>'+str(cutVal)).Sum('weightSquared')
+            nSEvents = dfSig.Filter('BDT>'+str(cutVal)).Count()
+            sigIntegral = dfSig.Sum('fullWeight')
+            nS = nS.GetValue()
+            nSErr = nSErr.GetValue()
+            nSEvents = nSEvents.GetValue()
+            sigIntegral = sigIntegral.GetValue()
+            nSErr = math.sqrt(nSErr)
+            nSEventsErr = math.sqrt(nSEvents)
+            fullRunIIValues['signal'][0]+=nS
+            fullRunIIValues['signal'][1] += nSErr**2
+            fullRunIIValues['signal'][2] += nSEvents
+            fullRunIIValues['signal'][3] += sigIntegral
             table.append(["","","signal",f"{nS:4.6f}+/-{nSErr:4.6f}",f"{nSEvents:4.6f}+/-{nSEventsErr:4.6f}",f"{sigIntegral:4.6f}"])
             #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={sample:20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
         #cutBin = bkgTotal.FindFixBin(cutVal)
@@ -1145,10 +1229,56 @@ def OptimizeBDTCut(args):
         #totalsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
         #totalsForTable.append(f"{bkgIntegral:4.6f}")
         #table.append(totalsForTable)
+        table.append(["","fullRunII","","","",""])
+        runIINB = 0
+        runIINBErr = 0
+        runIINBEvents = 0
+        runIIBkgInt = 0
+        for sample,yieldList in fullRunIIValues.items():
+            print(yieldList)
+            if sample=='signal':
+                continue #put signal at the end like the other tables
+            nB = yieldList[0]
+            nBErr = yieldList[1]
+            nBEvents = yieldList[2]
+            nBEventsErr = math.sqrt(nBEvents)
+            bkgInt = yieldList[3]
+            runIINB+=nB
+            runIINBErr+=nBErr
+            runIINBEvents+=nBEvents
+            runIIBkgInt+=bkgInt
+            nBErr = math.sqrt(nBErr)
+            table.append(["","",sample,f"{nB:4.6f}+/-{nBErr:4.6f}",f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}",f"{bkgInt:4.6f}"])
+
+        runIIQCD = fullRunIIValues["QCDFakes_DATA"][0] + fullRunIIValues["QCDFakes_DATA_2FR"][0] + fullRunIIValues["QCDFakes_DYJ"][0]
+        runIIQCDErr = fullRunIIValues["QCDFakes_DATA"][1] + fullRunIIValues["QCDFakes_DATA_2FR"][1] + fullRunIIValues["QCDFakes_DYJ"][1]
+        runIIQCDErr = math.sqrt(runIIQCDErr)
+        runIIQCDEvents = fullRunIIValues["QCDFakes_DATA"][2] + fullRunIIValues["QCDFakes_DATA_2FR"][2] + fullRunIIValues["QCDFakes_DYJ"][2]
+        runIIQCDEventsErr = math.sqrt(runIIQCDEvents)
+        runIIQCDInt = fullRunIIValues["QCDFakes_DATA"][3] + fullRunIIValues["QCDFakes_DATA_2FR"][3] + fullRunIIValues["QCDFakes_DYJ"][3]
+        table.append(["","","QCD_total",f"{runIIQCD:4.6f}+/-{runIIQCDErr:4.6f}",f"{runIIQCDEvents:4.6f}+/-{runIIQCDEventsErr:4.6f}",f"{runIIQCDInt:4.6f}"])
+
+        runIINBEventsErr = math.sqrt(runIINBEvents)
+        runIINBErr = math.sqrt(runIINBErr)
+        table.append(["","","bkg total",f"{runIINB:4.6f}+/-{runIINBErr:4.6f}",f"{runIINBEvents:4.6f}+/-{runIINBEventsErr:4.6f}",f"{runIIBkgInt:4.6f}"])
+        nS = fullRunIIValues['signal'][0]
+        nSErr = math.sqrt(fullRunIIValues['signal'][1])
+        nSEvents = fullRunIIValues['signal'][2]
+        nSEventsErr = math.sqrt(nSEvents)
+        sigInt = fullRunIIValues['signal'][3]
+        table.append(["","","signal",f"{nS:4.6f}+/-{nSErr:4.6f}",f"{nSEvents:4.6f}+/-{nSEventsErr:4.6f}",f"{sigInt:4.6f}"])
+            
         sharedFOMInfoDict[lqMassToUse]["table"] = table
+        #opt results table
+        #mass, bin, fom, cutval, nS, nSErr, eff, nB, nBErr
+        fom = math.sqrt(2* ((nS+runIINB)*math.log(1+ nS/runIINB) - nS))
+        valList = [lqMassToUse, cutValInfoToUse[0], fom, cutValInfoToUse[2], nS, nSErr, cutValInfoToUse[5], runIINB, runIINBErr]
+        sharedOptValsDict[lqMassToUse] = valList
         #print("\n",tabulate(table, headers, stralign="left", tablefmt="pretty"))
         #print(tabulate(table, headers, stralign="left", tablefmt="latex"))
         #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
+        if os.path.isdir(tempDir):
+            shutil.rmtree(tempDir)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -2094,7 +2224,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [1200]#,1400,1500,1600,1700]#, 2900]#,2000]
+    #lqMassesToUse = [1500]#,1300,1400,1500]#,1600,1700]#, 2900]#,2000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
