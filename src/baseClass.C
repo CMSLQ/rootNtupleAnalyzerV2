@@ -1255,17 +1255,27 @@ void baseClass::runSystematics()
           auto& systCut = systCutName_cut_[cutName];
           systCut->filled = false;
           if(syst.cutNamesToBranchNames[cutName].size()) {
-            //cout << "[DEBUG] syst " << syst.name << " affects cut named: " << cutName << "; replace orig val of: " << systCut->getValue<float>() << 
-            //  " with the value of the branch: " << syst.cutNamesToBranchNames[cutName];
-            //cout << " which is: " << readerTools_->ReadValueBranch<Float_t>(syst.cutNamesToBranchNames[cutName]) << endl;
-            //STDOUT("\tDEBUG: [pre-value overwrite] systCut " << cutName << " has value = " << systCut->getValue<float>() << " and address: " << systCut->getValueAddress<float>());
+            bool verbose = false;
+            //if(syst.name=="EESUp" || syst.name=="JESUp")
+            //  verbose = true;
+            if(verbose) {
+              cout << "[DEBUG] syst " << syst.name << " affects cut named: " << cutName << "; replace orig val of: " << systCut->getStringValue() << 
+                " with the value of the branch: " << syst.cutNamesToBranchNames[cutName];
+              cout << " which is: " << readerTools_->ReadValueBranch<Float_t>(syst.cutNamesToBranchNames[cutName]) << endl;
+              //STDOUT("\tDEBUG: [pre-value overwrite] systCut " << cutName << " has value = " << systCut->getValue<float>() << " and address: " << systCut->getValueAddress<float>());
+            }
             systCut->value = readerTools_->ReadValueBranch<Float_t>(syst.cutNamesToBranchNames[cutName]);
             systCut->filled = true;
           }
           else {
             systVal = syst.cutNamesToSystValues[cutName];
-            //cout << "\t[DEBUG] syst affects cut named: " << cutNameCut.first << "; replace orig val of: " << cutNameCut.second.value << 
-            //  " with the syst value: " << systVal << "; filled? " << syst.cutNamesToSystFilled[cutNameCut.first] << endl;
+            bool verbose = false;
+            //if(syst.name=="EESUp" || syst.name=="JESUp")
+            //  verbose = true;
+            if(verbose) {
+              cout << "\t[DEBUG] syst affects cut named: " << cutName << "; replace orig val of: " << systCut->getStringValue() << 
+                " with the syst value: " << systVal << "; filled? " << syst.cutNamesToSystFilled[cutName] << endl;
+            }
             if(syst.cutNamesToSystFilled[cutName]) {
               systCut->value = systVal;
               systCut->filled = true;
@@ -1309,17 +1319,17 @@ void baseClass::runSystematics()
       std::string systNameBinLookup = currentLength==1 ? syst.name : syst.name+"_"+to_string(i);
       float ybinCoord = systHist->GetYaxis()->GetBinCenter(systHist->GetYaxis()->FindFixBin(systNameBinLookup.c_str()));
       for(auto& cutName : orderedSystCutNames_) {
-        //if(syst.name == "nominal" || syst.name=="JERUp") {
-        //  STDOUT("[DEBUG] passedCut() for cut: " << cutName << "? " << passedCut(cutName, systCutName_cut_, combCutNameToPassFail) << ", value=" << systCutName_cut_[cutName]->getValue<float>() << ", for syst: " << syst.name);
+        //if((syst.name == "EESUp" || syst.name=="JESUp") && cutName=="BDTOutput_LQ1500") {
+        //  STDOUT("[DEBUG] passedCut() for cut: " << cutName << "? " << passedCut(cutName, systCutName_cut_, combCutNameToPassFail) << ", value=" << systCutName_cut_[cutName]->getStringValue() << ", for syst: " << syst.name);
         //  STDOUT("[DEBUG] calling passedSelection() for selection: " << cutName << " for syst: " << syst.name);
         //}
         //TODO: perhaps remove the list of cut names; always have to use the full list!
         if(passedSelection(cutName, systCutName_cut_, combCutNameToPassFail, orderedCutNames_)) {
-          //if(syst.name == "nominal" || syst.name=="JERUp") {
-          //  cout << "[DEBUG]: passed selection " << cutName << " with value="<< systCutName_cut_[cutName]->getValue<float>() << "; fill syst hist; syst="<<syst.name<<",  xbin: " << xbinCoord << ", ybin: " << ybinCoord <<
+          //if(syst.name == "EESUp" || syst.name=="JESUp" && cutName=="BDTOutput_LQ1500") {
+          //  cout << "[DEBUG]: passed selection " << cutName << " with value="<< systCutName_cut_[cutName]->getStringValue() << "; fill syst hist; syst="<<syst.name<<",  xbin: " << xbinCoord << ", ybin: " << ybinCoord <<
           //    ", origWeight=" << systCutName_cut_[cutName]->weight << "; systVal=" << systVal << "; new weight= " << systCutName_cut_[cutName]->weight*systVal <<
           //    " passedPreviousCuts? " << systCutName_cut_[cutName]->passedPreviousCuts << " evaluatedPreviousCuts? " << systCutName_cut_[cutName]->evaluatedPreviousCuts << endl;
-          //  cout << "\t[DEBUG]: NOMINAL selection " << cutName << " with value="<< cutName_cut_[cutName]->getValue<float>()
+          //  cout << "\t[DEBUG]: NOMINAL selection " << cutName << " with value="<< cutName_cut_[cutName]->getStringValue()
           //    << " passedSelection? " << passedSelection(cutName, cutName_cut_, combCutNameToPassFail, orderedCutNames_) <<
           //    " passedPreviousCuts? " << cutName_cut_[cutName]->passedPreviousCuts << " evaluatedPreviousCuts? " << cutName_cut_[cutName]->evaluatedPreviousCuts << endl;
           //}
@@ -1328,7 +1338,7 @@ void baseClass::runSystematics()
             systHistUnweighted->Fill(xbinCoord, ybinCoord);
             currentSystematicsHist_->Fill(xbinCoord, ybinCoord, 1);
             //int bin = currentSystematicsHist_->FindFixBin(xbinCoord, ybinCoord);
-            //if(syst.name=="JERUp")
+            //if((syst.name=="EESUp" || syst.name=="JESUp") && cutName=="BDTOutput_LQ1500")
             //  STDOUT("INFO: runSystematics(): 1. fill hist for syst="<<syst.name<<", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
             //      << ", nom. weight="<<systCutName_cut_[cutName]->weight << "; binContent=" << systHist->GetBinContent(bin));
           }
@@ -1340,6 +1350,7 @@ void baseClass::runSystematics()
             //if(syst.name == "nominal")
             //if(syst.name=="LHEPdfWeight" && cutName == "preselection" && i > 40 && i < 45)
             //if(syst.name=="nominal" || syst.name.find("EleTrig") != std::string::npos || syst.name.find("EleReco") != std::string::npos) {
+            //if((syst.name == "EESUp" || syst.name == "JESUp") && cutName=="BDTOutput_LQ1500") {
             //  if(cutName.find("BDTOutput") != std::string::npos) {
             //    STDOUT("DEBUG: runSystematics() passed selection " << cutName << ": 2. fill hist for syst="<<syst.name<<", index=" << i << ", systCutName=" << cutName //<<", binX=" << currentSystematicsHist_->GetXaxis()->FindFixBin(xbinCoord) << ", binY=" << currentSystematicsHist_->GetYaxis()->FindFixBin(ybinCoord)
             //        << ", syst. weight=weight*systVal="<<systCutName_cut_[cutName]->weight << "*"
@@ -1653,7 +1664,7 @@ bool baseClass::updateCutEffic()
   for(const auto& cName : orderedCutNames_)
   {
     auto& c = cutName_cut_.at(cName);
-    bool passedPreviousCuts = c->evaluatePreviousCuts ? passedAllPreviousCuts(cName) : passedAllPreviousCuts(c->minimumSelectionToPass);
+    bool passedPreviousCuts = passedAllPreviousCuts(cName);
     if( passedPreviousCuts )
     {
       if( passedCut(cName) )

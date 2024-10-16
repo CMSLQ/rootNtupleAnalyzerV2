@@ -448,11 +448,14 @@ class baseClass {
         STDOUT("ERROR: did not find variableName = "<<s<<" in cutNameToCut. Returning false.");
         return false;
       }
-      if(!cc->second->evaluatePreviousCuts) // only look at min selection level in this case
-        return passedAllPreviousCuts(cc->second->minimumSelectionToPass);
+      if(!cc->second->evaluatePreviousCuts) { // only look at min selection level in this case
+        if(verbose)
+          STDOUT("- for " << s << ", consider only cuts up to and including " << cc->second->minimumSelectionToPass);
+        return passedAllPreviousCuts(cc->second->minimumSelectionToPass) && passedCut(cc->second->minimumSelectionToPass);
+      }
       if(!cc->second->evaluatedPreviousCuts) {
         if(verbose)
-          STDOUT("Did not evaluate all previous cuts--do it now");
+          STDOUT("- Did not evaluate all previous cuts--do it now");
         for (auto& cutName : orderedCutNames) {
           auto& c = cutNameToCut.find(cutName)->second;
           if( c->variableName == cc->second->variableName ) {
@@ -465,16 +468,19 @@ class baseClass {
               cc->second->evaluatedPreviousCuts = true;
               cc->second->passedPreviousCuts = false;
               if(verbose)
-                STDOUT("Failed cut: " << cc->second->variableName);
+                STDOUT("- Failed cut: " << cc->second->variableName);
               break;
+            }
+            else if(verbose) {
+              STDOUT("- Passed cut: " << cc->second->variableName);
             }
           }
         }
       }
       else if(verbose)
-        STDOUT("Already evaluated all previous cuts--returning cached value.");
+        STDOUT("- Already evaluated all previous cuts--returning cached value.");
       if(verbose)
-        STDOUT("passedAllPreviousCuts for " << s << " is: " << cc->second->passedPreviousCuts);
+        STDOUT("- passedAllPreviousCuts for " << s << " is: " << cc->second->passedPreviousCuts);
       return cc->second->passedPreviousCuts;
     }
 
