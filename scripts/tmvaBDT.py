@@ -631,6 +631,7 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
         tempDir = "/tmp/LQM{}".format(lqMassToUse)
+        #tempDir = "LQM{}".format(lqMassToUse)
         if not os.path.isdir(tempDir):
             os.mkdir(tempDir)
         binsToUse = 200 #100 # 10000
@@ -1092,6 +1093,7 @@ def OptimizeBDTCut(args):
         for sample in ["ZJet_amcatnlo_ptBinned", "TTbar_powheg", "DIBOSON_nlo", "SingleTop", "QCDFakes_DYJ", "QCDFakes_DATA", "QCDFakes_DATA_2FR", "signal"]:
             fullRunIIValues[sample] = [0]*4
             #nB, nBErr, nBRawEvents, bkgIntegral
+        dyPtBinYields = {}
         for year in years: #+["fullRunII"]:
             table.append(["",year,"","","",""])
             totQCDYield = 0
@@ -1104,6 +1106,7 @@ def OptimizeBDTCut(args):
             totNBRaw = 0
             totNBRawErr = 0
             nBFullYield = 0
+            dyPtBinYields[year] = {}
             for sample in backgroundDatasetsDict.keys():#, hist in bkgHists[year].items():
                 if 'QCDFakes_DATA' in sample and not str(year) in sample:
                     continue
@@ -1126,9 +1129,26 @@ def OptimizeBDTCut(args):
                         name += "_QCD"
                     if "_2FR" in sample:
                         name+= "_2FR"
+                    filename = tempDir+"/{}_{}_{}.root".format(name, lqMassToUse, year)
+                    if "DYJets" in filename:
+                        dyPtBinYields[year][name] = {}
+                        if name in emptySamples:
+                            dyPtBinYields[year][name]['BDTCut'] = 0
+                            dyPtBinYields[year][name]['rawEvents'] = 0
+                            dyPtBinYields[year][name]['full'] = 0
+                            continue
+                        tfile = TFile.Open(filename)
+                        ttree = tfile.Get('tree')
+                        dfTemp = RDataFrame(ttree)
+                        bdtCut = dfTemp.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
+                        fullYield = dfTemp.Sum('fullWeight')
+                        rawEvents = dfTemp.Filter("BDT > "+str(cutVal)).Count()
+                        dyPtBinYields[year][name]['BDTCut'] = bdtCut.GetValue()
+                        dyPtBinYields[year][name]['rawEvents'] = rawEvents.GetValue()
+                        dyPtBinYields[year][name]['full'] = fullYield.GetValue()
+                        tfile.Close()
                     if name in emptySamples:
                         continue
-                    filename = tempDir+"/{}_{}_{}.root".format(name, lqMassToUse, year)
                     ch.Add(filename)
                 #tfile = TFile.Open(filename)
                 #ttree = tfile.Get('tree')
@@ -1277,7 +1297,15 @@ def OptimizeBDTCut(args):
         #print("\n",tabulate(table, headers, stralign="left", tablefmt="pretty"))
         #print(tabulate(table, headers, stralign="left", tablefmt="latex"))
         #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
-        if os.path.isdir(tempDir):
+        for year in years:
+            print("DY yields by pT bin for year {}".format(year))
+            for dySample in backgroundDatasetsDict["ZJet_amcatnlo_ptBinned"]:
+                name = dySample.split("/")[-1].replace(".txt","")
+                print(" Sample: {}".format(name))
+                print(" Yield after BDT cut      = {}".format(dyPtBinYields[year][name]["BDTCut"]))
+                print(" Raw events after BDT cut = {}".format(dyPtBinYields[year][name]["rawEvents"]))
+                print(" Yield after Meejj cut    = {}".format(dyPtBinYields[year][name]['full']))
+        if os.path.isdir(tempDir) and not "DY" in tempDir:
             shutil.rmtree(tempDir)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
@@ -2224,7 +2252,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [1500]#,1300,1400,1500]#,1600,1700]#, 2900]#,2000]
+    #lqMassesToUse = [2900]#,1300,1400,1500]#,1600,1700]#, 2900]#,2000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
