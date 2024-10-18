@@ -78,9 +78,9 @@ def DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, dyjSingleFRHistos):
         assert(singleFRHisto.GetNbinsY() == doubleFRHisto.GetNbinsY())
         assert(singleFRHisto.GetNbinsZ() == doubleFRHisto.GetNbinsZ())
         # if "EventsPassingCuts" in singleFRHisto.GetName() and singleFRHisto.ClassName() == "TProfile":
-        #     print("\nINFO: doing verbose output for hist {} of type {}".format(singleFRHisto.GetName(), singleFRHisto.ClassName()))
+        #     binToUse = 118
         #     verbose = True
-        #     binToUse = 67
+        #     print("\nINFO: doing verbose output for hist {} of type {} for bin={} label={}".format(singleFRHisto.GetName(), singleFRHisto.ClassName(), binToUse, singleFRHisto.GetXaxis().GetLabels().At(binToUse-1)))
         if verbose:
             content = singleFRHisto.GetBinContent(binToUse)
             entries = singleFRHisto.GetBinEntries(binToUse)
@@ -122,6 +122,7 @@ def SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose = False):
     isProfile = False
     if singleFRHisto.ClassName() == "TProfile":
         isProfile = True
+        verbose = True
     doubleFRHistoNew = copy.deepcopy(doubleFRHisto.Clone())
     for globalBin in range(0, singleFRHisto.GetNcells()+1):
         singleBinContent = singleFRHisto.GetBinContent(globalBin)
@@ -136,18 +137,27 @@ def SubtractHistosWithLimit(singleFRHisto, doubleFRHisto, verbose = False):
         if abs(doubleBinContent) > limit*abs(singleBinContent):
             doubleBinContentNew = limit*singleBinContent
             if isProfile:
-                doubleBinContentNew = limit*singleFRHisto.GetBinContent(globalBin)
+                doubleBinContentNew = singleFRHisto.GetBinContent(globalBin)*singleFRHisto.GetBinEntries(globalBin) * (1 - limit)
             doubleFRHistoNew.SetBinContent(globalBin, doubleBinContentNew)
             # doubleFRHistoNew.SetBinError(globalBin, doubleBinError)
             if verbose:
                 if isProfile:
                     doubleBinContentNew *= doubleFRHistoNew.GetBinEntries(globalBin)
-                print("INFO: limited bin {} in histo {} to 50% of singleFR bin content = {:.2f}; singleFR orig content={:.2f}; doubleFR orig content={:.2f}".format(
-                    globalBin, singleFRHisto.GetName(), limit*singleBinContent, singleBinContent, doubleBinContent))
+                    sBinContent = singleFRHisto.GetBinContent(globalBin)
+                    sBinEntries = singleFRHisto.GetBinEntries(globalBin)
+                    dBinContent = doubleFRHisto.GetBinContent(globalBin)
+                    dBinEntries = doubleFRHisto.GetBinEntries(globalBin)
+                    print("INFO: limited bin {} in histo {} to 50% of singleFR bin content = {}; singleFR orig content={}, entries={}, nominalYield={}; doubleFR orig content={}, entries={}, nominalYield={}".format(
+                        globalBin, singleFRHisto.GetName(), limit*singleBinContent, sBinContent, sBinEntries, sBinContent*sBinEntries, dBinContent, dBinEntries, dBinContent*dBinEntries))
                 print("INFO: for hist {}: limited bin {} from {} to {}".format(doubleFRHistoNew.GetName(), globalBin, doubleBinContent, doubleBinContentNew), flush=True)
     if not singleFRHisto.Add(doubleFRHistoNew, -1):
         print("INFO: {} has {} xbins and {} has {} xbins".format(singleFRHisto.GetName(), singleFRHisto.GetNbinsX(), doubleFRHistoNew.GetName(), doubleFRHistoNew.GetNbinsX()))
         raise RuntimeError("Add failed for histos {} and {}".format(singleFRHisto.GetName(), doubleFRHistoNew.GetName()))
+    if verbose and isProfile:
+        binToUse = 118
+        content = singleFRHisto.GetBinContent(binToUse)
+        entries = singleFRHisto.GetBinEntries(binToUse)
+        print("INFO: singleFR-DYJ-2FR histo bin {} has content {} and entries {} for a nominal yield = {}".format(binToUse, content, entries, content*entries))
 
 
 def CheckAndFixNegativeBinContents(histo, verbose = False):
