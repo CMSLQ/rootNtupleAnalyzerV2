@@ -28,6 +28,7 @@ bool GenParticle::PassUserID (ID id, bool verbose){
   else if ( id == GEN_TOP                 ) { return PassUserID_GenTop              (verbose); }
 
   else if ( id == GEN_STATUS62            ) { return PassUserID_Status62            (verbose); }
+  else if ( id == GEN_IS_LAST_COPY        ) { return PassUserID_GenIsLastCopy       (verbose); }
 
   else return false;
 }
@@ -246,4 +247,10 @@ bool GenParticle::PassUserID_GenEleHardProcessFinalState(bool verbose)
   if ( abs(PdgId()) != 11         ) return false;
   if ( !IsFromHardProcessFinalState() ) return false;
   return true;
+}
+
+bool GenParticle::PassUserID_GenIsLastCopy(bool verbose)
+{
+  if ( IsLastCopy() ) return true;
+  return false;
 }
