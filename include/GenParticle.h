@@ -65,6 +65,7 @@ class GenParticle : public Object {
   bool PassUserID_GenTop              (bool verbose);
   bool PassUserID_Status62            (bool verbose);
   bool PassUserID_GenEleHardProcessFinalState            (bool verbose);
+  bool PassUserID_GenIsLastCopy       (bool verbose);
 
 };
 
