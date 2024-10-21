@@ -95,35 +95,6 @@ ZJet_amcatnlo_ptBinned_IncStitch:
 #  - ZJet_powhegminnlo_M1500to2000
 #  - ZJet_powhegminnlo_M2000toInf
 #  save: true
-SingleElectron_2017B:
-  pieces:
-  - /SingleElectron/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-  isMC: false
-SingleElectron_2017C:
-  pieces:
-  - /SingleElectron/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-  isMC: false
-SingleElectron_2017D:
-  pieces:
-  - /SingleElectron/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-  isMC: false
-SingleElectron_2017E:
-  pieces:
-  - /SingleElectron/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-  isMC: false
-SingleElectron_2017F:
-  pieces:
-  - /SingleElectron/Run2017F-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
-  isMC: false
-SingleElectron_2017:
-  pieces:
-  - SingleElectron_2017B
-  - SingleElectron_2017C
-  - SingleElectron_2017D
-  - SingleElectron_2017E
-  - SingleElectron_2017F
-  isMC: false
-  save: true
 SinglePhoton_2017B:
   pieces:
   - /SinglePhoton/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD
@@ -155,7 +126,6 @@ SinglePhoton_2017:
   isMC: false
 QCDFakes_DATA:
   pieces:
-  - SingleElectron_2017
   - SinglePhoton_2017
   isMC: false
   save: true

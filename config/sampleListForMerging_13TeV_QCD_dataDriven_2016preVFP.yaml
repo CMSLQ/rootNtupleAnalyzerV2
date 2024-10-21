@@ -95,45 +95,6 @@ ZJet_amcatnlo_ptBinned_IncStitch:
 #  - ZJet_powhegminnlo_M1500to2000
 #  - ZJet_powhegminnlo_M2000toInf
 #  save: true
-SingleElectron_2016B_HIPM:
-  pieces:
-  - /SingleElectron/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-  isMC: false
-  save: true
-SingleElectron_2016C_HIPM:
-  pieces:
-  - /SingleElectron/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-  isMC: false
-  save: true
-SingleElectron_2016D_HIPM:
-  pieces:
-  - /SingleElectron/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-  isMC: false
-  save: true
-SingleElectron_2016E_HIPM:
-  pieces:
-  - /SingleElectron/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-  isMC: false
-  save: true
-SingleElectron_2016F_HIPM:
-  pieces:
-  - /SingleElectron/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
-  isMC: false
-  save: true
-SingleElectron_2016_HIPM:
-  pieces:
-  - SingleElectron_2016B_HIPM
-  - SingleElectron_2016C_HIPM
-  - SingleElectron_2016D_HIPM
-  - SingleElectron_2016E_HIPM
-  - SingleElectron_2016F_HIPM
-  isMC: false
-  save: true
-#QCDFakes_DATA:
-#  pieces:
-#  - SinglePhoton_2016_HIPM
-#  isMC: false
-#  save: true
 SinglePhoton_2016B_HIPM:
   pieces:
   - /SinglePhoton/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD
@@ -170,7 +131,6 @@ SinglePhoton_2016_HIPM:
   isMC: false
 QCDFakes_DATA:
   pieces:
-    #- SingleElectron_2016_HIPM
   - SinglePhoton_2016_HIPM
   save: true
   isMC: false
