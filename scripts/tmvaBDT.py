@@ -631,7 +631,7 @@ def OptimizeBDTCut(args):
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
         tempDir = "/tmp/LQM{}".format(lqMassToUse)
-        #tempDir = "LQM{}".format(lqMassToUse)
+        #tempDir = "LQM{}".format(lqMassToUse) #Can use this to save optimization trees to afs space. But only for a couple of masses at a time before you run out of storage space.
         if not os.path.isdir(tempDir):
             os.mkdir(tempDir)
         binsToUse = 200 #100 # 10000
@@ -663,10 +663,11 @@ def OptimizeBDTCut(args):
         bkgHistsUnweightedUnscaled = dict()
         bkgHistsUnweightedUnscaled["fullRunII"] = dict()
         bkgHistsNegWeights = dict()
-        emptySamples = []
+        emptySamples = {}
         bkgTotIntegralOverCut = 0
         cutValForIntegral = 0.9940
         for year in years:
+            emptySamples[year] = []
             bkgHists[year] = dict()
             bkgHistsUnweightedUnscaled[year] = dict()
             for sample in backgroundDatasetsDict.keys():
@@ -802,7 +803,11 @@ def OptimizeBDTCut(args):
                     if "_2FR" in sample:
                         fileToWrite += "_2FR"
                     if df.Count().GetValue() <= 0:
-                        emptySamples.append(fileToWrite)
+                        print("INFO LQM{}: found empty sample after Meejj cut {} ({})".format(lqMassToUse, datasetName, year))
+                        emptySamples[year].append(fileToWrite)
+                    elif bkgIntegral < 0 and not "QCD" in sample:
+                        print("INFO LQM{}: found negative sample {} with bkgIntegral = {} ({})".format(lqMassToUse, datasetName, bkgIntegral, year))
+                        emptySamples[year].append(fileToWrite)
                     else:
                         df.Snapshot('tree',tempDir+'/{}_{}_{}.root'.format(fileToWrite,lqMassToUse,year))
                     sys.stdout.flush()
@@ -1090,23 +1095,25 @@ def OptimizeBDTCut(args):
         table = []
         print(f"For LQM={lqMassToUse:4}, cutVal={cutVal:4.3f}", flush=True)
         fullRunIIValues = {}
-        for sample in ["ZJet_amcatnlo_ptBinned", "TTbar_powheg", "DIBOSON_nlo", "SingleTop", "QCDFakes_DYJ", "QCDFakes_DATA", "QCDFakes_DATA_2FR", "signal"]:
+        for sample in ["ZJet_amcatnlo_ptBinned", "TTbar_powheg", "DIBOSON_nlo", "SingleTop", "QCDFakes_DYJ", "QCDFakes_DATA", "QCDFakes_DATA_2FR", "QCD_total", "signal"]:
             fullRunIIValues[sample] = [0]*4
             #nB, nBErr, nBRawEvents, bkgIntegral
         dyPtBinYields = {}
+        qcdTotals = {}
         for year in years: #+["fullRunII"]:
             table.append(["",year,"","","",""])
-            totQCDYield = 0
-            totQCDYieldErr = 0
-            totQCDRawEvents = 0
-            totQCDRawEventsErr = 0
-            totQCDFullYield = 0
+            #totQCDYield = 0
+            #totQCDYieldErr = 0
+            #totQCDRawEvents = 0
+            #totQCDRawEventsErr = 0
+            #totQCDFullYield = 0
             totNB = 0
             totNBErr = 0
             totNBRaw = 0
             totNBRawErr = 0
             nBFullYield = 0
             dyPtBinYields[year] = {}
+            qcdYields = {}
             for sample in backgroundDatasetsDict.keys():#, hist in bkgHists[year].items():
                 if 'QCDFakes_DATA' in sample and not str(year) in sample:
                     continue
@@ -1130,24 +1137,27 @@ def OptimizeBDTCut(args):
                     if "_2FR" in sample:
                         name+= "_2FR"
                     filename = tempDir+"/{}_{}_{}.root".format(name, lqMassToUse, year)
-                    if "DYJets" in filename:
-                        dyPtBinYields[year][name] = {}
-                        if name in emptySamples:
-                            dyPtBinYields[year][name]['BDTCut'] = 0
-                            dyPtBinYields[year][name]['rawEvents'] = 0
-                            dyPtBinYields[year][name]['full'] = 0
-                            continue
+                    if not name in emptySamples[year]:
                         tfile = TFile.Open(filename)
                         ttree = tfile.Get('tree')
                         dfTemp = RDataFrame(ttree)
                         bdtCut = dfTemp.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
-                        fullYield = dfTemp.Sum('fullWeight')
                         rawEvents = dfTemp.Filter("BDT > "+str(cutVal)).Count()
+                        if rawEvents.GetValue() <=0:
+                            print("INFO LQM{}: No events passing BDT cut for dataset {} ({})".format(lqMassToUse, name, year))
+                    if "DYJets" in filename:
+                        dyPtBinYields[year][name] = {}
+                        if name in emptySamples[year]:
+                            dyPtBinYields[year][name]['BDTCut'] = 0
+                            dyPtBinYields[year][name]['rawEvents'] = 0
+                            dyPtBinYields[year][name]['full'] = 0
+                            continue
+                        fullYield = dfTemp.Sum('fullWeight')
                         dyPtBinYields[year][name]['BDTCut'] = bdtCut.GetValue()
                         dyPtBinYields[year][name]['rawEvents'] = rawEvents.GetValue()
                         dyPtBinYields[year][name]['full'] = fullYield.GetValue()
                         tfile.Close()
-                    if name in emptySamples:
+                    if name in emptySamples[year]:
                         continue
                     ch.Add(filename)
                 #tfile = TFile.Open(filename)
@@ -1164,29 +1174,35 @@ def OptimizeBDTCut(args):
                 bkgIntegral = bkgIntegral.GetValue()
                 nBEvents = nBEvents.GetValue()
                 nBEventsErr = math.sqrt(nBEvents)
-                totNB += nB
-                totNBErr += nBErr**2
                 sample = sample.replace("_{}".format(year),"")
                 fullRunIIValues[sample][0] += nB
                 fullRunIIValues[sample][1] += nBErr**2
                 fullRunIIValues[sample][2] += nBEvents
                 fullRunIIValues[sample][3] += bkgIntegral
+                if not "QCD" in sample:
+                    totNB += nB
+                    totNBErr += nBErr**2
                 #print("Yields: {}, {}, {}".format(nB, nBEvents, bkgIntegral))
                 #bkgIntegral = hist.Integral()
-                nBFullYield += bkgIntegral
+                    nBFullYield += bkgIntegral
                 #rawEventsHist = bkgHistsUnweightedUnscaled[year][sample]
     #        sharedOptHistsDict[lqMassToUse].append(rawEventsHist)
                 #nBEventsErr = ctypes.c_double()
                 #nBEvents = rawEventsHist.IntegralAndError(cutBin, rawEventsHist.GetNbinsX(), nBEventsErr)
                 #nBEventsErr = nBEventsErr.value
-                totNBRaw += nBEvents
-                totNBRawErr += nBEventsErr**2
-                if "QCD" in sample:
-                    totQCDYield+=nB
-                    totQCDYieldErr = math.sqrt(totQCDYieldErr**2 + nBErr**2)
-                    totQCDRawEvents+=nBEvents
-                    totQCDRawEventsErr = math.sqrt(totQCDRawEventsErr**2 + nBEventsErr**2)
-                    totQCDFullYield+=bkgIntegral
+                    totNBRaw += nBEvents
+                    totNBRawErr += nBEventsErr**2
+                else:
+                    #totQCDYield+=nB
+                    #totQCDYieldErr = math.sqrt(totQCDYieldErr**2 + nBErr**2)
+                    #totQCDRawEvents+=nBEvents
+                    #totQCDRawEventsErr = math.sqrt(totQCDRawEventsErr**2 + nBEventsErr**2)
+                    #totQCDFullYield+=bkgIntegral
+                    qcdYields[sample] = {}
+                    qcdYields[sample]["value"] = nB
+                    qcdYields[sample]["err"] = nBErr
+                    qcdYields[sample]["rawEvents"] = nBEvents
+                    qcdYields[sample]["fullYield"] = bkgIntegral
                 valsForTable.append("")
                 valsForTable.append("")
                 valsForTable.append(sample)
@@ -1194,8 +1210,43 @@ def OptimizeBDTCut(args):
                 valsForTable.append(f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}")
                 valsForTable.append(f"{bkgIntegral:4.6f}")
                 table.append(valsForTable)
+
+            #QCD
+            qcd1FR = qcdYields["QCDFakes_DATA"]["value"] + qcdYields["QCDFakes_DYJ"]["value"]
+            qcd1FRErr = math.sqrt(qcdYields["QCDFakes_DATA"]["err"]**2 + qcdYields["QCDFakes_DYJ"]["err"]**2)
+            qcd1FRRawEvents = qcdYields["QCDFakes_DATA"]['rawEvents'] + qcdYields["QCDFakes_DYJ"]['rawEvents']
+            qcd1FRIntegral = qcdYields["QCDFakes_DATA"]['fullYield'] + qcdYields["QCDFakes_DYJ"]['fullYield']
+            if abs(qcdYields["QCDFakes_DATA_2FR"]["value"]) > 0.5*abs(qcd1FR):
+                totQCDYield = 0.5*qcd1FR
+                totQCDYieldErr = 0.5*qcd1FRErr
+                totQCDRawEvents = qcd1FRRawEvents
+                totQCDRawEventsErr = math.sqrt(totQCDRawEvents)
+                totQCDFullYield = 0.5*qcd1FRIntegral
+            else:
+                totQCDYield = qcd1FR + qcdYields["QCDFakes_DATA_2FR"]["value"]
+                totQCDYieldErr = math.sqrt(qcd1FRErr**2 + qcdYields["QCDFakes_DATA_2FR"]["err"]**2)
+                totQCDRawEvents = qcd1FRRawEvents + qcdYields["QCDFakes_DATA_2FR"]["rawEvents"]
+                totQCDRawEventsErr = math.sqrt(totQCDRawEvents)
+                totQCDFullYield = qcd1FRIntegral + qcdYields["QCDFakes_DATA_2FR"]["fullYield"]
+
+            if totQCDYield < 0:
+                totQCDYield = 0
+                totQCDYieldErr = 0
+                totQCDRawEvents = 0
+                totQCDRawEventsErr = 0
+
+            totNB+=totQCDYield
+            fullRunIIValues["QCD_total"][0]+=totQCDYield
+            totNBErr+=totQCDYieldErr**2
+            fullRunIIValues["QCD_total"][1]+=totQCDYieldErr**2
             totNBErr = math.sqrt(totNBErr)
+            totNBRaw+=totQCDRawEvents
+            fullRunIIValues["QCD_total"][2]+=totQCDRawEvents
+            totNBRawErr+=totQCDRawEventsErr**2
+            nBFullYield+=totQCDFullYield
+            fullRunIIValues["QCD_total"][3]+=totQCDFullYield
             totNBRawErr = math.sqrt(totNBRawErr)
+            
             table.append(["","","QCD_total", f"{totQCDYield:4.6f}+/-{totQCDYieldErr:4.6f}",f"{totQCDRawEvents:4.6f}+/-{totQCDRawEventsErr:4.6f}",f"{totQCDFullYield:4.6f}"])
             table.append(["","","bkg total",f"{totNB:4.6f}+/-{totNBErr:4.6f}",f"{totNBRaw:4.6f}+/-{totNBRawErr:4.6f}",f"{nBFullYield:4.6f}"])
             #if not year=="fullRunII":
@@ -1263,20 +1314,22 @@ def OptimizeBDTCut(args):
             nBEvents = yieldList[2]
             nBEventsErr = math.sqrt(nBEvents)
             bkgInt = yieldList[3]
-            runIINB+=nB
-            runIINBErr+=nBErr
-            runIINBEvents+=nBEvents
-            runIIBkgInt+=bkgInt
             nBErr = math.sqrt(nBErr)
             table.append(["","",sample,f"{nB:4.6f}+/-{nBErr:4.6f}",f"{nBEvents:4.6f}+/-{nBEventsErr:4.6f}",f"{bkgInt:4.6f}"])
+            if "QCD" in sample and not "total" in sample:
+                continue
+            runIINB+=nB
+            runIINBErr+=nBErr**2
+            runIINBEvents+=nBEvents
+            runIIBkgInt+=bkgInt
 
-        runIIQCD = fullRunIIValues["QCDFakes_DATA"][0] + fullRunIIValues["QCDFakes_DATA_2FR"][0] + fullRunIIValues["QCDFakes_DYJ"][0]
-        runIIQCDErr = fullRunIIValues["QCDFakes_DATA"][1] + fullRunIIValues["QCDFakes_DATA_2FR"][1] + fullRunIIValues["QCDFakes_DYJ"][1]
-        runIIQCDErr = math.sqrt(runIIQCDErr)
-        runIIQCDEvents = fullRunIIValues["QCDFakes_DATA"][2] + fullRunIIValues["QCDFakes_DATA_2FR"][2] + fullRunIIValues["QCDFakes_DYJ"][2]
-        runIIQCDEventsErr = math.sqrt(runIIQCDEvents)
-        runIIQCDInt = fullRunIIValues["QCDFakes_DATA"][3] + fullRunIIValues["QCDFakes_DATA_2FR"][3] + fullRunIIValues["QCDFakes_DYJ"][3]
-        table.append(["","","QCD_total",f"{runIIQCD:4.6f}+/-{runIIQCDErr:4.6f}",f"{runIIQCDEvents:4.6f}+/-{runIIQCDEventsErr:4.6f}",f"{runIIQCDInt:4.6f}"])
+        #runIIQCD = fullRunIIValues["QCDFakes_DATA"][0] + fullRunIIValues["QCDFakes_DATA_2FR"][0] + fullRunIIValues["QCDFakes_DYJ"][0]
+        #runIIQCDErr = fullRunIIValues["QCDFakes_DATA"][1] + fullRunIIValues["QCDFakes_DATA_2FR"][1] + fullRunIIValues["QCDFakes_DYJ"][1]
+        #runIIQCDErr = math.sqrt(runIIQCDErr)
+        #runIIQCDEvents = fullRunIIValues["QCDFakes_DATA"][2] + fullRunIIValues["QCDFakes_DATA_2FR"][2] + fullRunIIValues["QCDFakes_DYJ"][2]
+        #runIIQCDEventsErr = math.sqrt(runIIQCDEvents)
+        #runIIQCDInt = fullRunIIValues["QCDFakes_DATA"][3] + fullRunIIValues["QCDFakes_DATA_2FR"][3] + fullRunIIValues["QCDFakes_DYJ"][3]
+        #table.append(["","","QCD_total",f"{runIIQCD:4.6f}+/-{runIIQCDErr:4.6f}",f"{runIIQCDEvents:4.6f}+/-{runIIQCDEventsErr:4.6f}",f"{runIIQCDInt:4.6f}"])
 
         runIINBEventsErr = math.sqrt(runIINBEvents)
         runIINBErr = math.sqrt(runIINBErr)
@@ -1290,22 +1343,22 @@ def OptimizeBDTCut(args):
             
         sharedFOMInfoDict[lqMassToUse]["table"] = table
         #opt results table
-        #mass, bin, fom, cutval, nS, nSErr, eff, nB, nBErr
+        #bin, fom, cutval, nS, nSErr, eff, nB, nBErr
         fom = math.sqrt(2* ((nS+runIINB)*math.log(1+ nS/runIINB) - nS))
-        valList = [lqMassToUse, cutValInfoToUse[0], fom, cutValInfoToUse[2], nS, nSErr, cutValInfoToUse[5], runIINB, runIINBErr]
+        valList = [cutValInfoToUse[0], fom, cutValInfoToUse[2], nS, nSErr, cutValInfoToUse[5], runIINB, runIINBErr]
         sharedOptValsDict[lqMassToUse] = valList
         #print("\n",tabulate(table, headers, stralign="left", tablefmt="pretty"))
         #print(tabulate(table, headers, stralign="left", tablefmt="latex"))
         #print(f"LQM={lqMassToUse:4.6f} Background yield for optimized BDT cut for background={'Total':20}: yield={nB:4.6f}+/-{nBErr:4.6f} [raw events={nBEvents:4.6f}+/-{nBEventsErr:4.6f}], fullYield={bkgIntegral:4.6f}", flush=True)
         for year in years:
-            print("DY yields by pT bin for year {}".format(year))
+            print("DY yields by pT bin for year {}, LQ{}".format(year,lqMassToUse))
             for dySample in backgroundDatasetsDict["ZJet_amcatnlo_ptBinned"]:
                 name = dySample.split("/")[-1].replace(".txt","")
-                print(" Sample: {}".format(name))
-                print(" Yield after BDT cut      = {}".format(dyPtBinYields[year][name]["BDTCut"]))
-                print(" Raw events after BDT cut = {}".format(dyPtBinYields[year][name]["rawEvents"]))
-                print(" Yield after Meejj cut    = {}".format(dyPtBinYields[year][name]['full']))
-        if os.path.isdir(tempDir) and not "DY" in tempDir:
+                print(" Sample LQM{}: {}".format(lqMassToUse,name))
+                print("   Yield after BDT cut      = {}".format(dyPtBinYields[year][name]["BDTCut"]))
+                print("   Raw events after BDT cut = {}".format(dyPtBinYields[year][name]["rawEvents"]))
+                print("   Yield after Meejj cut    = {}".format(dyPtBinYields[year][name]['full']))
+        if os.path.isdir(tempDir):# and not "DY" in tempDir:
             shutil.rmtree(tempDir)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
@@ -2252,7 +2305,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [2900]#,1300,1400,1500]#,1600,1700]#, 2900]#,2000]
+    #lqMassesToUse = [1600]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
