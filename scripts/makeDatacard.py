@@ -100,6 +100,8 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
         for yBin in range(1, systHist.GetNbinsY()+1):
             systName = systHist.GetYaxis().GetBinLabel(yBin)
             systDict[selection][systName] = systHist.GetBinContent(xBin, yBin)
+            # if "ZJet" in sampleName and "LQ3000" in selection:
+            #     print("INFO: for sampleName={} and selection={}, xBin={} yBin={} ({}), got content={}".format(sampleName, selection, xBin, yBin, systName, systDict[selection][systName]))
     # add special entry for branch titles
     systDict["branchTitles"] = {}
     tmapName = "tmap__{}__systematicNameToBranchesMap".format(sampleName)
@@ -258,14 +260,16 @@ def GetSystematicEffect(systName, sampleName, selection, fullSystDict):
         entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = CalculateUpDownSystematic("LHEScaleComb", systDict, selection, sampleName)
     elif systName == "LHEPdfWeight":
         verbose = False
+        # print("INFO GetSystematicEffect(): for sample={}, selection={}, systName={}, fullSystDict[{}][LHEPdfCombUp] = {}".format(sampleName, selection, systName, sampleName, fullSystDict[sampleName]["LHEPdfCombUp"][selection]))
+        # print("INFO GetSystematicEffect(): for sample={}, selection={}, systName={}, fullSystDict[{}][LHEPdfCombDown] = {}".format(sampleName, selection, systName, sampleName, fullSystDict[sampleName]["LHEPdfCombDown"][selection]))
         entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = CalculateUpDownSystematic("LHEPdfComb", systDict, selection, sampleName, verbose)
-        if verbose:
-            components = dictSamples[sampleName]["pieces"]
-            for sample in components:
-                if sample not in dictSamples.keys():
-                    print("INFO: Cannot print PDF systematic output for sample {} as it was not saved.".format(sample))
-                else:
-                    CalculateUpDownSystematic("LHEPdfComb", fullSystDict[sample], selection, sample, True)
+        # if verbose:
+        #     components = dictSamples[sampleName]["pieces"]
+        #     for sampleName in components:
+        #         if sampleName not in dictSamples.keys():
+        #             print("INFO: Cannot print PDF systematic output for sample {} as it was not saved.".format(sampleName))
+        #         else:
+        #             CalculateUpDownSystematic("LHEPdfComb", fullSystDict[sampleName], selection, sampleName, True)  # this call is broken somehow
     elif systName == "Lumi"+str(yearInt):
         entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = str(1+lumiDeltaXOverX), lumiDeltaXOverX, lumiDeltaXOverX, True, nominal, selection
     elif systName == "LumiCorrelated":
@@ -895,7 +899,8 @@ def WriteDatacard(card_file_path):
                 else:
                     card_file.write("kmax 0\n\n")
                 card_file.write("---------------\n")
-                card_file.write("shapes * * "+str(Path(shapeHistos_filePath).resolve())+" yieldFinalSelection_$MASS_$PROCESS\n")
+                # card_file.write("shapes * * "+str(Path(shapeHistos_filePath).resolve())+" yieldFinalSelection_$MASS_$PROCESS\n")
+                card_file.write("shapes * * "+shapeHistos_filePath+" yieldFinalSelection_$MASS_$PROCESS\n")
                 card_file.write("---------------\n")
                 card_file.write("bin bin1\n\n")
     
@@ -1038,7 +1043,8 @@ signalNameTemplate = "LQToDEle_M-{}_pair"
 doRPV = False  # to do RPV, set doEEJJ and doRPV to True
 # forceGmNNormBkgStatUncert = False
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
-cc.finalSelectionName = "BDTOutput"
+cc.finalSelectionName = "BDTOutput_"  # has LQ300 (for example) appended to it inside the code
+# cc.finalSelectionName = "Meejj"
 trainingSelectionCutName = "trainingSelection"
 if len(sys.argv) < 4:
     print("ERROR: need to specify qcdPath, dataMCPath, year")
@@ -1195,6 +1201,7 @@ if doEEJJ:
             "EleIDSF": "Electron identification",
             "EES": "Electron energy scale",
             "EER": "Electron energy resolution",
+            "UnclusteredEne": "Unclustered energy (MET)",
             "TT_Norm": "TTbar normalization",
             "DY_Norm": "DYJ normalization",
             "DY_Shape": "DYJ shape",
@@ -1343,9 +1350,9 @@ d_applicableSystematics.update({sig: systematicsNamesSignal for sig in signalNam
 datacard_filePath = "tmp_card_file_{}.txt".format(signalNameTemplate.split("_")[0])
 plots_filePath = "plots.root"
 plotsDir = "makeDatacard_plots"
-tables_filePath = "tables.txt"
+tablesDir = "makeDatacard_tables"
 systematics_dictFilePath = "systematics_dict.txt"
-shapeHistos_filePath = "shapeHistos.root"
+shapeHistos_filePathBase = "shapeHistos_{}.root"
 ###################################################################################################
 # RUN
 ###################################################################################################
@@ -1438,6 +1445,7 @@ d_data_rates, d_data_rateErrs, d_data_unscaledRates, d_data_totalEvents, d_data_
 # selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
 
 print("INFO: Preparing shape histograms...", end=' ')
+shapeHistos_filePath = shapeHistos_filePathBase.format(year)
 CreateAndWriteHistograms(shapeHistos_filePath)
 print("Done")
 
@@ -1445,7 +1453,8 @@ print("INFO: Preparing datacard...", end=' ')
 WriteDatacard(datacard_filePath)
 print("Done")
 
-table_file = open(tables_filePath, "w")
+if not os.path.exists(tablesDir):
+    os.makedirs(tablesDir)
 
 if doSystematics:
     # tables
@@ -1474,16 +1483,20 @@ if doSystematics:
             totalBkgNominal = 0
             for background_name in background_names:
                 # compute effect of this systematic on the total background yield
+                thisBkgNominalEvts = d_background_rates[background_name][selectionName]
                 totalBkgNominal += d_systNominals[background_name][syst][selectionNameSyst]
+                print("INFO: for background {}, systematic {}, selection {}, bkgYieldNominalAtSyst={}, bkgEvts={}".format(background_name, syst, selectionNameSyst, d_systNominals[background_name][syst][selectionNameSyst], thisBkgNominalEvts))
                 thisEntry, bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown, _, _ = GetSystematicEffectAbs(syst, background_name, selectionNameSyst, d_background_systs)
                 if thisEntry != "-":
                     thisBkgSyst = max(bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown)
                     thisBkgDelta = thisBkgSyst*d_systNominals[background_name][syst][selectionNameSyst]
                     totalBkgSyst += thisBkgDelta*thisBkgDelta
+                    print("INFO: for background {}, systematic {}, selection {}, thisBkgSyst={}, bkgYieldNominalAtSyst={}, thisBkgDelta={}.".format(background_name, syst, selectionNameSyst, thisBkgSyst, d_systNominals[background_name][syst][selectionNameSyst], thisBkgDelta))
                 else:
                     print("INFO: for background {}, systematic {}, selection {}, syst not applied as thisEntry='{}'.".format(background_name, syst, selectionNameSyst, thisEntry))
             if totalBkgNominal > 0:
                 totalBkgSystPercent = 100*(math.sqrt(totalBkgSyst))/totalBkgNominal
+                print("INFO: for systematic {}, selection {}, totalBkgSyst={}, totalBkgNominal={}.".format(syst, selectionNameSyst, math.sqrt(totalBkgSyst), totalBkgNominal))
             else:
                 totalBkgSystPercent = -1
             table.append([d_systTitles[syst], thisSigSystPercent, totalBkgSystPercent])
@@ -1491,11 +1504,10 @@ if doSystematics:
         print(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
         print(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
         print()
-        table_file.write("Selection: {}\n".format(selectionName))
-        table_file.write(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
-        table_file.write("\n")
-        table_file.write(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
-        table_file.write("\n\n")
+        with open(tablesDir+"/"+selectionName+".txt", "w") as table_file:
+            table_file.write(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
+        with open(tablesDir+"/"+selectionName+".tex", "w") as table_file:
+            table_file.write(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
 
     # print info on systematics used
     if "LQ300" in d_systematicsApplied.keys():
@@ -1567,6 +1579,7 @@ if doSystematics:
     includeYieldLine = True
     for sampleName in list(d_systNominals.keys()):
         yieldRow = ["yield"]
+        mcRow = ["mcEvts"]
         yieldTable = []
         table = []
         tableHeaders = ["systematic"]
@@ -1677,7 +1690,8 @@ if doSystematics:
                     # val = format(Decimal(format(value, '#.4g')), 'f')
                     val = format(Decimal(format(d_background_rates[sampleName][selection], '#.4g')), 'f')
                     # yieldRow.append("{:.4f} +/- {:.4f} [MC evts: {:.1f}]".format(value, err, thisBkgRawEvts))
-                    yieldRow.append("{} +/- {} [MC evts: {:.1f}]".format(val, err, thisBkgRawEvts))
+                    yieldRow.append("{:.2f} +/- {:.2f}".format(value, float(err)))
+                    mcRow.append("{:.1f}".format(thisBkgRawEvts))
                     # if "TTbar" in sampleName:
                     #     # print("systNominals[{}][{}][{}] = {}; d_background_rates[{}][{}] = {}".format(sampleName, syst, selection, value, sampleName, selection, val))
                     #     print("systNominals[{}][{}][{}] = {}; d_background_rates[{}][{}] = {}".format(sampleName, syst, selection, value, sampleName, selection, d_background_rates[sampleName][selection]))
@@ -1698,7 +1712,8 @@ if doSystematics:
                 systStacks[idx].Add(systHist, "hist")
             table.append(tableRow)
         yieldTable.append(yieldRow)
-        print("Sample Name: {}".format(sampleName))
+        yieldTable.append(mcRow)
+        print("Systematics table for sample Name: {}".format(sampleName))
         print(tabulate(table, headers=tableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
         if includeYieldLine:
             print(tabulate(yieldTable, headers=tableHeaders, tablefmt="fancy_grid", floatfmt=".4f"))
@@ -1740,6 +1755,9 @@ if doSystematics:
         systsGroup1 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i < half}
         systsGroup2 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i >= half}
         systGroups = [systsGroup1, systsGroup2]
+        if "PDF" in systematicsByNameAndMass.keys():
+            systsGroupPDF = {"PDF": systematicsByNameAndMass["PDF"]}
+            systGroups.append(systsGroupPDF)
         width = 6
         multiplier = 0
         for idx, systDict in enumerate(systGroups):
@@ -1749,12 +1767,16 @@ if doSystematics:
             fig.set_size_inches(12, 5)
             plt.style.use(hep.style.CMS)
             plt.grid(axis = 'y', linestyle = ':')
+            maxSyst = 10  # approx. minimum y-axis range (gets multiplied by 1.1 later)
             for systName, effect in systDict.items():
                 offset = width * multiplier
                 x = np.array(systematicsSelectionsByNameAndMass[systName])
                 rects = ax.bar(x + offset, effect, width, label=systName)
                 ax.bar_label(rects, padding=3, fmt=lambda x: '{:.1f}%'.format(x) if x > 0 else '', rotation=90, fontsize=6)
                 multiplier += 1
+                maxEffect = max(effect)
+                if maxEffect > maxSyst:
+                    maxSyst = maxEffect
             # Add some text for labels, title and custom x-axis tick labels, etc.
             ax = plt.gca()
             ax.set_ylabel('Max. syst. uncert. [%]')
@@ -1762,7 +1784,8 @@ if doSystematics:
             ax.set_title(sampleName, fontsize=14)
             ax.set_yticks(np.arange(start=0, stop=110, step=10))
             # ax.set_xlim([300, 600])
-            ax.set_ylim([0, 100])
+            # ax.set_ylim([0, 100])
+            ax.set_ylim([0, int(round(1.1*maxSyst))])
             ax.legend(loc='upper left', ncols=2, fontsize=10, framealpha=1, frameon=True, facecolor='white')
             plt.savefig(plotsDir+"/systematics_{}_group{}.png".format(sampleName, idx), dpi=100)
             plt.close()
@@ -1998,48 +2021,47 @@ for i_signal_name, signal_name in enumerate(signal_names):
             latexRowsAN.append("\\hline")
             latexRowsPaper.append("\\hline")
 print(t)
-table_txt = t.get_string()
-table_file.write(table_txt+"\n\n")
+# table_txt = t.get_string()
+# table_file.write(table_txt+"\n\n")
+ 
+with open(tablesDir + "/eventYieldsAN.tex", "w") as table_file:
+    print()
+    print("Latex table: AN")
+    print()
+    table_file.write("Latex table: AN\n")
+    # latex table -- AN
+    prelims = [r"\setlength\tabcolsep{2pt}"]
+    prelims.append(r"\resizebox{\textwidth}{!}{")
+    prelims.append(r"\begin{tabular}{| l | c | c | c | c | c | c | c | c | c | c | c | c | c |}")
+    for line in prelims:
+        print(line)
+        table_file.write(line+"\n")
+    headers = GetLatexHeaderFromColumnNames(columnNames)
+    print(headers)
+    print(r"\hline")
+    table_file.write(headers+"\n")
+    table_file.write(r"\hline\n")
+    for line in latexRowsAN:
+        print(line)
+        table_file.write(line+"\n")
+    ending = r"\end{tabular}}"  # extra } to end resizebox
+    print(ending)
+    table_file.write(ending+"\n")
+    print()
+    # table_file.write("\n")
 
-print()
-print("Latex table: AN")
-print()
-table_file.write("Latex table: AN\n")
-# latex table -- AN
-prelims = [r"\setlength\tabcolsep{2pt}"]
-prelims.append(r"\resizebox{\textwidth}{!}{")
-prelims.append(r"\begin{tabular}{| l | c | c | c | c | c | c | c | c | c | c | c | c | c |}")
-for line in prelims:
-    print(line)
-    table_file.write(line+"\n")
-headers = GetLatexHeaderFromColumnNames(columnNames)
-print(headers)
-print(r"\hline")
-table_file.write(headers+"\n")
-table_file.write(r"\hline\n")
-for line in latexRowsAN:
-    print (line)
-    table_file.write(line+"\n")
-ending = r"\end{tabular}}"  # extra } to end resizebox
-print(ending)
-table_file.write(ending+"\n")
-print()
-table_file.write("\n")
-
-print()
-print("Latex table: Paper")
-print()
-table_file.write("Latex table: Paper\n")
-# latex table -- Paper
-for line in latexRowsPaper:
-    print (line)
-    table_file.write(line+"\n")
-print()
-table_file.write("\n")
-
-table_file.close()
+with open(tablesDir + "/eventYieldsPaper.tex", "w") as table_file:
+    print()
+    print("Latex table: Paper")
+    print()
+    table_file.write("Latex table: Paper\n")
+    # latex table -- Paper
+    for line in latexRowsPaper:
+        print (line)
+        table_file.write(line+"\n")
+    print()
+    # table_file.write("\n")
 
 # acc * eff
-plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points])
+plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points], year)
 print("datacard written to {}".format(datacard_filePath))
-print("tables written to {}".format(tables_filePath))
