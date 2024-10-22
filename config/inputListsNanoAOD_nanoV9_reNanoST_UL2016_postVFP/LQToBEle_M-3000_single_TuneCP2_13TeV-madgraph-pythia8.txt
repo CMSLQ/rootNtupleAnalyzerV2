@@ -1,0 +1,2 @@
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016postVFP/mc/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016postVFP_LQToBEleM3000_single/231109_194541/0000/NANO_NANO_1.root
+root://cms-xrd-global.cern.ch//store/user/scooper/customNanoAOD/reNanoSignal/2023-11-09/2016postVFP/mc/LQToBEle_M-3000_single_TuneCP2_13TeV-madgraph-pythia8/crab_2016postVFP_LQToBEleM3000_single/231109_194541/0000/NANO_NANO_2.root

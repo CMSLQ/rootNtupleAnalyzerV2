@@ -1,0 +1,1 @@
+/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/scooper-crab_UL2017_ST_tW_top_UL2017-e480f60b1732b4494da61927de2b0e9a/USER
