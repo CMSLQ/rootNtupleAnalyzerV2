@@ -11,6 +11,7 @@ import copy
 from collections import OrderedDict
 from ruamel.yaml import YAML
 import numpy as np
+import ctypes
 import ROOT as r
 import faulthandler
 faulthandler.enable()
@@ -933,6 +934,35 @@ def WriteTable(table, name, file, printToScreen=False, writeErrNPass=True):
             ###
 
 
+def ZeroNegativeTableYields(inputTable):
+    for j, line in enumerate(inputTable):
+        nOrig = float(inputTable[int(j)]["N"])
+        errNorig = float(inputTable[int(j)]["errN"])
+        nNew = nOrig
+        if nOrig < 0:
+            nNew = 0
+        nPassOrig = float(inputTable[int(j)]["Npass"])
+        errNPassOrig = float(inputTable[j]["errNpass"])
+        nPassNew = nPassOrig
+        if nPassOrig < 0:
+            nPassNew = 0
+        inputTable[int(j)] = {
+            "variableName": inputTable[j]["variableName"],
+            "min1": inputTable[j]["min1"],
+            "max1": inputTable[j]["max1"],
+            "min2": inputTable[j]["min2"],
+            "max2": inputTable[j]["max2"],
+            "N": nNew,
+            "errN": errNorig,
+            "Npass": nPassNew,
+            "errNpass": errNPassOrig,
+            "EffRel": float(0),
+            "errEffRel": float(0),
+            "EffAbs": float(0),
+            "errEffAbs": float(0),
+        }
+
+
 def GetSampleHistosFromTFile(tfileName, sample, keepHistName=True):
     histNameToHistDict = {}
     if tfileName.startswith("/eos/cms"):
@@ -1135,11 +1165,14 @@ def CalculatePDFSystematic(hist, sampleName, systDict):
     # print "INFO: For sampleName={}, systName={}, found branch title={}".format(sampleName, systName, branchTitle)
     # print len(pdfKeys), "sorted(pdfKeys)=", sorted(pdfKeys, key=lambda x: int(x[x.rfind("_")+1:]))
     pdfVariationType, pdfName = GetPDFVariationType(branchTitle)
-    #print("INFO: CalculatePDFSystematic(): For sampleName={}, systName={}, found branch title={} and PDFType={}".format(sampleName, systName, branchTitle, pdfVariationType))
     if pdfVariationType != "mcNoCentral":
         pdfKeys.remove("LHEPdfWeight_0")  # don't consider index 0, central value
     if "mc" in pdfVariationType:
-        pdfSystDeltasUp, pdfSystDeltasDown, yBins = CalculatePDFVariationMC(hist, sampleName, pdfKeys)
+        # verbose = True if "with" not in hist.GetName().lower() and "fail" not in hist.GetName().lower() and "weight" not in hist.GetName().lower() else False
+        # if verbose:
+        #     print("INFO: CalculatePDFSystematic(): For sampleName={}, systName={}, found branch title={} and PDFType={}".format(sampleName, systName, branchTitle, pdfVariationType))
+        verbose = False
+        pdfSystDeltasUp, pdfSystDeltasDown, yBins = CalculatePDFVariationMC(hist, sampleName, pdfKeys, verbose)
     elif pdfVariationType == "hessian":
         pdfSystDeltasUp, pdfSystDeltasDown, yBins = CalculatePDFVariationHessian(hist, sampleName, pdfKeys)
     else:
@@ -1172,16 +1205,16 @@ def CalculatePDFVariationMC(hist, sampleName, pdfKeys, verbose=False):
             pdfUp = pdfYields[27]
             pdfDown = pdfYields[5]
         else:
-            raise RuntimeError("Could not determine MC PDF variations as we have {} PDF keys".format(len(pdfKeys)), flush=True)
+            raise RuntimeError("Could not determine MC PDF variations as we have {} PDF keys".format(len(pdfKeys)))
         deltaUp[xBin] = pdfUp-nominal
         deltaDown[xBin] = pdfDown-nominal
         if verbose:
             print("INFO: CalculatePDFVariationMC() -- for sampleName={}, xBin={}, nominal={}; pdfUp={}, pdfDown={}; pdfUp-nominal={}, pdfDown-nominal={}".format(
                     sampleName, xBin, nominal, pdfUp, pdfDown, pdfUp-nominal, pdfDown-nominal), flush=True)
-            if len(pdfKeys) == 100:
-                print("INFO: CalculatePDFVariationMC() -- yield 15 = {}; yield 83 = {}".format(pdfYields[15], pdfYields[83]), flush=True)
-            elif len(pdfKeys) == 30:
-                print("INFO: CalculatePDFVariationMC() -- yield 27 = {}; yield 5 = {}".format(pdfYields[27], pdfYields[5]), flush=True)
+            # if len(pdfKeys) == 100:
+            #     print("INFO: CalculatePDFVariationMC() -- yield 15 = {}; yield 83 = {}".format(pdfYields[15], pdfYields[83]), flush=True)
+            # elif len(pdfKeys) == 30:
+            #     print("INFO: CalculatePDFVariationMC() -- yield 27 = {}; yield 5 = {}".format(pdfYields[27], pdfYields[5]), flush=True)
             # print("\tINFO: CalculatePDFVariationMC() -- pdfYields={}".format(pdfYields), flush=True)
     return deltaUp, deltaDown, validYbins
 
@@ -1418,7 +1451,9 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                     htemp.SetBinError(xBin, pdfWeightMCUpCombBin, pdfSystDeltasUp[xBin])
                     htemp.SetBinError(xBin, pdfWeightMCDownCombBin, pdfSystDeltasDown[xBin])
                     htemp.SetBinError(xBin, pdfWeightHessianCombBin, hessianNominalYields[xBin])
-                # zero all individual weight bins for MC PDF systs
+                    # if xBin == 1 and "with" not in htemp.GetName().lower() and "fail" not in htemp.GetName().lower() and "weight" not in htemp.GetName().lower():
+                    #     print("SICDEBUG INFO: for sample={}, hist={}, Set xbin={} with ybin=LHEPdfWeightMC_DownComb-->{}, ybin=LHEPdfWeightMC_UpComb-->{}; nominal={}".format(sample, htemp.GetName(), xBin, htemp.GetBinContent(xBin, pdfWeightMCDownCombBin), htemp.GetBinContent(xBin, pdfWeightMCUpCombBin), htemp.GetBinContent(xBin, 1)))
+                # zero all individual weight bins for MC PDF systs if the processes are different
                 if "mc" in pdfVariationType:
                     pdfWeightLabels = [label.GetString().Data() for label in htemp.GetYaxis().GetLabels() if "LHEPdfWeight" in label.GetString().Data()]
                     pdfWeightLabels.remove("LHEPdfWeightMC_UpComb")
@@ -1477,7 +1512,8 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                         htemp.GetName(), piece, list(htemp.GetXaxis().GetLabels()), sample, list(dictFinalHistoAtSample[h].GetXaxis().GetLabels())))
                 
         # Sep. 17 2017: scale first, then add with weight=1 to have "entries" correct
-        htemp.Scale(plotWeight)
+        # htemp.Scale(plotWeight)
+        ScaleHisto(htemp, plotWeight)
         #r.gDebug = 3
         #r.gErrorIgnoreLevel = r.kPrint
         # if "DR_Ele1Ele2_PASWithSystematics"==histoName:
@@ -1500,16 +1536,23 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
     return dictFinalHistoAtSample
 
 
+def ScaleHisto(histo, plotWeight):
+    histoNameStrsToSkip = ["optimizerentries", "noweight", "unscaled", "unweighted"]
+    # if "optimizerentries" in histoName.lower() or "noweight" in histoName.lower() or "unscaled" in histoName.lower() or "unweighted" in histoName.lower():
+    #     continue
+    histoName = histo.GetName()
+    if any(substring in histoName.lower() for substring in histoNameStrsToSkip):
+        return
+    elif "TMap" in histo.ClassName():
+        return
+    else:
+        histo.Scale(plotWeight)
+
+
 def ScaleHistos(dictFinalHistoAtSample, plotWeight):
     for idx in dictFinalHistoAtSample:
         histo = dictFinalHistoAtSample[idx]
-        histoName = histo.GetName()
-        if "optimizerentries" in histoName.lower() or "noweight" in histoName.lower() or "unscaled" in histoName.lower():
-            continue
-        elif "TMap" in histo.ClassName():
-            continue
-        else:
-            histo.Scale(plotWeight)
+        ScaleHisto(histo, plotWeight)
 
 
 def MakeNewEfficiencyHist(eventCutsEfficHist, eventsPassingCutsProf):
@@ -1609,6 +1652,9 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                     histo.SetBinContent(xBin, pdfDownCombBin, pdfSystTotDown)
                     histo.SetBinError(xBin, pdfUpCombBin, pdfSystDeltaUp)
                     histo.SetBinError(xBin, pdfDownCombBin, pdfSystDeltaDown)  # for plotting, we rely on the sumQuad addition of bin errors
+                    # if xBin == 1 and "with" not in histo.GetName().lower() and "fail" not in histo.GetName().lower() and "weight" not in histo.GetName().lower():
+                    #     print("SICDEBUG INFO: for sample={}, hist={}, Set xbin={} with ybin=LHEPdf_DownComb-->{}=pdfSystDeltaDown+nominal={}+{}, ybin=LHEPdf_UpComb-->{}=pdfSystDeltaUp+nominal={}+{}".format(sample, histo.GetName(), xBin, histo.GetBinContent(xBin, pdfDownCombBin), pdfSystDeltaDown, nominal, histo.GetBinContent(xBin, pdfUpCombBin), pdfSystDeltaUp, nominal))
+                    #     print("SICDEBUG INFO: mcPDFSystDeltasUp={}, mcPDFSystDeltasDown={}".format(mcPDFSystDeltasUp[xBin], mcPDFSystDeltasDown[xBin]))
             # now we handle the scale weights in a similar way
             scaleWeightLabels = [label.GetString().Data() for label in histo.GetYaxis().GetLabels() if "LHEScaleWeight_" in label.GetString().Data() and not "comb" in label.GetString().Data().lower()]
             labelsToAdd = ["LHEScale_UpComb", "LHEScale_DownComb"]
@@ -1765,9 +1811,9 @@ def GetFinalSelection(selectionPoint, doEEJJ):
     else:
         if doEEJJ:
             if selectionPoint.isdigit():
-                selection = finalSelectionName+"_LQ"+selectionPoint
+                selection = finalSelectionName+"LQ"+selectionPoint
             else:
-                selection = finalSelectionName+"_"+selectionPoint
+                selection = finalSelectionName+selectionPoint
         else:
             # enujj
             if selectionPoint.isdigit():
@@ -2002,6 +2048,21 @@ def RemoveHistoBins(hist, axis, labelsToRemove):
             raise RuntimeError("ERROR: RemoveHistoBins not implemented for axes other than y, and {} was requested.".format(axis))
     else:
         raise RuntimeError("ERROR: RemoveHistoBins not implemented for histos other than TH2 and this is a {}.".format(hist.__repr__()))
+
+
+def ZeroNegativeHistoBins(histoList):
+    for hist in histoList:
+        if not hist.InheritsFrom("TH1"):
+            continue
+        for iCell in range(0, hist.GetNcells()):
+            binContent = hist.GetBinContent(iCell)
+            if binContent < 0:
+                binx = ctypes.c_int()
+                biny = ctypes.c_int()
+                binz = ctypes.c_int()
+                hist.GetBinXYZ(iCell, binx, biny, binz)
+                print("INFO: Found bin({}, {}) in histo {} with negative bin content; zeroing".format(binx, biny), hist.GetName())
+                hist.SetBinContent(iCell, 0)
 
 
 def MakeSystDiffsPlot(systHist):

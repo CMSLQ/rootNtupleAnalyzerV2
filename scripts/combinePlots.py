@@ -24,6 +24,20 @@ import combineCommon
 
 gROOT.SetBatch(True)
 
+
+def RunCommand(args):
+    timeStarted = time.time()
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    timeDelta = time.time() - timeStarted
+    if proc.returncode != 0:
+        print(colored("command '{}' failed.".format(" ".join(args)), "red"))
+        print(colored("stdout = ", stdout, "green"))
+        print(colored("stderr = ", stderr, "red"))
+        raise RuntimeError("RunCommand failed")
+    return timeDelta
+
+
 def CheckForFile(filename):
     filename = filename.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
     if not filename.startswith("/eos"):
@@ -44,6 +58,8 @@ def CheckForFile(filename):
 
 def RemoveFile(filename):
     filename = filename.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
+    if not os.path.isfile(filename):
+        return
     if not filename.startswith("/eos"):
         os.remove(filename)
     else:
@@ -151,7 +167,7 @@ def MakeCombinedSample(args):
             outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
             outputDatFile = datFileNameTemplate.format(sample)
             histoDictThisSample = OrderedDict()
-            tablesThisSample = []
+            # tablesThisSample = []
             sampleTable = {}
             piecesAdded = []
             isQCD = "qcd" in tfileNameTemplate.lower()
@@ -236,6 +252,9 @@ def MakeCombinedSample(args):
                         plotWeight = 1.0
                         xsection_X_intLumi = NtotThisFile
                         sampleNameForHist = matchingPiece
+                        # print("\t[{}] zeroing negative histo bins".format(sample), flush=True)
+                        # combineCommon.ZeroNegativeHistoBins(sampleHistos)
+                        ##XXX FIXME PUT BACK
                     else:
                         raise RuntimeError("xsection not found")
 
@@ -247,12 +266,14 @@ def MakeCombinedSample(args):
                         print("INFO: inputDatFile={} for sample={}, NoCuts(weighted)={}".format(inputDatFile, sample, Ntot), flush=True)
                         sampleTable = combineCommon.UpdateTable(data, sampleTable)
                         print("INFO: sampleTable for sample={} now has NoCuts(weighted)={}".format(sample, float(sampleTable[0]["Npass"])), flush=True)
-                        tablesThisSample.append(data)
+                        # print("\t[{}] zeroing negative table yields".format(sample), flush=True)
+                        # combineCommon.ZeroNegativeTableYields(sampleTable)
+                        ##XXX FIXME PUT BACK
+                        # tablesThisSample.append(data)
                     else:
                         thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
 
                     if not options.tablesOnly:
-                        #print("INFO: updating histo dict for sample={}, corrLHESysts={}".format(sample, corrLHESysts), flush=True)
                         histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
 
                 if not doWeightingThisFile:
@@ -264,14 +285,14 @@ def MakeCombinedSample(args):
                         Ntot, xsection_val, options.intLumi, sumWeights, matchingPiece, lhePdfWeightSumw, doPDFReweight
                     )
                     print("\t[{}] weight(x1000): ".format(sample) + str(weight) + " = " + str(xsection_X_intLumi), "/", end=' ', flush=True)
-                    print(str(sumWeightsThisFile), flush=True)
+                    print(str(sumWeights), flush=True)
                     combineCommon.ScaleHistos(histoDictThisSample, plotWeight)
                     data = combineCommon.CreateWeightedTable(thisPieceTable, weight, xsection_X_intLumi)
                     Ntot = float(data[0]["Npass"])
                     print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
                     sampleTable = combineCommon.UpdateTable(data, sampleTable)
                     print("INFO: done with currentPiece={}, sampleTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(sampleTable[0]["Npass"])), flush=True)
-                    tablesThisSample.append(data)
+                    # tablesThisSample.append(data)
                 piecesAdded.append(matchingPiece)
 
             # validation of combining pieces
@@ -304,17 +325,25 @@ def MakeCombinedSample(args):
                     outputTfileKeep = TFile.Open(tfileKeepName, "RECREATE", "", 207)
                     combineCommon.WriteHistos(outputTfileKeep, histsToKeep, sample, corrLHESysts, isMC, True)
                     outputTfileKeep.Close()
-                    SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
+                    # remove for now to keep pdf/scale weight bins
+                    # print("INFO: saving pruned hists", flush=True)
+                    if pruneSystHists:
+                        SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
+                    # print("INFO: done saving pruned hists", flush=True)
                 if sample in samplesToSave:
                     dictFinalHisto[sample] = histoDictThisSample
             outputTfile.Close()
-            SavePrunedSystHistos(tfileNameTemplate.format(sample), tfileNameTemplate.format(sample).replace("_plots.root", "_plots_pruned.root"))
+            # remove for now to keep pdf/scale weight bins
+            # print("INFO: [save] saving pruned hists", flush=True)
+            if pruneSystHists:
+                SavePrunedSystHistos(tfileNameTemplate.format(sample), tfileNameTemplate.format(sample).replace("_plots.root", "_plots_pruned.root"))
+            # print("INFO: [save] done saving pruned hists", flush=True)
             #dictDatasetsFileNames[sample] = tfileNameTemplate.format(sample)
             #print("[{}] now dictDatasetsFileNames={}".format(sample, dictDatasetsFileNames), flush=True)
             visitedNodes[sample] = True
             finalizedTasksQueue.put(sample)
         except Exception as e:
-            print(colored("ERROR: exception in MakeCombinedSample for sample={}".format(sample), "red"), flush=True)
+            print(colored("ERROR: exception in MakeCombinedSample for sample={}: '{}'".format(sample, e), "red"), flush=True)
             traceback.print_exc()
             finalizedTasksQueue.put(None)
         finally:
@@ -378,6 +407,7 @@ if doProfiling:
 
     prof.enable()  # profiling back on
 # for profiling
+pruneSystHists = False  # remove individual PDF/LHE weight bins from syst histos, but takes forever
 
 
 # ---Run
@@ -690,6 +720,12 @@ finalizedTasksQueue.join()
 for node in visitedNodes:
     assert visitedNodes[node] == True
 
+# close up processes
+for p in processes:
+    p.terminate()
+    p.join()
+    p.close()
+
 # check results?
 if len(result_list) < jobCount:
     raise RuntimeError("ERROR: {} jobs had errors.".format(jobCount-len(result_list)))
@@ -703,23 +739,15 @@ if not options.tablesOnly:
     outputTFileNameHadd = tfileOutputPath + "/" + options.analysisCode + "_plots.root"
     # hadd -fk207 -j4 outputFileComb.root [inputFiles]
     args = ["hadd", "-fk207", "-j "+str(ncores), outputTFileNameHadd]
-    filesToHadd = [sampleFile.replace("_plots.root", "_plots_pruned.root") for sampleFileList in sampleFiles for sampleFile in sampleFileList]
+    if pruneSystHists:
+        filesToHadd = [sampleFile.replace("_plots.root", "_plots_pruned.root") for sampleFileList in sampleFiles for sampleFile in sampleFileList]  # using SavePrunedSystHistos
+    else:
+        filesToHadd = [sampleFile for sampleFileList in sampleFiles for sampleFile in sampleFileList]  # when not using SavePrunedSystHistos
     # args.extend(sampleFiles)
     args.extend(filesToHadd)
     # print("INFO: run cmd: ", " ".join(args))
-    timeStarted = time.time()
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-    timeDelta = time.time() - timeStarted
-    if proc.returncode != 0:
-        # raise RuntimeError("ERROR: hadd command '{}' finished with error: '{}'; output looks like '{}'".format(" ".join(args), stderr.decode(), stdout.decode()))
-        print(colored("hadd failed.".format(" ".join(args)), "red"))
-        print(colored("stdout = ", ex.stdout, "green"))
-        print(colored("stderr = ", ex.stderr, "red"))
-        print("cmd={}".format(" ".join(args)))
-        raise RuntimeError("hadd failed")
-    else:
-        print("INFO: Finished hadd in "+str(round(timeDelta/60.0, 2))+" mins.", flush=True)
+    timeDelta = RunCommand(args)
+    print("INFO: Finished hadd in "+str(round(timeDelta/60.0, 2))+" mins.", flush=True)
     if not options.keepInputFiles:
         for sample in dictSamples.keys():
             fileName = sampleTFileNameTemplate.format(sample).replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
