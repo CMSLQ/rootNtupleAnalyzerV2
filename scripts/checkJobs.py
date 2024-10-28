@@ -89,8 +89,9 @@ def CheckEventsProcessedPerJob(datasetFileNameEventsDict):
         filesProcessed = []
         with open(srcFile, 'r') as thisFile:
             for line in thisFile:
-                if "haddnano.py" in line:
+                if "haddnano.py" in line and not "echo" in line:
                     filesProcessed =  line.split()[2:]
+                    # print("DEBUG: found line='{}'; filesProcessed={}".format(line, filesProcessed))
                     break
         if len(filesProcessed) < 1:
             raise RuntimeError("Did not find any input files processed when parsing file {}. Cannot check for correct number of events processed.".format(srcFile))
