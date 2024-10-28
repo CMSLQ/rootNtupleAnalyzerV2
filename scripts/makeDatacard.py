@@ -99,6 +99,10 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
             raise RuntimeError("Could not find requested selection name '{}' in hist {} in file {}".format(finalSelection, systHistName, rootFile.GetName()))
         for yBin in range(1, systHist.GetNbinsY()+1):
             systName = systHist.GetYaxis().GetBinLabel(yBin)
+            if "LHEPdfWeight" in systName or "LHEScaleWeight" in systName:
+                continue
+            elif "LHEPdf" in systName or "LHEScale" in systName:
+                systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
             systDict[selection][systName] = systHist.GetBinContent(xBin, yBin)
             # if "ZJet" in sampleName and "LQ3000" in selection:
             #     print("INFO: for sampleName={} and selection={}, xBin={} yBin={} ({}), got content={}".format(sampleName, selection, xBin, yBin, systName, systDict[selection][systName]))
@@ -112,7 +116,10 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
         branchTitleList = []
         systName = systHist.GetYaxis().GetBinLabel(yBin)
         # special handling for LHEPdf/LHEScalesysts
-        if "LHEPdfComb" in systName or "LHEScaleComb" in systName:
+        if "LHEPdfWeight" in systName or "LHEScaleWeight" in systName:
+            continue
+        elif "LHEPdf" in systName or "LHEScale" in systName:
+            systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
             systDict["branchTitles"][systName] = [systName]
             continue
         mapObject = tmap.FindObject(systName)
@@ -132,7 +139,7 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
         # print "INFO: systDict[\"branchTitles\"][{}] = {}".format(systName, branchTitleList)
     #if verbose:
     #    print("sampleName={}: systDict={}".format(sampleName, systDict["LQ300"]))
-    #print("sampleName={}: systDict={}".format(sampleName, systDict["preselection"]))
+    # print("sampleName={}: systDict={}".format(sampleName, systDict["preselection"]))
     # reindex by syst name
     systDict = {syst: {sel: systDict[sel][syst] for sel in systDict} for syst in list(systDict[selections[0]].keys())}
     # if verbose:
@@ -827,15 +834,15 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
                     print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
                     print("INFO: for sampleName={}, {} ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, selectionName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
                 ratesDict[selectionName] = sampleRate
-                # if ratesDict[selectionName] < 0:
-                #     print("WARN: for sample {}, selection {}: found negative rate: {}; set to zero. Had {} unscaled events.".format(sampleName, selectionName, sampleRate, sampleUnscaledRate))
-                #     ratesDict[selectionName] = 0.0
                 rateErrsDict[selectionName] = sampleRateErr
                 unscaledRatesDict[selectionName] = sampleUnscaledRate
                 failRatesDict[selectionName] = sampleFailRate
                 failRateErrsDict[selectionName] = sampleFailRateErr
                 unscaledFailRatesDict[selectionName] = sampleFailUnscaledRate
                 systematicsNominalDict[selectionName] = sampleRate
+                if ratesDict[selectionName] < 0:
+                    print("WARN: for sample {}, selection {}: found negative rate: {}; set to zero. Had {} unscaled events.".format(sampleName, selectionName, sampleRate, sampleUnscaledRate))
+                    ratesDict[selectionName] = 0.0
                 if unscaledRatesDict[selectionName] < 0:
                     print("WARN: for sample {}, selection {}: found negative unscaled rate: {}; set to zero.".format(sampleName, selectionName, sampleUnscaledRate))
                     unscaledRatesDict[selectionName] = 0.0
@@ -2028,19 +2035,17 @@ with open(tablesDir + "/eventYieldsAN.tex", "w") as table_file:
     print()
     print("Latex table: AN")
     print()
-    table_file.write("Latex table: AN\n")
     # latex table -- AN
     prelims = [r"\setlength\tabcolsep{2pt}"]
     prelims.append(r"\resizebox{\textwidth}{!}{")
     prelims.append(r"\begin{tabular}{| l | c | c | c | c | c | c | c | c | c | c | c | c | c |}")
+    prelims.append(r"\hline")
     for line in prelims:
         print(line)
         table_file.write(line+"\n")
     headers = GetLatexHeaderFromColumnNames(columnNames)
     print(headers)
-    print(r"\hline")
     table_file.write(headers+"\n")
-    table_file.write(r"\hline\n")
     for line in latexRowsAN:
         print(line)
         table_file.write(line+"\n")
