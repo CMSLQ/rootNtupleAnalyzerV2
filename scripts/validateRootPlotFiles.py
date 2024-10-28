@@ -65,8 +65,8 @@ def CheckIfIdenticalTObjs(h1, h2):
                 h2BinEntries = h2.GetBinEntries(globalBin)
                 if h1BinEntries != h2BinEntries:
                     raise RuntimeError("For profile {}, bin {}, entries 1 '{}' != entries 2 '{}'.".format(h1.GetName(), globalBin, h1BinEntries, h2BinEntries))
-                h1BinSumw2 = h1.GetSumw2.At(globalBin)
-                h2BinSumw2 = h2.GetSumw2.At(globalBin)
+                h1BinSumw2 = h1.GetSumw2().At(globalBin)
+                h2BinSumw2 = h2.GetSumw2().At(globalBin)
                 if h1BinSumw2 != h2BinSumw2:
                     raise RuntimeError("For profile {}, bin {}, sumw2 1 '{}' != sumw2 2 '{}'.".format(h1.GetName(), globalBin, h1BinSumw2, h2BinSumw2))
             else:
