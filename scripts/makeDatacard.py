@@ -769,11 +769,8 @@ def CreateAndWriteHistograms(outputRootFilename):
     outputRootFile.Close()
 
 
-def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
+def FillDicts(rootFilepath, sampleNames, bkgType, verbose=False):
     isData = False if "mc" in bkgType.lower() or "signal" in bkgType.lower() else True
-    scaledRootFile = r.TFile.Open(rootFilename)
-    if not scaledRootFile or scaledRootFile.IsZombie():
-        raise RuntimeError("Could not open root file: {}".format(scaledRootFile.GetName()))
     d_rates = {}
     d_rateErrs = {}
     d_unscaledRates = {}
@@ -784,6 +781,12 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
     d_unscaledFailRates = {}
     # start sample
     for i_sample, sampleName in enumerate(sampleNames):
+        thisSampleRootFilepath = rootFilepath
+        if ".root" not in rootFilepath:
+            thisSampleRootFilepath += "analysisClass_lq_eejj_{}_plots.root".format(sampleName)
+        scaledRootFile = r.TFile.Open(thisSampleRootFilepath)
+        if not scaledRootFile or scaledRootFile.IsZombie():
+            raise RuntimeError("Could not open root file: {}".format(scaledRootFile.GetName()))
         unscaledTotalEvts = cc.GetUnscaledTotalEvents(scaledRootFile, sampleName)
         if unscaledTotalEvts < 0:
             print(colored("WARN: for sample {}, found negative sampleUnscaledTotalEvents: {}; set to zero.".format(sampleName, unscaledTotalEvts), "red"))
@@ -868,7 +871,7 @@ def FillDicts(rootFilename, sampleNames, bkgType, verbose=False):
         d_failRates[sampleName] = failRatesDict
         d_failRateErrs[sampleName] = failRateErrsDict
         d_unscaledFailRates[sampleName] = unscaledFailRatesDict
-    scaledRootFile.Close()
+        scaledRootFile.Close()
     return d_rates, d_rateErrs, d_unscaledRates, d_totalEvents, d_systematics, d_failRates, d_failRateErrs, d_unscaledFailRates
 
 
@@ -1380,7 +1383,7 @@ if doQCD:
 print("Launched like:")
 for arg in sys.argv:
     print("\t" + arg)
-print("Using input root files:")
+print("Using input root paths/files:")
 print("\t Data/MC:", dataMC_filepath)
 if doQCD:
     print("\t QCD(data):", qcdFilePath)
