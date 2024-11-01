@@ -8,15 +8,15 @@ import subprocess
 
 years = ["2016preVFP", "2016postVFP","2017","2018"]
 #era = "postVFP"
-date = "20Sep2024"
+date = "28Oct2024"
 
 #weight files
-weightFiles = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToDEle/dataset/weights"#.format(year,era)
+weightFiles = os.getenv("LQDATAEOS")+"/BDT_28OctSkim/LQToDEle/dataset/weights"#.format(year,era)
 weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToDEle/HTLO-amcatnlo_{}/weights".format(date)
 print("copying weight files to "+weightFilesDest)
 
 #optimization results
-optResults = os.getenv("LQDATAEOS")+"/BDT_16SepSkim/LQToDEle/testNewOptHists/bdtOptimization.log"#.format(year,era)
+optResults = os.getenv("LQDATAEOS")+"/BDT_28OctSkim/LQToDEle/bdtOptimization.log"#.format(year,era)
 
 #cut files
 #filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")

@@ -806,7 +806,7 @@ def OptimizeBDTCut(args):
                         print("INFO LQM{}: found empty sample after Meejj cut {} ({})".format(lqMassToUse, datasetName, year))
                         emptySamples[year].append(fileToWrite)
                     elif bkgIntegral < 0 and not "QCD" in sample:
-                        print("INFO LQM{}: found negative sample {} with bkgIntegral = {} ({})".format(lqMassToUse, datasetName, bkgIntegral, year))
+                        print("INFO LQM{}: found negative yield after Meejj cut = {} for dataset {} ({})".format(lqMassToUse, bkgIntegral, datasetName, year))
                         emptySamples[year].append(fileToWrite)
                     else:
                         df.Snapshot('tree',tempDir+'/{}_{}_{}.root'.format(fileToWrite,lqMassToUse,year))
@@ -1129,6 +1129,7 @@ def OptimizeBDTCut(args):
                 #nBErr = ctypes.c_double()
                 #nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
                 #nBErr = nBErr.value
+                bkgIntegral = 0 #yield after Meejj cut, before BDT cut
                 for dataset in backgroundDatasetsDict[sample]:
                     name = dataset.split("/")[-1]
                     name = name.replace(".txt","")
@@ -1143,35 +1144,41 @@ def OptimizeBDTCut(args):
                         dfTemp = RDataFrame(ttree)
                         bdtCut = dfTemp.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
                         rawEvents = dfTemp.Filter("BDT > "+str(cutVal)).Count()
+                        bkgIntegral += dfTemp.Sum('fullWeight').GetValue()
                         if rawEvents.GetValue() <=0:
-                            print("INFO LQM{}: No events passing BDT cut for dataset {} ({})".format(lqMassToUse, name, year))
+                            print("INFO LQM{}: No raw events passing BDT cut for dataset {} ({})".format(lqMassToUse, name, year))
+                        if bdtCut.GetValue() <= 0 and not "QCD" in sample:
+                            print("INFO LQM{}: Negative or 0 weighted yield after BDT cut = {} for dataset {} ({})".format(lqMassToUse, bdtCut.GetValue(),  name, year))
+                            emptySamples[year].append(name)
                     if "DYJets" in filename:
                         dyPtBinYields[year][name] = {}
                         if name in emptySamples[year]:
                             dyPtBinYields[year][name]['BDTCut'] = 0
                             dyPtBinYields[year][name]['rawEvents'] = 0
                             dyPtBinYields[year][name]['full'] = 0
-                            continue
-                        fullYield = dfTemp.Sum('fullWeight')
-                        dyPtBinYields[year][name]['BDTCut'] = bdtCut.GetValue()
-                        dyPtBinYields[year][name]['rawEvents'] = rawEvents.GetValue()
-                        dyPtBinYields[year][name]['full'] = fullYield.GetValue()
-                        tfile.Close()
-                    if name in emptySamples[year]:
-                        continue
-                    ch.Add(filename)
+                        else:
+                            fullYield = dfTemp.Sum('fullWeight')
+                            dyPtBinYields[year][name]['BDTCut'] = bdtCut.GetValue()
+                            dyPtBinYields[year][name]['rawEvents'] = rawEvents.GetValue()
+                            dyPtBinYields[year][name]['full'] = fullYield.GetValue()
+                            tfile.Close()
+                    if not name in emptySamples[year]:
+                        ch.Add(filename)
                 #tfile = TFile.Open(filename)
                 #ttree = tfile.Get('tree')
                 #print("Got tree from file "+filename)
+                if ch.GetEntries() <= 0:
+                    print("INFO LQM{}: no events pass BDT cut for composite sample {} ({})".format(lqMassToUse, sample, year))
+                    continue
                 df = RDataFrame(ch)
                 nB = df.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
                 df = df.Define("weightSquared","fullWeight*fullWeight")
                 nBErr = df.Filter("BDT > "+str(cutVal)).Sum('weightSquared')
-                bkgIntegral = df.Sum('fullWeight')
+                #bkgIntegral = df.Sum('fullWeight')
                 nBEvents = df.Filter("BDT > "+str(cutVal)).Count()
                 nB = nB.GetValue()
                 nBErr = math.sqrt(nBErr.GetValue())
-                bkgIntegral = bkgIntegral.GetValue()
+                #bkgIntegral = bkgIntegral.GetValue()
                 nBEvents = nBEvents.GetValue()
                 nBEventsErr = math.sqrt(nBEvents)
                 sample = sample.replace("_{}".format(year),"")
@@ -2273,9 +2280,9 @@ if __name__ == "__main__":
     gROOT.SetBatch()
     dateStr = "9oct2023"
     skim = "2Aug"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/28OctSkim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/28OctSkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/28OctSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
     use_BEle_samples = False
     if use_BEle_samples:
@@ -2289,7 +2296,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "16sep2024"
+    xsectionDate = "28oct"
     for year in years:
         xsectionFiles[year] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     #xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
@@ -2305,7 +2312,7 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [1600]
+    #lqMassesToUse = [2700,2800,2900,3000]
     lqMassesToUse = list(range(300, 3100, 100))
     if use_BEle_samples:
         signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
