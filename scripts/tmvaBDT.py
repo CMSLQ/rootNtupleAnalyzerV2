@@ -1149,7 +1149,7 @@ def OptimizeBDTCut(args):
                             print("INFO LQM{}: No raw events passing BDT cut for dataset {} ({})".format(lqMassToUse, name, year))
                         if bdtCut.GetValue() <= 0 and not "QCD" in sample:
                             print("INFO LQM{}: Negative or 0 weighted yield after BDT cut = {} for dataset {} ({})".format(lqMassToUse, bdtCut.GetValue(),  name, year))
-                            emptySamples[year].append(name)
+                            #emptySamples[year].append(name)
                     if "DYJets" in filename:
                         dyPtBinYields[year][name] = {}
                         if name in emptySamples[year]:

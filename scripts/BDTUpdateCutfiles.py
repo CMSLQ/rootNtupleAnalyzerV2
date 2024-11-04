@@ -11,12 +11,13 @@ years = ["2016preVFP", "2016postVFP","2017","2018"]
 date = "28Oct2024"
 
 #weight files
-weightFiles = os.getenv("LQDATAEOS")+"/BDT_28OctSkim/LQToDEle/dataset/weights"#.format(year,era)
-weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToDEle/HTLO-amcatnlo_{}/weights".format(date)
+weightFiles = os.getenv("LQDATAEOS")+"/BDT_28OctSkim/LQToBEle/dataset/weights"#.format(year,era)
+weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToBEle/HTLO-amcatnlo_{}/weights".format(date)
+
 print("copying weight files to "+weightFilesDest)
 
 #optimization results
-optResults = os.getenv("LQDATAEOS")+"/BDT_28OctSkim/LQToDEle/bdtOptimization.log"#.format(year,era)
+optResults = os.getenv("LQDATAEOS")+"/BDT_28OctSkim/LQToBEle/bdtOptimization.log"#.format(year,era)
 
 #cut files
 #filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")
@@ -30,11 +31,14 @@ filesToUpdate = []
 for year in years:
     for f in filenames:
         if year=="2016preVFP":
-            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/HTLO-amcatnlo/"
+            #directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/HTLO-amcatnlo/"
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/LQToBEle/"
         elif year=="2016postVFP":
-            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/HTLO-amcatnlo/"
+            #directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/HTLO-amcatnlo/"
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/LQToBEle/"
         else:
-            directory = os.getenv("LQMACRO")+"/config{}/Analysis/HTLO-amcatnlo/".format(year)
+            #directory = os.getenv("LQMACRO")+"/config{}/Analysis/HTLO-amcatnlo/".format(year)
+            directory = os.getenv("LQMACRO")+"/config{}/Analysis/LQToBEle/".format(year)
         fullPath = directory+f
         print("add file {}".format(fullPath))
         filesToUpdate.append(fullPath)

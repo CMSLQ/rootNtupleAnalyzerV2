@@ -304,9 +304,9 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
             "SingleTop" : [
                 inputListBkgBase+"ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8.txt",
                 inputListBkgBase+"ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"ST_t-channel_top_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"ST_t-channel_antitop_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8.txt",
+                #inputListBkgBase+"ST_t-channel_top_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"ST_t-channel_antitop_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8.txt",
                 ],
             # "WJet_amcatnlo_jetBinned" : [
             #     inputListBkgBase+"WJetsToLNu_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
@@ -491,9 +491,9 @@ inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/28oct/trainingTre
 inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/28oct/trainingTreeInputs/singleFR/"
 inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/28oct/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToDEle/"+str(year)+"/28OctSkims"
-signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
-#signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/28OctSkims"
+#signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
 if __name__ == "__main__":
     print("INFO: Using year = {}".format(year))
     print("INFO: Using signal name template: {}".format(signalNameTemplate))
