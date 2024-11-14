@@ -53,13 +53,14 @@ def PrepareJobScript(outputname):
         outputfile.write("#!/bin/bash\n")
         outputfile.write("echo \"Running at site: $GLIDEIN_CMSSite\"\n")
         # hardcoded root is a bit nasty FIXME
-        outputfile.write(' source /cvmfs/sft.cern.ch/lcg/views/LCG_104/x86_64-el9-gcc13-opt/setup.sh\n')
-        outputfile.write("echo \"Sourced LCG env.\"\n")
+        outputfile.write("echo \"Now source LCG env.\"\n")
+        outputfile.write('source /cvmfs/sft.cern.ch/lcg/views/LCG_104/x86_64-el9-gcc13-opt/setup.sh\n')
+        outputfile.write("echo \"-->Sourced LCG env.\"\n")
         # ROOT likes HOME set
         outputfile.write('[ -z "$HOME" ] && export HOME='+os.getenv('HOME')+'\n')
-        outputfile.write("echo \"Set HOME=$HOME.\"\n")
+        outputfile.write("echo \"-->Set HOME=$HOME.\"\n")
         outputfile.write('export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH\n')
-        outputfile.write("echo \"exported LD_LIBRARY_PATH.\"\n")
+        outputfile.write("echo \"-->exported LD_LIBRARY_PATH.\"\n")
         inputList = inputfilename.split('/')[-1]
         # merge files if nano skim or reduced skim requested
         if options.reducedSkim or options.nanoSkim:
