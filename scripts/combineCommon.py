@@ -262,35 +262,41 @@ def ParseDatFile(datFilename):
     lineCounter = int(0)
 
     # print("Opening:" , datFilename, flush=True)
-    with open(datFilename) as datFile:
-        # start with line that begins with '#id'
-        foundFirstLine = False
-        startIdx = 0
-        for j, line in enumerate(datFile):
-            # ignore comments
-            if re.search("^###", line):
-                continue
-            line = line.strip("\n")
-            if line.strip().startswith("#id"):
-                foundFirstLine = True
-            # print "---> lineCounter: " , lineCounter
-            # print line
-            if foundFirstLine:
-                if lineCounter == 0:
-                    for i, piece in enumerate(line.split()):
-                        column.append(piece)
-                else:
-                    for i, piece in enumerate(line.split()):
-                        if i == 0:
-                            if len(data) == 0:
-                                startIdx = int(piece)
-                            row = int(piece)-startIdx
-                            data[row] = {}
-                        else:
-                            data[row][column[i]] = piece
-                            # print data[row][ column[i] ]
+    try:
+        with open(datFilename) as datFile:
+            # start with line that begins with '#id'
+            foundFirstLine = False
+            startIdx = 0
+            for j, line in enumerate(datFile):
+                # ignore comments
+                if re.search("^###", line):
+                    continue
+                line = line.strip("\n")
+                if line.strip().startswith("#id"):
+                    foundFirstLine = True
+                # print "---> lineCounter: " , lineCounter
+                # print line
+                if foundFirstLine:
+                    if lineCounter == 0:
+                        for i, piece in enumerate(line.split()):
+                            column.append(piece)
+                    else:
+                        for i, piece in enumerate(line.split()):
+                            if i == 0:
+                                if len(data) == 0:
+                                    startIdx = int(piece)
+                                row = int(piece)-startIdx
+                                data[row] = {}
+                            else:
+                                if "Npass" in column[i] or "Eff" in column[i] and piece != '-':
+                                    data[row][column[i]] = float(piece)
+                                else:
+                                    data[row][column[i]] = piece
+                                # print data[row][ column[i] ]
 
-                lineCounter = lineCounter + 1
+                    lineCounter = lineCounter + 1
+    except Exception as e:
+        raise RuntimeError("Had an exception when reading dat file='{}':".format(datFilename), e)
     return data
 
 
@@ -831,10 +837,10 @@ def WriteTable(table, name, file, printToScreen=False, writeErrNPass=True):
             cutIdx += 1
         print(str(cutIdx).rjust(4, " "), end=' ', file=file)
         print(table[j]["variableName"].rjust(35), end=' ', file=file)
-        print(table[j]["min1"].rjust(15), end=' ', file=file)
-        print(table[j]["max1"].rjust(15), end=' ', file=file)
-        print(table[j]["min2"].rjust(15), end=' ', file=file)
-        print(table[j]["max2"].rjust(15), end=' ', file=file)
+        print(str(table[j]["min1"]).rjust(15), end=' ', file=file)
+        print(str(table[j]["max1"]).rjust(15), end=' ', file=file)
+        print(str(table[j]["min2"]).rjust(15), end=' ', file=file)
+        print(str(table[j]["max2"]).rjust(15), end=' ', file=file)
         ###
         if not writeErrNPass:
             print(table[j]["level"].rjust(15), end=' ', file=file)
@@ -1071,9 +1077,18 @@ def ParseShapeBranchTitle(branchTitle):
         index = int(groups[0])
         muR = float(groups[1].replace("d", "E+"))
         muF = float(groups[2].replace("d", "E+"))
-        ratio = muR/muF
-        if ratio < 3.9 and ratio > 0.3:  # leave some room for float rounding
-            # print "INFO: keep this variation with title={}; index={}, ratio={}".format(branchTitle[searchStart:searchStart+end], index, ratio)
+        keep = False
+        if muR == 0.5:
+            if muF == 0.5 or muF == 1:
+                keep = True
+        elif muR == 1:
+            if muF == 0.5 or muF == 2:
+                keep = True
+        elif muR == 2:
+            if muF == 1 or muF == 2:
+                keep = True
+        if keep:
+            # print("INFO: keep this variation with title={}; index={}, muR ({}) muF ({})".format(branchTitle[searchStart:searchStart+end], index, muR, muF))
             validIndices.append(str(index))
             validTitles.append(branchTitle[searchStart:searchStart+end])
         # else:
@@ -1085,9 +1100,9 @@ def ParseShapeBranchTitle(branchTitle):
     return validIndices, validTitles
 
 
-def CalculateShapeSystematic(hist, sampleName, systDict):
-    verbose = False
+def CalculateShapeSystematic(hist, sampleName, systDict, verbose=False):
     result = {}
+    maxYIndices = {}
     systName = "LHEScaleWeight"
     branchTitle, shapeKeys = GetBranchTitle(systName, sampleName, systDict)
     if verbose:
@@ -1097,6 +1112,9 @@ def CalculateShapeSystematic(hist, sampleName, systDict):
     validShapeKeys = [shapeKey for shapeKey in shapeKeys if shapeKey[shapeKey.rfind("_")+1:] in validIndices]
     validYbins = [yBin for yBin in range(0, hist.GetNbinsY()+2) if hist.GetYaxis().GetBinLabel(yBin) in validShapeKeys]
     for xBin in range(0, hist.GetNbinsX()+2):
+        verbose = False
+        if xBin == 1:
+            verbose = True
         nominal = hist.GetBinContent(xBin, 1)
         shapeYields = [hist.GetBinContent(xBin, yBin) for yBin in validYbins]
         if verbose:
@@ -1106,11 +1124,13 @@ def CalculateShapeSystematic(hist, sampleName, systDict):
         deltasAbs = [math.fabs(delta) for delta in deltas]
         maxDeltaIdx = deltasAbs.index(max(deltasAbs))
         maxDelta = deltas[maxDeltaIdx]
+        yBinIdx = validYbins[maxDeltaIdx]
         if verbose:
             print("\tINFO: For sampleName={}, systName={}, found deltas={} with maxDelta={} and nominal={}".format(
                     sampleName, systName, deltas, maxDelta, nominal))
         result[xBin] = maxDelta
-    return result, validYbins
+        maxYIndices[xBin] = yBinIdx
+    return result, validYbins, maxYIndices
 
 
 def GetPDFVariationType(branchTitle):
@@ -1135,6 +1155,9 @@ def GetPDFVariationType(branchTitle):
     elif "306000" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nnlo_hessian_pdfas"
+    elif "305800" in branchTitle:
+        pdfType = "hessian"
+        pdfName = "NNPDF31_nlo_hessian_pdfas"
     elif "325300" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nnlo_as_0118_mc_hessian_pdfas"
@@ -1261,18 +1284,18 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
         if sampleSystHist is not None:
             systNameToBranchTitleDict = ExtractBranchTitles(sampleSystHist, sampleTMap)
         elif not isQCD:
-            print("WARN: Did not find systematics hist for the sample {}, though it's not data.".format(sample))
+            print("WARN: Did not find systematics hist for the piece {}, though it's not data.".format(piece))
     idx = 0
     for pieceHisto in pieceHistoList:
         pieceHistoName = pieceHisto.GetName()
         pieceHisto.SetName(GetShortHistoName(pieceHistoName))
         if idx in sampleHistoDict:
+            # print("INFO: UpdateHistoDict(): sample={}, sampleHisto={}, piece={}, pieceHisto={}, idx={}".format(sample, sampleHistoDict[idx].GetName(), piece, pieceHisto.GetName(), idx), flush=True)
             sampleHisto = sampleHistoDict[idx]
             if pieceHisto.GetName() not in sampleHisto.GetName():
                 raise RuntimeError(
                         "ERROR: non-matching histos between sample {} hist with name '{}' and piece {} hist with name '{}'. Quitting here".format(
                             sample, sampleHisto.GetName(), piece, pieceHisto.GetName()))
-        # print("INFO: UpdateHistoDict(): sample={}, piece={}, pieceHisto={}, idx={}".format(sample, piece, pieceHisto.GetName(), idx), flush=True)
         if "eventspassingcuts" in pieceHisto.GetName().lower() and "unscaled" not in pieceHisto.GetName().lower():
             if pieceHisto.GetName()+"_unscaled" not in [histo.GetName() for histo in pieceHistoList]:
                 # create new EventsPassingCuts hist that doesn't have scaling/reweighting by int. lumi.
@@ -1408,10 +1431,13 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
             # CheckSystematicsTMapConsistency(dictFinalHistoAtSample[h], htemp)
             # no-op
             return dictFinalHistoAtSample
-        if "systematics" in histoName.lower() and not isData:
+        if "systematics" in histoName.lower() and not isData and sample != "":
+            # in the case where sample is empty, we are combining individual root files in the same dataset, so we can simply add the histograms
             pdfSysts = False
-            labelsToAdd = ["LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEScaleWeight_maxComb"]
-            if not any(substring in list(htemp.GetYaxis().GetLabels()) for substring in labelsToAdd):
+            labelsToAdd = ["LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEScaleWeight_maxComb", "LHEScaleWeight_maxIndex"]
+            labelsToAdd = [label for label in labelsToAdd if label not in  list(htemp.GetYaxis().GetLabels())]
+            # if not any(substring in list(htemp.GetYaxis().GetLabels()) for substring in labelsToAdd):
+            if len(labelsToAdd):
                 htemp = AddHistoBins(htemp, "y", labelsToAdd)
                 if firstHistForSample:
                     dictFinalHistoAtSample[h] = AddHistoBins(dictFinalHistoAtSample[h], "y", labelsToAdd)
@@ -1465,13 +1491,20 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                             htemp.SetBinContent(xBin, yBin, 0)
                             htemp.SetBinError(xBin, yBin, 0)
                 # 2. we have to calculate the scale syst
-                ##   - replace the scale weights with one bin holding the max deviation
-                scaleSystDeltas, yBins = CalculateShapeSystematic(htemp, sample, systNameToBranchTitleDict)
+                ##   - add a bin holding the max deviation
+                verbose = False
+                # if histoName == "systematics":
+                #     verbose = True
+                scaleSystDeltas, yBins, maxYBinIdxs = CalculateShapeSystematic(htemp, sample, systNameToBranchTitleDict, verbose)
+                lheScaleMaxIndexBin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_maxIndex")
                 lheScaleMaxCombBin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_maxComb")
                 for xBin in range(0, htemp.GetNbinsX()+2):
                     nominal = htemp.GetBinContent(xBin, 1)  # y-bin 1 always being nominal
                     htemp.SetBinContent(xBin, lheScaleMaxCombBin, scaleSystDeltas[xBin]+nominal)
                     htemp.SetBinError(xBin, lheScaleMaxCombBin, scaleSystDeltas[xBin])
+                    htemp.SetBinContent(xBin, lheScaleMaxIndexBin, maxYBinIdxs[xBin])
+                    # We set the max index here, but then it just gets summed over the processes.
+                    # Therefore, it doesn't work with uncorrelated processes at the moment. We set this to zero in that case in WriteHistos()
             # check systematics hist bins
             systematicsListFromDictHist = list(dictFinalHistoAtSample[h].GetYaxis().GetLabels())
             systematicsListFromTempHist = list(htemp.GetYaxis().GetLabels())
@@ -1513,7 +1546,8 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                 
         # Sep. 17 2017: scale first, then add with weight=1 to have "entries" correct
         # htemp.Scale(plotWeight)
-        ScaleHisto(htemp, plotWeight)
+        if plotWeight != 1.0:
+            ScaleHisto(htemp, plotWeight)
         #r.gDebug = 3
         #r.gErrorIgnoreLevel = r.kPrint
         # if "DR_Ele1Ele2_PASWithSystematics"==histoName:
@@ -1522,7 +1556,16 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
         #     #sys.stdout.flush()
         #     print("SICINFO: final hist named '{}' has bin 215 content={} bin 215 error={}".format(histoName, dictFinalHistoAtSample[h].GetBinContent(215), dictFinalHistoAtSample[h].GetBinError(215)))
         #     print("SICINFO: adding hist named '{}' with bin 215 content={} bin 215 error={}".format(histoName, htemp.GetBinContent(215), htemp.GetBinError(215)))
+        # lheScaleMaxCombBin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_maxComb")
+        # if histoName == "systematics":
+        #     print("DEBUG: addHists - for sample={}, htemp={}, xbin=1, LHEScaleWeight_maxComb binc={} bine={}, nom={}".format(sample, htemp.GetName(),
+        #         htemp.GetBinContent(1, lheScaleMaxCombBin), htemp.GetBinError(1, lheScaleMaxCombBin), htemp.GetBinContent(1,1)))
         returnVal = dictFinalHistoAtSample[h].Add(htemp)
+        # if histoName == "systematics":
+        #     # print("DEBUG: addHists = for sample={}, finalHist, xbin=1, LHEScaleWeight_maxComb binc={} bine={}, nom={}".format(sample,
+        #     #     dictFinalHistoAtSample[h].GetBinContent(1, lheScaleMaxCombBin), dictFinalHistoAtSample[h].GetBinError(1, lheScaleMaxCombBin), dictFinalHistoAtSample[h].GetBinContent(1,1)))
+        #     print("DEBUG: after addHists --> for sample={}, finalHist, xbin=1, ybin=2 binc={} bine={}".format(sample,
+        #         dictFinalHistoAtSample[h].GetBinContent(1, 2), dictFinalHistoAtSample[h].GetBinError(1, 2)))
         # if "DR_Ele1Ele2_PASWithSystematics"==histoName:
         #     print("SICINFO: NOW, final hist named '{}' has bin 215 content={} bin 215 error={}".format(histoName, dictFinalHistoAtSample[h].GetBinContent(215), dictFinalHistoAtSample[h].GetBinError(215)))
         #r.gDebug = 0
@@ -1550,9 +1593,15 @@ def ScaleHisto(histo, plotWeight):
 
 
 def ScaleHistos(dictFinalHistoAtSample, plotWeight):
-    for idx in dictFinalHistoAtSample:
-        histo = dictFinalHistoAtSample[idx]
-        ScaleHisto(histo, plotWeight)
+    if isinstance(dictFinalHistoAtSample, list):
+        for histo in dictFinalHistoAtSample:
+            ScaleHisto(histo, plotWeight)
+    elif isinstance(dictFinalHistoAtSample, dict):
+        for idx in dictFinalHistoAtSample:
+            histo = dictFinalHistoAtSample[idx]
+            ScaleHisto(histo, plotWeight)
+    else:
+        raise RuntimeError("Don't know how to scale histos passed inside {}.".format(type(dictFinalHistoAtSample)))
 
 
 def MakeNewEfficiencyHist(eventCutsEfficHist, eventsPassingCutsProf):
@@ -1623,9 +1672,12 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
             if corrLHESysts:
                 if hasMC:
                     if len([x for x in [label.GetString().Data() for label in histo.GetYaxis().GetLabels()] if re.match(r"LHEScaleWeight_\d+", x)]) > 0:
-                        scaleSystDeltas, yBins = CalculateShapeSystematic(histo, sample, systNameToBranchTitleDict)
+                        scaleSystDeltas, yBins, maxYBinIdxs = CalculateShapeSystematic(histo, sample, systNameToBranchTitleDict)
+                        if histName.endswith("systematics"):
+                            print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, scaleSystDeltas: calculate from scale weight variations; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
             else:
                 scaleSystDeltas = [histo.GetBinError(xBin, histo.GetYaxis().FindFixBin("LHEScaleWeight_maxComb")) for xBin in range(0, histo.GetNbinsX()+2)]
+                # print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, take scaleSystDeltas from errors of maxComb of input hist; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
 
             hasHessianPDFVar = False
             for xBin in range(0, histo.GetNbinsX()+2):
@@ -1663,12 +1715,20 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
             if not IsHistEmpty(histo):
                 scaleUpCombBin = histo.GetYaxis().FindFixBin("LHEScale_UpComb")
                 scaleDownCombBin = histo.GetYaxis().FindFixBin("LHEScale_DownComb")
+                scaleIndexBin = histo.GetYaxis().FindFixBin("LHEScaleWeight_maxIndex")
                 for xBin in range(0, histo.GetNbinsX()+2):
                     nominal = histo.GetBinContent(xBin, 1)  # y-bin 1 always being nominal
                     histo.SetBinContent(xBin, scaleUpCombBin, scaleSystDeltas[xBin]+nominal)
                     histo.SetBinError(xBin, scaleUpCombBin, scaleSystDeltas[xBin])  # for plotting, we rely on the sumQuad addition of bin errors
                     histo.SetBinContent(xBin, scaleDownCombBin, scaleSystDeltas[xBin]+nominal)
                     histo.SetBinError(xBin, scaleDownCombBin, scaleSystDeltas[xBin])
+                    if corrLHESysts and hasMC:
+                        histo.SetBinContent(xBin, scaleIndexBin, maxYBinIdxs[xBin])
+                    else:
+                        histo.SetBinContent(xBin, scaleIndexBin, 0.)
+                    if xBin == 1 and histName.endswith("systematics"):
+                        print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, set bin content of xbin=1, ybin={} to {}=scaleSystDeltas[1]+nominal={}+{}".format(
+                            sample, corrLHESysts, scaleUpCombBin, scaleSystDeltas[xBin]+nominal, scaleSystDeltas[xBin], nominal))
             # redo the bin errors for the other systematics, so that we can use their bin errors in case of any uncorrelated systs
             if not IsHistEmpty(histo):
                 otherSystBins = [histo.GetYaxis().FindFixBin(label.GetString().Data()) for label in histo.GetYaxis().GetLabels() if "LHEScale" not in label.GetString().Data() and "LHEPdf" not in label.GetString().Data() and "nominal" not in label.GetString().Data().lower()]
@@ -1955,7 +2015,8 @@ def IsHistEmpty(hist):
     if hist.GetEntries() != 0:
         return False
     # not in the TH1::IsEmpty(), but for us, zero entries means empty
-    if not hist.GetEntries() == 0:
+    #XXX SIC FIXME to be tested - is it true that for us, zero entries means empty????
+    else:
         return True
     statArr = np.zeros(11)  # for TH3F
     hist.GetStats(statArr)
@@ -1964,8 +2025,11 @@ def IsHistEmpty(hist):
         return False
     sumw = 0.0
     for i in range(0, hist.GetNcells()):
-        sumw += hist.GetBinContent(i)
-    return False if sumw != 0 else True
+        # sumw += hist.GetBinContent(i)
+    # return False if sumw != 0 else True
+        if hist.GetBinContent(i) != 0:
+            return False
+    return True
 
 
 def AddHistoBins(hist, axis, labelsToAdd):
