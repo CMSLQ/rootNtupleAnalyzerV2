@@ -911,7 +911,7 @@ void baseClass::readCutFile()
     systematics_.emplace(systematics_.begin(), move(nominalSyst));
     // special PDF oand scale weight bins
     vector<string> pdfCombBins = {"LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEPdf_UpComb", "LHEPdf_DownComb"};
-    vector<string> scaleCombBins = {"LHEScaleWeight_maxComb", "LHEScale_UpComb", "LHEScale_DownComb"};
+    vector<string> scaleCombBins = {"LHEScaleWeight_maxComb", "LHEScale_UpComb", "LHEScale_DownComb", "LHEScaleWeight_maxIndex"};
 
     int nSysts = 0;
     for(auto& syst : systematics_) {
