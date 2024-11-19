@@ -310,7 +310,7 @@ parser.add_option(
 parser.add_option(
     "--queue",
     dest="queue",
-    default="microcentury",
+    default="longlunch",
     help="name of the lxbatch queue",
     metavar="QUEUE"
 )

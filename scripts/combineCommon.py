@@ -1113,8 +1113,8 @@ def CalculateShapeSystematic(hist, sampleName, systDict, verbose=False):
     validYbins = [yBin for yBin in range(0, hist.GetNbinsY()+2) if hist.GetYaxis().GetBinLabel(yBin) in validShapeKeys]
     for xBin in range(0, hist.GetNbinsX()+2):
         verbose = False
-        if xBin == 1:
-            verbose = True
+        # if xBin == 1:
+        #     verbose = True
         nominal = hist.GetBinContent(xBin, 1)
         shapeYields = [hist.GetBinContent(xBin, yBin) for yBin in validYbins]
         if verbose:
@@ -1673,8 +1673,8 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                 if hasMC:
                     if len([x for x in [label.GetString().Data() for label in histo.GetYaxis().GetLabels()] if re.match(r"LHEScaleWeight_\d+", x)]) > 0:
                         scaleSystDeltas, yBins, maxYBinIdxs = CalculateShapeSystematic(histo, sample, systNameToBranchTitleDict)
-                        if histName.endswith("systematics"):
-                            print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, scaleSystDeltas: calculate from scale weight variations; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
+                        # if histName.endswith("systematics"):
+                        #     print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, scaleSystDeltas: calculate from scale weight variations; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
             else:
                 scaleSystDeltas = [histo.GetBinError(xBin, histo.GetYaxis().FindFixBin("LHEScaleWeight_maxComb")) for xBin in range(0, histo.GetNbinsX()+2)]
                 # print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, take scaleSystDeltas from errors of maxComb of input hist; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
@@ -1726,9 +1726,9 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                         histo.SetBinContent(xBin, scaleIndexBin, maxYBinIdxs[xBin])
                     else:
                         histo.SetBinContent(xBin, scaleIndexBin, 0.)
-                    if xBin == 1 and histName.endswith("systematics"):
-                        print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, set bin content of xbin=1, ybin={} to {}=scaleSystDeltas[1]+nominal={}+{}".format(
-                            sample, corrLHESysts, scaleUpCombBin, scaleSystDeltas[xBin]+nominal, scaleSystDeltas[xBin], nominal))
+                    # if xBin == 1 and histName.endswith("systematics"):
+                    #     print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, set bin content of xbin=1, ybin={} to {}=scaleSystDeltas[1]+nominal={}+{}".format(
+                    #         sample, corrLHESysts, scaleUpCombBin, scaleSystDeltas[xBin]+nominal, scaleSystDeltas[xBin], nominal))
             # redo the bin errors for the other systematics, so that we can use their bin errors in case of any uncorrelated systs
             if not IsHistEmpty(histo):
                 otherSystBins = [histo.GetYaxis().FindFixBin(label.GetString().Data()) for label in histo.GetYaxis().GetLabels() if "LHEScale" not in label.GetString().Data() and "LHEPdf" not in label.GetString().Data() and "nominal" not in label.GetString().Data().lower()]
