@@ -13,6 +13,7 @@ commandsToRunOnMoreCutFiles*.txt
 main*
 makeOptCutFile
 src/analysisClass.C
+src/analysisClassQCD.C
 __pycache__
 *.pyc
 *.swp
