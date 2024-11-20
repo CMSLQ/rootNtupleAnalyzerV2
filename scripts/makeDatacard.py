@@ -223,7 +223,7 @@ def GetTotalSystDeltaOverNominal(sampleName, selectionName, systematicsNames, d_
 def GetSystematicEffectAbs(systName, sampleName, selection, fullSystDict, verbose=False):
     # verbose = True
     entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = GetSystematicEffect(systName, sampleName, selection, fullSystDict)
-    if verbose:
+    if verbose or "pdf" in systName.lower():
         print("For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
             sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection))
     if entry == "-":
@@ -238,7 +238,7 @@ def GetSystematicEffectAbs(systName, sampleName, selection, fullSystDict, verbos
             if verbose:
                 print("\tINFO: renormalizing syst={} for background={}".format(systName, sampleName))
                 print("\t original entry={}, deltaOverNomUp={}, deltaOverNomDown={}".format(entry, deltaOverNomUp, deltaOverNomDown))
-            preselNomYield, preselNomSelection = GetSystNominalYield(systName, fullSystDict[sampleName], "preselection", sampleName)
+            preselNomYield, preselNomSelection, preselRawEvents = GetSystNominalYield(systName, fullSystDict[sampleName], "preselection", sampleName)
             preselEntry, preselDOverNUp, preselDOverNDown, preselSymm, preselSystNominal, preselSystSelection = GetSystematicEffect(systName, sampleName, "preselection", fullSystDict)
             if preselSystSelection != preselNomSelection:
                 raise RuntimeError("Something strange happened: the selection used for the preselection systematic '{}' was not the same as the presel syst nominal yield selection '{}'.".format(
@@ -252,7 +252,7 @@ def GetSystematicEffectAbs(systName, sampleName, selection, fullSystDict, verbos
                 if verbose:
                     print("\tOverriding preselSystYieldUp for sampleName={} systName={} to {}".format(sampleName, systName, preselSystYield))
                 preselSystYieldUp = preselSystYield
-            nomYield, systNomSelection = GetSystNominalYield(systName, fullSystDict[sampleName], selection, sampleName)
+            nomYield, systNomSelection, systRawEvents = GetSystNominalYield(systName, fullSystDict[sampleName], selection, sampleName)
             systYieldUp = GetSystYield(deltaOverNomUp, nomYield)
             systYieldUpRenorm = systYieldUp * preselNomYield/preselSystYieldUp
             if verbose:
@@ -333,7 +333,7 @@ def GetSystematicEffect(systName, sampleName, selection, fullSystDict):
     elif "norm" in systName.lower():
         if "tt" in systName.lower() or "dy" in systName.lower() or "qcd" in systName.lower():
             entry, deltaNomUp, deltaNomDown, symmetric = CalculateFlatSystematic(systName, systDict, selection)
-            newNominal = nominal
+            newNominal = nominal if nominal > 0 else 1
             newSelection = selection
     else:
         entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = CalculateUpDownSystematic(systName, systDict, selection, sampleName)
@@ -341,7 +341,7 @@ def GetSystematicEffect(systName, sampleName, selection, fullSystDict):
 
 
 def CalculateShiftSystematic(systName, systDict, selection, sampleName):
-    nominal, selection = GetSystNominalYield(systName, systDict, selection, sampleName)
+    nominal, selection, rawEvents = GetSystNominalYield(systName, systDict, selection, sampleName)
     try:
         systYield = systDict[systName][selection]["yield"]
     except KeyError as e:
@@ -361,7 +361,7 @@ def CalculateUpDownSystematic(systName, systDict, selection, sampleName, verbose
     symmetric = False
     # nominal = systDict["nominal"][selection]
     # print("CalculateUpDownSystematic({}, {}) for sample: {}; nominal yield={}".format(systName, selection, sampleName, nominal))
-    nominal, selection = GetSystNominalYield(systName, systDict, selection, sampleName)
+    nominal, selection, rawEvents = GetSystNominalYield(systName, systDict, selection, sampleName)
     # print("CalculateUpDownSystematic(): nominal={}, selection={} after GetNominalYield({})".format(nominal, selection, systName))
     # verbose = True
     try:
@@ -409,6 +409,7 @@ def CalculateFlatSystematic(systName, systDict, selection):
 
 def GetSystNominalYield(systName, systDict, selection, sampleName):
     verbose = False
+    minRawEvents = 2
     requestedSelection = selection
     try:
         nominal = systDict["nominal"][selection]["yield"]
@@ -416,11 +417,25 @@ def GetSystNominalYield(systName, systDict, selection, sampleName):
         raise RuntimeError("Could not find nominal key for systName={} sampleName={} selection={}; keys={}".format(
             systName, sampleName, selection, list(systDict.keys()))
             )
-    if nominal <= 0:
+    if sampleName in list(d_background_rates.keys()):
+        unscaledRatesDict =  d_background_unscaledRates[sampleName]
+    elif sampleName in list(d_signal_rates.keys()):
+        unscaledRatesDict =  d_signal_unscaledRates[sampleName]
+    else:
+        raise RuntimeError("Could not find sampleName={} in background keys={} or signal keys={}".format(
+            sampleName, list(d_background_rates.keys()), list(d_signal_rates.keys())))
+    try:
+        rawEvents = unscaledRatesDict[selection]
+    except KeyError:
+        raise RuntimeError("Could not find nominal key for sampleName={} selection={}; keys={}".format(
+            sampleName, selection, list(systDict.keys()))
+            )
+    if nominal <= 0 or rawEvents < minRawEvents:
         # take the last selection for which we have some rate, and use that for systematic evaluation
-        lastNonzeroSelection, rate, err = GetNearestPositiveSelectionYields(sampleName, selection)
+        lastNonzeroSelection, rate, err, events = GetNearestPositiveSelectionYields(sampleName, selection)
         nominal = rate
         selection = lastNonzeroSelection
+        rawEvents = events
     #if sampleName in list(d_background_unscaledRates.keys()):
     #    unscaledRate = d_background_unscaledRates[sampleName][selection]
     #    err = d_background_rateErrs[sampleName][selection]
@@ -430,7 +445,7 @@ def GetSystNominalYield(systName, systDict, selection, sampleName):
     #    if verbose:
     #        print("GetSystNominalYield({}, {}, {}), lastSelection: {}, raw events: {}, rate: {} +/- {}".format(
     #            systName, requestedSelection, sampleName, selection, unscaledRate, nominal, err))
-    return nominal, selection
+    return nominal, selection, rawEvents
 
 
 def RoundToN(x, n):
@@ -564,6 +579,8 @@ def GetNearestPositiveSelectionYieldsFromDicts(sampleName, rateDict, rateErrDict
     idxDec += 1
     rate = 0
     err = 0
+    rawEvents = 0
+    minRawEvents = 2
     selectionsToCheck = []
     # for index in range(idx, len(mass_points)):
     #     selectionsToCheck.append("LQ" + mass_points[index])
@@ -575,30 +592,31 @@ def GetNearestPositiveSelectionYieldsFromDicts(sampleName, rateDict, rateErrDict
     # look around given selection
     lastSelectionsChecked = []
     index = 0
-    while rate <= 0 or err <= 0:
+    while rate <= 0 or err <= 0 or rawEvents < minRawEvents:
         # lastSelectionName = "LQ" + massPointsRev[idx]
         # lastSelectionName = selectionsToCheck[index]
         if index < len(trimmedMassesInc):
             lastSelectionName = "LQ"+trimmedMassesInc[index]
             rate = rateDict[lastSelectionName]
             err = rateErrDict[lastSelectionName]
-            # unscaledRate = unscaledRateDict[lastSelectionName]
+            rawEvents = unscaledRateDict[lastSelectionName]
             lastSelectionsChecked.append(lastSelectionName)
             # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
-        if rate <= 0 or err <= 0:
+        if rate <= 0 or err <= 0 or rawEvents < minRawEvents:
             if index < len(trimmedMassesDec):
                 lastSelectionName = "LQ"+trimmedMassesDec[index]
                 rate = rateDict[lastSelectionName]
                 err = rateErrDict[lastSelectionName]
+                rawEvents = unscaledRateDict[lastSelectionName]
                 lastSelectionsChecked.append(lastSelectionName)
                 # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
         index += 1
     if len(lastSelectionsChecked) <= 0:
         raise RuntimeError("Could not find nonzero selection for sample={}; rates look like {} and errors look like {}; checked selections={}".format(
             sampleName, rateDict, rateErrDict, lastSelectionsChecked))
-    print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
+    print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(sampleName, selection, lastSelectionName, rate, err, rawEvents))
     # print "INFO: GetNearestPositiveSelectionYieldsFromDicts: found last selectionName={} with {} unscaled events".format(selectionName, unscaledRate)
-    return lastSelectionName, rate, err
+    return lastSelectionName, rate, err, rawEvents
 
 
 def GetNearestPositiveSelectionYields(sampleName, selection):
@@ -938,8 +956,8 @@ blinded = True
 doSystematics = True
 doQCD = True
 doEEJJ = True
-# signalNameTemplate = "LQToDEle_M-{}_pair"
-signalNameTemplate = "LQToBEle_M-{}_pair"
+signalNameTemplate = "LQToDEle_M-{}_pair"
+# signalNameTemplate = "LQToBEle_M-{}_pair"
 doRPV = False  # to do RPV, set doEEJJ and doRPV to True
 # forceGmNNormBkgStatUncert = False
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
@@ -1198,27 +1216,23 @@ selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in
 additionalBkgSystsDict = {}
 # QCDNorm is 0.40 [40% norm uncertainty for eejj = uncertaintyPerElectron*2]
 # lumi uncertainty from https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2#Combination_and_correlations
+dyNormDeltaXOverX = 0.1
+ttBarNormDeltaXOverX = 0.1
 if doEEJJ:
     qcdNormDeltaXOverX = 0.4
     if do2016:
         lumiDeltaXOverX = 0.01
         lumiCorrelatedDeltaXOverX = 0.006
-        dyNormDeltaXOverX = 0.01  # rounded up
-        ttBarNormDeltaXOverX = 0.05  # rounded up
         # from: https://arxiv.org/pdf/1506.04072.pdf tables 1-3: 5% is probably good enough for SingleTop PDF syst
         # additionalBkgSystsDict["SingleTop"] = {"LHEPdfWeight": {sel: 0.10 for sel in selectionNames}}
     elif do2017:
         lumiDeltaXOverX = 0.02
         lumiCorrelatedDeltaXOverX = 0.009
         lumi1718CorrelatedDeltaXOverX = 0.006
-        dyNormDeltaXOverX = 0.01  # rounded up
-        ttBarNormDeltaXOverX = 0.05  # rounded up
     elif do2018:
         lumiDeltaXOverX = 0.015
         lumiCorrelatedDeltaXOverX = 0.02
         lumi1718CorrelatedDeltaXOverX = 0.002
-        dyNormDeltaXOverX = 0.01  # rounded up
-        ttBarNormDeltaXOverX = 0.05  # rounded up
 else:
     qcdNormDeltaXOverX = 0.2
 
