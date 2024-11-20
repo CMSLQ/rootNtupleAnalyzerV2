@@ -167,7 +167,6 @@ def MakeCombinedSample(args):
             outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
             outputDatFile = datFileNameTemplate.format(sample)
             histoDictThisSample = OrderedDict()
-            # tablesThisSample = []
             sampleTable = {}
             piecesAdded = []
             isQCD = "qcd" in tfileNameTemplate.lower()
@@ -252,9 +251,8 @@ def MakeCombinedSample(args):
                         plotWeight = 1.0
                         xsection_X_intLumi = NtotThisFile
                         sampleNameForHist = matchingPiece
-                        # print("\t[{}] zeroing negative histo bins".format(sample), flush=True)
-                        # combineCommon.ZeroNegativeHistoBins(sampleHistos)
-                        ##XXX FIXME PUT BACK
+                        print("\t[{}] zeroing negative histo bins".format(sample), flush=True)
+                        combineCommon.ZeroNegativeHistoBins(sampleHistos)
                     else:
                         raise RuntimeError("xsection not found")
 
@@ -266,10 +264,8 @@ def MakeCombinedSample(args):
                         print("INFO: inputDatFile={} for sample={}, NoCuts(weighted)={}".format(inputDatFile, sample, Ntot), flush=True)
                         sampleTable = combineCommon.UpdateTable(data, sampleTable)
                         print("INFO: sampleTable for sample={} now has NoCuts(weighted)={}".format(sample, float(sampleTable[0]["Npass"])), flush=True)
-                        # print("\t[{}] zeroing negative table yields".format(sample), flush=True)
-                        # combineCommon.ZeroNegativeTableYields(sampleTable)
-                        ##XXX FIXME PUT BACK
-                        # tablesThisSample.append(data)
+                        print("\t[{}] zeroing negative table yields".format(sample), flush=True)
+                        combineCommon.ZeroNegativeTableYields(sampleTable)
                     else:
                         thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
 
@@ -292,7 +288,6 @@ def MakeCombinedSample(args):
                     print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
                     sampleTable = combineCommon.UpdateTable(data, sampleTable)
                     print("INFO: done with currentPiece={}, sampleTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(sampleTable[0]["Npass"])), flush=True)
-                    # tablesThisSample.append(data)
                 piecesAdded.append(matchingPiece)
 
             # validation of combining pieces

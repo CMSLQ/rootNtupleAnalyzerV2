@@ -942,31 +942,46 @@ def WriteTable(table, name, file, printToScreen=False, writeErrNPass=True):
 
 def ZeroNegativeTableYields(inputTable):
     for j, line in enumerate(inputTable):
-        nOrig = float(inputTable[int(j)]["N"])
-        errNorig = float(inputTable[int(j)]["errN"])
+        j = int(j)
+        nOrig = float(inputTable[j]["N"])
+        errNOrig = None
+        if "errN" in inputTable[j].keys():
+            errNOrig = float(inputTable[j]["errN"])
         nNew = nOrig
         if nOrig < 0:
             nNew = 0
-        nPassOrig = float(inputTable[int(j)]["Npass"])
-        errNPassOrig = float(inputTable[j]["errNpass"])
+        nPassOrig = float(inputTable[j]["Npass"])
+        if "errNpass" in inputTable[j].keys():
+            errNPassOrig = float(inputTable[j]["errNpass"])
+            doErrNPass = True
+        elif "errNpassSqr" in inputTable[j].keys():
+            errNpassSqrOrig = float(inputTable[j]["errNpassSqr"])
+            doErrNPass = False
+        else:
+            raise RuntimeError("Could not find either 'errNpass' nor 'errNpassSqr' in keys for this line:", inputTable[j].keys())
         nPassNew = nPassOrig
         if nPassOrig < 0:
             nPassNew = 0
-        inputTable[int(j)] = {
+        inputTable[j] = {
             "variableName": inputTable[j]["variableName"],
             "min1": inputTable[j]["min1"],
             "max1": inputTable[j]["max1"],
             "min2": inputTable[j]["min2"],
             "max2": inputTable[j]["max2"],
+            "level": inputTable[j]["level"],
             "N": nNew,
-            "errN": errNorig,
             "Npass": nPassNew,
-            "errNpass": errNPassOrig,
             "EffRel": float(0),
             "errEffRel": float(0),
             "EffAbs": float(0),
             "errEffAbs": float(0),
         }
+        if errNOrig is not None:
+            inputTable[int(j)]["errN"] = errNOrig
+        if doErrNPass:
+            inputTable[int(j)]["errNpass"] = errNPassOrig
+        else:
+            inputTable[int(j)]["errNpassSqr"] = errNpassSqrOrig
 
 
 def GetSampleHistosFromTFile(tfileName, sample, keepHistName=True):
@@ -2115,9 +2130,16 @@ def RemoveHistoBins(hist, axis, labelsToRemove):
 
 
 def ZeroNegativeHistoBins(histoList):
+    printDetailedInfo = False
     for hist in histoList:
         if not hist.InheritsFrom("TH1"):
             continue
+        histName = hist.GetName()
+        zeroedBinsX = []
+        zeroedBinLabelsX = []
+        zeroedBinsY = []
+        zeroedBinLabelsY = []
+        zeroedBinsContent = []
         for iCell in range(0, hist.GetNcells()):
             binContent = hist.GetBinContent(iCell)
             if binContent < 0:
@@ -2125,8 +2147,24 @@ def ZeroNegativeHistoBins(histoList):
                 biny = ctypes.c_int()
                 binz = ctypes.c_int()
                 hist.GetBinXYZ(iCell, binx, biny, binz)
-                print("INFO: Found bin({}, {}) in histo {} with negative bin content; zeroing".format(binx, biny), hist.GetName())
+                labelx = hist.GetXaxis().GetBinLabel(binx.value)
+                labely = hist.GetYaxis().GetBinLabel(biny.value)
+                zeroedBinsX.append(binx.value)
+                zeroedBinsY.append(biny.value)
+                zeroedBinLabelsX.append(labelx)
+                zeroedBinLabelsY.append(labely)
+                zeroedBinsContent.append(binContent)
                 hist.SetBinContent(iCell, 0)
+        if len(zeroedBinsX):
+            print("INFO: Found {} bins in histo {} with with negative bin content; zeroed them.".format(len(zeroedBinsX), histName))
+            if printDetailedInfo:
+                for idx, binx in enumerate(zeroedBinsX):
+                    biny = zeroedBinsY[idx]
+                    labelx = zeroedBinLabelsX[idx]
+                    labely = zeroedBinLabelsY[idx]
+                    binContent = zeroedBinsContent[idx]
+                    print("INFO: Found bin({}, {}) in histo {} with labelsX '{}' labelsY '{}', with negative bin content: {}; zeroing it".format(
+                        binx, biny, histName, labelx, labely, binContent))
 
 
 def MakeSystDiffsPlot(systHist):

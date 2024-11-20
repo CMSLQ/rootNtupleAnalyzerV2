@@ -163,7 +163,6 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
     outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
     outputDatFile = datFileNameTemplate.format(sample)
     histoDictThisSample = OrderedDict()
-    # tablesThisSample = []
     sampleTable = {}
     piecesAdded = []
     isQCD = "qcd" in tfileNameTemplate.lower()
@@ -250,9 +249,6 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
                 plotWeight = 1.0
                 xsection_X_intLumi = NtotThisFile
                 sampleNameForHist = matchingPiece
-                # print("\t[{}] zeroing negative histo bins".format(sample), flush=True)
-                # combineCommon.ZeroNegativeHistoBins(sampleHistos)
-                ##XXX FIXME PUT BACK
             else:
                 raise RuntimeError("xsection not found")
 
@@ -262,12 +258,10 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
                 data = combineCommon.CreateWeightedTable(dataThisFile, weight, xsection_X_intLumi)
                 Ntot = float(data[0]["Npass"])
                 print("INFO: inputDatFile={} for sample={}, NoCuts(weighted)={}".format(inputDatFile, sample, Ntot), flush=True)
+                print("\t[{}] zeroing negative table yields for currentPiece={}".format(sample, currentPiece), flush=True)
+                combineCommon.ZeroNegativeTableYields(data)
                 sampleTable = combineCommon.UpdateTable(data, sampleTable)
                 print("INFO: sampleTable for sample={} now has NoCuts(weighted)={}".format(sample, float(sampleTable[0]["Npass"])), flush=True)
-                # print("\t[{}] zeroing negative table yields".format(sample), flush=True)
-                # combineCommon.ZeroNegativeTableYields(sampleTable)
-                ##XXX FIXME PUT BACK
-                # tablesThisSample.append(data)
             else:
                 thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
 
@@ -288,12 +282,15 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
             data = combineCommon.CreateWeightedTable(thisPieceTable, weight, xsection_X_intLumi)
             Ntot = float(data[0]["Npass"])
             print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
+            print("\t[{}] zeroing negative table yields for currentPiece={}".format(sample, currentPiece), flush=True)
+            combineCommon.ZeroNegativeTableYields(data)
             sampleTable = combineCommon.UpdateTable(data, sampleTable)
             print("INFO: done with currentPiece={}, sampleTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(sampleTable[0]["Npass"])), flush=True)
-            # tablesThisSample.append(data)
         else:
             plotWeight = 1.0
         if not options.tablesOnly:
+            print("\t[{}] zeroing negative histo bins for piece={}".format(sample, currentPiece), flush=True)
+            combineCommon.ZeroNegativeHistoBins(thisPieceHistos.values())
             print("INFO: finally, doWeightingThisFile=", doWeightingThisFile, "; updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, thisPieceHistos.values(), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
         piecesAdded.append(matchingPiece)
