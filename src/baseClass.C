@@ -911,7 +911,7 @@ void baseClass::readCutFile()
     systematics_.emplace(systematics_.begin(), move(nominalSyst));
     // special PDF oand scale weight bins
     vector<string> pdfCombBins = {"LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEPdf_UpComb", "LHEPdf_DownComb"};
-    vector<string> scaleCombBins = {"LHEScaleWeight_maxComb", "LHEScale_UpComb", "LHEScale_DownComb", "LHEScaleWeight_maxIndex"};
+    vector<string> scaleCombBins = {"LHEScaleWeight_maxComb", "LHEScale_UpComb", "LHEScale_DownComb", "LHEScaleWeight_preselYield"};
 
     int nSysts = 0;
     for(auto& syst : systematics_) {
@@ -1256,7 +1256,7 @@ void baseClass::runSystematics()
           systCut->filled = false;
           if(syst.cutNamesToBranchNames[cutName].size()) {
             bool verbose = false;
-            //if(syst.name=="EESUp" || syst.name=="JESUp")
+            //if(syst.name=="JESDown" || syst.name=="JESUp")
             //  verbose = true;
             if(verbose) {
               cout << "[DEBUG] syst " << syst.name << " affects cut named: " << cutName << "; replace orig val of: " << systCut->getStringValue() << 
@@ -2906,7 +2906,7 @@ shared_ptr<TProfile> baseClass::makeNewEventsPassingSkimCutsProfile(const shared
   profToRet->Sumw2();
   if(prevProfFromFile) {
     for(int i=1; i<=nBinsInherited; ++i) {
-      profToRet->GetXaxis()->SetBinLabel(i, prevProfFromFile->GetXaxis()->GetBinLabel(i));
+      profToRet->GetXaxis()->SetBinLabel(i, (string(prevProfFromFile->GetXaxis()->GetBinLabel(i)) + "_prevSkim").c_str());
       profToRet->SetBinContent(i,           prevProfFromFile->GetBinContent(i)*prevProfFromFile->GetBinEntries(i));
       profToRet->SetBinError(i,             sqrt(prevProfFromFile->GetBinSumw2()->At(i)));
       profToRet->SetBinEntries(i,           prevProfFromFile->GetBinEntries(i));
