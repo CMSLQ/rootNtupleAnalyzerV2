@@ -1118,6 +1118,7 @@ def ParseShapeBranchTitle(branchTitle):
 def CalculateShapeSystematic(hist, sampleName, systDict, verbose=False):
     result = {}
     maxYIndices = {}
+    preselYields = {}
     systName = "LHEScaleWeight"
     branchTitle, shapeKeys = GetBranchTitle(systName, sampleName, systDict)
     if verbose:
@@ -1126,6 +1127,12 @@ def CalculateShapeSystematic(hist, sampleName, systDict, verbose=False):
     validIndices, shapeTitles = ParseShapeBranchTitle(branchTitle)
     validShapeKeys = [shapeKey for shapeKey in shapeKeys if shapeKey[shapeKey.rfind("_")+1:] in validIndices]
     validYbins = [yBin for yBin in range(0, hist.GetNbinsY()+2) if hist.GetYaxis().GetBinLabel(yBin) in validShapeKeys]
+    # only systematics vs. selection histo should have bin labels
+    # for other histos, e.g., 1-D histos with bin-by-bin systematics, we don't keep track of preselection yields per bin
+    # instead, the preselection yields are taken from the systematics vs. selection hist
+    preselXBin = None
+    if hist.GetXaxis().GetLabels():
+        preselXBin = hist.GetXaxis().FindBin("preselection")
     for xBin in range(0, hist.GetNbinsX()+2):
         verbose = False
         # if xBin == 1:
@@ -1145,7 +1152,8 @@ def CalculateShapeSystematic(hist, sampleName, systDict, verbose=False):
                     sampleName, systName, deltas, maxDelta, nominal))
         result[xBin] = maxDelta
         maxYIndices[xBin] = yBinIdx
-    return result, validYbins, maxYIndices
+        preselYields[xBin] = hist.GetBinContent(preselXBin, yBinIdx) if preselXBin is not None else -1
+    return result, validYbins, maxYIndices, preselYields
 
 
 def GetPDFVariationType(branchTitle):
@@ -1449,7 +1457,7 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
         if "systematics" in histoName.lower() and not isData and sample != "":
             # in the case where sample is empty, we are combining individual root files in the same dataset, so we can simply add the histograms
             pdfSysts = False
-            labelsToAdd = ["LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEScaleWeight_maxComb", "LHEScaleWeight_maxIndex"]
+            labelsToAdd = ["LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEScaleWeight_maxComb", "LHEScaleWeight_preselYield"]
             labelsToAdd = [label for label in labelsToAdd if label not in  list(htemp.GetYaxis().GetLabels())]
             # if not any(substring in list(htemp.GetYaxis().GetLabels()) for substring in labelsToAdd):
             if len(labelsToAdd):
@@ -1510,14 +1518,14 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                 verbose = False
                 # if histoName == "systematics":
                 #     verbose = True
-                scaleSystDeltas, yBins, maxYBinIdxs = CalculateShapeSystematic(htemp, sample, systNameToBranchTitleDict, verbose)
-                lheScaleMaxIndexBin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_maxIndex")
+                scaleSystDeltas, yBins, maxYBinIdxs, preselYields = CalculateShapeSystematic(htemp, sample, systNameToBranchTitleDict, verbose)
+                lheScalePreselYieldBin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_preselYield")
                 lheScaleMaxCombBin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_maxComb")
                 for xBin in range(0, htemp.GetNbinsX()+2):
                     nominal = htemp.GetBinContent(xBin, 1)  # y-bin 1 always being nominal
                     htemp.SetBinContent(xBin, lheScaleMaxCombBin, scaleSystDeltas[xBin]+nominal)
                     htemp.SetBinError(xBin, lheScaleMaxCombBin, scaleSystDeltas[xBin])
-                    htemp.SetBinContent(xBin, lheScaleMaxIndexBin, maxYBinIdxs[xBin])
+                    htemp.SetBinContent(xBin, lheScalePreselYieldBin, preselYields[xBin])
                     # We set the max index here, but then it just gets summed over the processes.
                     # Therefore, it doesn't work with uncorrelated processes at the moment. We set this to zero in that case in WriteHistos()
             # check systematics hist bins
@@ -1558,7 +1566,6 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                 if list(htemp.GetXaxis().GetLabels()) != list(dictFinalHistoAtSample[h].GetXaxis().GetLabels()):
                     raise RuntimeError("htemp {} from piece {} to be added has x-axis bin labels {} which are inconsistent with existing hist from sample {}: {}".format(
                         htemp.GetName(), piece, list(htemp.GetXaxis().GetLabels()), sample, list(dictFinalHistoAtSample[h].GetXaxis().GetLabels())))
-                
         # Sep. 17 2017: scale first, then add with weight=1 to have "entries" correct
         # htemp.Scale(plotWeight)
         if plotWeight != 1.0:
@@ -1687,7 +1694,7 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
             if corrLHESysts:
                 if hasMC:
                     if len([x for x in [label.GetString().Data() for label in histo.GetYaxis().GetLabels()] if re.match(r"LHEScaleWeight_\d+", x)]) > 0:
-                        scaleSystDeltas, yBins, maxYBinIdxs = CalculateShapeSystematic(histo, sample, systNameToBranchTitleDict)
+                        scaleSystDeltas, yBins, maxYBinIdxs, preselYields = CalculateShapeSystematic(histo, sample, systNameToBranchTitleDict)
                         # if histName.endswith("systematics"):
                         #     print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, scaleSystDeltas: calculate from scale weight variations; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
             else:
@@ -1730,7 +1737,7 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
             if not IsHistEmpty(histo):
                 scaleUpCombBin = histo.GetYaxis().FindFixBin("LHEScale_UpComb")
                 scaleDownCombBin = histo.GetYaxis().FindFixBin("LHEScale_DownComb")
-                scaleIndexBin = histo.GetYaxis().FindFixBin("LHEScaleWeight_maxIndex")
+                scalePreselYieldBin = histo.GetYaxis().FindFixBin("LHEScaleWeight_preselYield")
                 for xBin in range(0, histo.GetNbinsX()+2):
                     nominal = histo.GetBinContent(xBin, 1)  # y-bin 1 always being nominal
                     histo.SetBinContent(xBin, scaleUpCombBin, scaleSystDeltas[xBin]+nominal)
@@ -1738,9 +1745,9 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                     histo.SetBinContent(xBin, scaleDownCombBin, scaleSystDeltas[xBin]+nominal)
                     histo.SetBinError(xBin, scaleDownCombBin, scaleSystDeltas[xBin])
                     if corrLHESysts and hasMC:
-                        histo.SetBinContent(xBin, scaleIndexBin, maxYBinIdxs[xBin])
+                        histo.SetBinContent(xBin, scalePreselYieldBin, preselYields[xBin])
                     else:
-                        histo.SetBinContent(xBin, scaleIndexBin, 0.)
+                        histo.SetBinContent(xBin, scalePreselYieldBin, -1.)  # so this is obviously wrong. but in the cases we care about, for those background normalized at preselection, DYJ and TTBar, these happen to be correlated.
                     # if xBin == 1 and histName.endswith("systematics"):
                     #     print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, set bin content of xbin=1, ybin={} to {}=scaleSystDeltas[1]+nominal={}+{}".format(
                     #         sample, corrLHESysts, scaleUpCombBin, scaleSystDeltas[xBin]+nominal, scaleSystDeltas[xBin], nominal))
