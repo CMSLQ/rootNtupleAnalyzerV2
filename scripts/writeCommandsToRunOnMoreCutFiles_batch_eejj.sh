@@ -47,20 +47,25 @@ inputlist2016post=config/inputListsAnalysisPreselSkim_UL16postVFP_11nov2024/inpu
 inputlist2017=config/inputListsAnalysisPreselSkim_UL17_11nov2024/inputListAllCurrent.txt
 inputlist2018=config/inputListsAnalysisPreselSkim_UL18_11nov2024/inputListAllCurrent.txt
 #------------
-#xsection2016pre=$LQANA/config/xsection_13TeV_2022.txt
-#xsection2016post=$LQANA/config/xsection_13TeV_2022.txt
-#xsection2017=$LQANA/config/xsection_13TeV_2022.txt
-#xsection2018=$LQANA/config/xsection_13TeV_2022.txt
+xsectionDefault2016pre=$LQANA/config/xsection_13TeV_2022.txt
+xsectionDefault2016post=$LQANA/config/xsection_13TeV_2022.txt
+xsectionDefault2017=$LQANA/config/xsection_13TeV_2022.txt
+xsectionDefault2018=$LQANA/config/xsection_13TeV_2022.txt
 #
 #xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_28oct2024_dyjAMCatNLO.txt
 #xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_28oct2024_dyjAMCatNLO.txt
 #xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_28oct2024_dyjAMCatNLO.txt
 #xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_28oct2024_dyjAMCatNLO.txt
 #
-xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
-xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
-xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
-xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#
+xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
 #------------
 CODENAME=analysisClass_lq_eejj
 #CODENAME=analysisClass_lq_eejj_oneBTag
@@ -103,24 +108,28 @@ if [ "$YEAR" = "2016preVFP" ]; then
   INPUTLIST=$LQANA/$inputlist2016pre
   cutFileAna=$cutFileAna2016pre
   XSECTION=$xsection2016pre
+  XSECTIONDEFAULT=$xsectionDefault2016pre
 elif [ "$YEAR" = "2016postVFP" ]; then
   echo "Doing 2016postVFP!"
   ILUM=$ilumi2016post
   INPUTLIST=$LQANA/$inputlist2016post
   cutFileAna=$cutFileAna2016post
   XSECTION=$xsection2016post
+  XSECTIONDEFAULT=$xsectionDefault2016post
 elif [ "$YEAR" = "2017" ]; then
   echo "Doing 2017!"
   ILUM=$ilumi2017
   INPUTLIST=$LQANA/$inputlist2017
   cutFileAna=$cutFileAna2017
   XSECTION=$xsection2017
+  XSECTIONDEFAULT=$xsectionDefault2017
 elif [ "$YEAR" = "2018" ]; then
   echo "Doing 2018!"
   ILUM=$ilumi2018
   INPUTLIST=$LQANA/$inputlist2018
   cutFileAna=$cutFileAna2018
   XSECTION=$xsection2018
+  XSECTIONDEFAULT=$xsectionDefault2018
 else
   die "year argument ${YEAR} not one of 2016preVFP, 2016postVFP, 2017, 2018"
 fi
@@ -143,6 +152,10 @@ MAXJOBS=5
 #------------
 if [ -z "$XSECTION" ]; then
   echo "No valid xsection specified"
+  exit 1
+fi
+if [ -z "$XSECTIONDEFAULT" ]; then
+  echo "No valid default xsection specified"
   exit 1
 fi
 #------------
@@ -171,7 +184,7 @@ suffix=${suffix%\.*}
 #    -c $CODENAME \
 #    -d $EOSDIR/$suffix/condor/ \
 #    -l  $(echo "$ILUM*$FACTOR" | bc) \
-#    -x $XSECTION  \
+#    -x $XSECTIONDEFAULT  \
 #    -o $EOSDIR/output_$suffix/unscaled \
 #    -s $SAMPLELISTFORMERGING
 #
@@ -209,6 +222,24 @@ cat >> $COMMANDFILE <<EOF
 python scripts/launchAnalysis_batch_ForSkimToEOS.py -i $INPUTLIST -o $OUTDIRPATH/$SUBDIR/condor_$suffix -c $file -q $queue -d $EOSDIR/$suffix -j ${MAXJOBS} -n rootTupleTree/tree
 
 ./scripts/checkJobs.sh $OUTDIRPATH/$SUBDIR/condor_$suffix $EOSDIR/$suffix/condor
+
+mkdir -p $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/unscaled && cd $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/unscaled \
+&& $LQANA/scripts/combinePlotsBatchDriver.py \
+    -i $INPUTLIST \
+    -c $CODENAME \
+    -d $EOSDIR/$suffix/condor \
+    -l  $(echo "$ILUM*$FACTOR" | bc) \
+    -x $XSECTIONDEFAULT  \
+    -o $EOSDIR/output_$suffix/unscaled \
+    -s $SAMPLELISTFORMERGING
+
+find combinePlotsCondor/error/ -size +0 -type f -print0 -exec echo " had errors; content follows" \; -exec cat {} \;
+
+python $LQANA/scripts/combineAndSortTables.py $EOSDIR/output_$suffix/unscaled/ $SAMPLELISTFORMERGING \
+&& python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > makePlots.log \
+&& python $LQMACRO/plotting2016/calc_DYJetsAndTTBarRescale_And_xsecFile.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > rescale.log \
+&& mkdir -p dyj_MGHTLO && cd dyj_MGHTLO \
+&& python $LQMACRO/plotting2016/calc_DYJetsAndTTBarRescale_And_xsecFile.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} ZJet_madgraphLO_HT > rescale.log \
 
 mkdir -p $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/scaled && cd $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/scaled \
 && $LQANA/scripts/combinePlotsBatchDriver.py \
