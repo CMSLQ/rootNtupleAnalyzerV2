@@ -107,11 +107,10 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
             elif "LHEPdf" in systName or "LHEScale" in systName:
                 systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
                 if "LHEScale" in systName:
-                    maxIndexBin = systHist.GetYaxis().FindFixBin("LHEScaleWeight_maxIndex")
-                    lheScaleYBin = int(systHist.GetBinContent(xBin, maxIndexBin))
-                    preselYield = systHist.GetBinContent(xBinPresel, lheScaleYBin) if lheScaleYBin > 0 else 0  # case of empty selection
-                    # print("DEBUG: for systName={}, selection={}, sampleName={}, with xBinPresel={}, lheScaleYBin={}; preselYield={}".format(
-                    #     systName, selection, sampleName, xBinPresel, lheScaleYBin, preselYield))
+                    preselYieldBin = systHist.GetYaxis().FindFixBin("LHEScaleWeight_preselYield")
+                    preselYield = systHist.GetBinContent(xBin, preselYieldBin)
+                    # print("DEBUG: for systName={}, selection={}, sampleName={}, with xBinPresel={}, preselYieldBin={}; preselYield={}".format(
+                    #     systName, selection, sampleName, xBinPresel, preselYieldBin, preselYield))
             systDict[selection][systName] = {}
             systDict[selection][systName]["yield"] = systHist.GetBinContent(xBin, yBin)
             systDict[selection][systName]["preselYield"] = preselYield
@@ -652,12 +651,16 @@ def CreateAndWriteHist(rootFile, mass, sample, content, err, name="yieldFinalSel
 
 
 def CreateAndWriteHistograms(outputRootFilename):
-    outputRootFile = r.TFile.Open(outputRootFilename, "recreate")
+    if not os.path.exists(datacardHistoDir):
+        os.makedirs(datacardHistoDir)
+    outputRootFilename = datacardHistoDir + "/" + outputRootFilename
     for i_signal_name, signal_name in enumerate(signal_names):
+        outputRootFilename = outputRootFilename.replace(".root", "_{}.root".format(signal_name))
         for iSel, selectionName in enumerate(selectionNames):
             if selectionName == "preselection" or selectionName == "trainingSelection":
                 continue
             mass_point = selectionName.replace("LQ", "")
+            outputRootFile = r.TFile.Open(outputRootFilename.format(mass_point), "recreate")
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, mass_point)
             signalEvts = d_signal_rates[signalNameForFile][selectionName]
             signalEvtErrs = d_signal_rateErrs[signalNameForFile][selectionName]
@@ -674,7 +677,7 @@ def CreateAndWriteHistograms(outputRootFilename):
                 CreateAndWriteHist(outputRootFile, mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             CreateAndWriteHist(outputRootFile, mass_point, "DATA", d_data_rates["DATA"][selectionName], d_data_rateErrs["DATA"][selectionName])
             CreateAndWriteHist(outputRootFile, mass_point, "DATA", d_data_failRates["DATA"][selectionName], d_data_failRateErrs["DATA"][selectionName], "yieldFailFinalSelection", "Yield failing final selection for LQ")
-    outputRootFile.Close()
+            outputRootFile.Close()
 
 
 def FillDicts(rootFilepath, sampleNames, bkgType, verbose=False):
@@ -785,9 +788,11 @@ def FillDicts(rootFilepath, sampleNames, bkgType, verbose=False):
 
 def WriteDatacard(card_file_path):
     thresholdForAutoMCStats = 10
+    yearStr = "# " + year + "\n"
+    lumiStr = "# " + str(intLumi) + "\n\n"
     card_file = open(card_file_path, "w")
-    card_file.write("# " + year + "\n")
-    card_file.write("# " + str(intLumi) + "\n\n")
+    card_file.write(yearStr)
+    card_file.write(lumiStr)
     for i_signal_name, signal_name in enumerate(signal_names):
         doMassPointLoop = True
         #for i_mass_point, mass_point in enumerate(mass_points):
@@ -807,38 +812,42 @@ def WriteDatacard(card_file_path):
             #     # print 'use selection name=',selectionName,'for fullSignalName=',fullSignalName
             #     doMassPointLoop = False
             if selectionName != "preselection" and selectionName != "trainingSelection":
-                txt_file_name = fullSignalName + ".txt\n"
+                txt_file_name = datacardHistoDir.rstrip("/") + "/" + fullSignalName + ".txt"
+                indivMassPointCard = open(txt_file_name, "w")
+                indivMassPointCard.write(yearStr)
+                indivMassPointCard.write(lumiStr)
     
-                card_file.write("# " + txt_file_name + "\n")
-                card_file.write("imax " + str(n_channels) + "\n")
-                card_file.write("jmax " + str(n_background) + "\n")
+                datacardLines = []
+                datacardLines.append("# " + txt_file_name + "\n\n")
+                datacardLines.append("imax " + str(n_channels) + "\n")
+                datacardLines.append("jmax " + str(n_background) + "\n")
                 if doSystematics:
-                    card_file.write("kmax " + str(n_systematics) + "\n\n")
+                    datacardLines.append("kmax " + str(n_systematics) + "\n\n")
                 else:
-                    card_file.write("kmax 0\n\n")
-                card_file.write("---------------\n")
-                # card_file.write("shapes * * "+str(Path(shapeHistos_filePath).resolve())+" yieldFinalSelection_$MASS_$PROCESS\n")
-                card_file.write("shapes * * "+shapeHistos_filePath+" yieldFinalSelection_$MASS_$PROCESS\n")
-                card_file.write("---------------\n")
-                card_file.write("bin bin1\n\n")
+                    datacardLines.append("kmax 0\n\n")
+                datacardLines.append("---------------\n")
+                # datacardLines.append("shapes * * "+str(Path(shapeHistos_filePath).resolve())+" yieldFinalSelection_$MASS_$PROCESS\n")
+                datacardLines.append("shapes * * "+shapeHistos_filePath+" yieldFinalSelection_$MASS_$PROCESS\n")
+                datacardLines.append("---------------\n")
+                datacardLines.append("bin bin1\n\n")
     
                 total_data = d_data_rates["DATA"][selectionName]
-                card_file.write("observation " + str(total_data) + "\n\n")
+                datacardLines.append("observation " + str(total_data) + "\n\n")
     
                 line = "bin "
                 for i_channel in range(0, n_background + 1):
                     line = line + "bin1 "
-                card_file.write(line + "\n")
+                datacardLines.append(line + "\n")
     
                 line = "process " + fullSignalName + " "
                 for background_name in background_names:
                     line = line + background_name + " "
-                card_file.write(line + "\n")
+                datacardLines.append(line + "\n")
     
                 line = "process 0 "
                 for background_name in background_names:
                     line = line + "1 "
-                card_file.write(line + "\n\n")
+                datacardLines.append(line + "\n\n")
     
                 # rate line
                 signalYield = d_signal_rates[signalNameForFile][selectionName]
@@ -848,12 +857,12 @@ def WriteDatacard(card_file_path):
                     bkgYield = d_background_rates[background_name][selectionName]
                     line += "{} ".format(bkgYield)
                     totalBackgroundYield += bkgYield
-                card_file.write(line.strip() + "\n")
-                card_file.write("------------------------------\n")
-                card_file.write("* autoMCStats "+str(thresholdForAutoMCStats)+"\n")
+                datacardLines.append(line.strip() + "\n")
+                datacardLines.append("------------------------------\n")
+                datacardLines.append("* autoMCStats "+str(thresholdForAutoMCStats)+"\n")
     
-            # print signal_name, mass_point, total_signal, total_bkg, total_data
-            # print signal_name+str(mass_point), total_signal, total_bkg
+                # print signal_name, mass_point, total_signal, total_bkg, total_data
+                # print signal_name+str(mass_point), total_signal, total_bkg
     
             # recall the form: systDict['PileupUp'/systematicFromHist]['ZJet_amcatnlo_ptBinned'/sampleName]['LQXXXX'/selection] = yield
             # for RPV, select proper signalSystDict based on ctau of signal
@@ -934,15 +943,19 @@ def WriteDatacard(card_file_path):
                                          background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                         except ValueError:
                             continue
+                    # need to always fill the syst dicts, but only write the datacard if we have a BDT selection
                     if selectionName != "preselection" and selectionName != "trainingSelection":
-                        card_file.write(line + "\n")
+                        datacardLines.append(line + "\n")
     
-            # rateParam for signal scaling
             if selectionName != "preselection" and selectionName != "trainingSelection":
+                # rateParam for signal scaling
                 signalScaleParam = 1.0
-                card_file.write("signalScaleParam rateParam bin1 {} {}".format(fullSignalName, signalScaleParam))
-            if selectionName != "preselection" and selectionName != "trainingSelection":
-                card_file.write("\n\n\n")
+                datacardLines.append("signalScaleParam rateParam bin1 {} {}".format(fullSignalName, signalScaleParam))
+                datacardLines.append("\n\n\n")
+                for line in datacardLines:
+                    card_file.write(line)
+                    indivMassPointCard.write(line.replace("$MASS", mass_point).replace(".root", "_" + signal_name.format(mass_point) + ".root"))
+                indivMassPointCard.close()
             if not doMassPointLoop:
                 break
     card_file.close()
@@ -1267,6 +1280,7 @@ d_applicableSystematics.update({sig: systematicsNamesSignal for sig in signalNam
 datacard_filePath = "tmp_card_file_{}.txt".format(signalNameTemplate.split("_")[0])
 plots_filePath = "plots.root"
 plotsDir = "makeDatacard_plots"
+datacardHistoDir = "makeDatacard_separateMassPoints"
 tablesDir = "makeDatacard_tables"
 systematics_dictFilePath = "systematics_dict.txt"
 shapeHistos_filePathBase = "shapeHistos_{}.root"
