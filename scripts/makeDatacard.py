@@ -640,7 +640,7 @@ def CheckHistBins(hist):
     return hist
 
 
-def CreateAndWriteHist(rootFile, mass, sample, content, err, name="yieldFinalSelection", titleStart="Yield at LQ"):
+def CreateAndWriteHist(rootFiles, mass, sample, content, err, name="yieldFinalSelection", titleStart="Yield at LQ"):
     newHist = r.TH1D("{}_{}_{}".format(name, mass, sample), "{} {} final selection for {}".format(titleStart, mass, sample), 1, 0, 1)
     newHist.SetBinContent(1, content)
     newHist.SetBinError(1, err)
@@ -648,13 +648,15 @@ def CreateAndWriteHist(rootFile, mass, sample, content, err, name="yieldFinalSel
         newHist.SetName(newHist.GetName().replace("DATA", "data_obs"))
         # print("Hist {} now has {} bins after rebinning with {} bins".format(hist.GetName(), hist.GetNbinsX(), len(xbins)))
     newHist = CheckHistBins(newHist)
-    rootFile.cd()
-    newHist.Write()
+    for f in rootFiles:
+        f.cd()
+        newHist.Write()
 
 
 def CreateAndWriteHistograms(outputRootFilename):
     if not os.path.exists(datacardHistoDir):
         os.makedirs(datacardHistoDir)
+    allOutputRootFile = r.TFile.Open(outputRootFilename, "recreate")
     outputRootFilename = datacardHistoDir + "/" + outputRootFilename
     for i_signal_name, signal_name in enumerate(signal_names):
         outputRootFilename = outputRootFilename.replace(".root", "_{}.root".format(signal_name))
@@ -666,20 +668,21 @@ def CreateAndWriteHistograms(outputRootFilename):
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, mass_point)
             signalEvts = d_signal_rates[signalNameForFile][selectionName]
             signalEvtErrs = d_signal_rateErrs[signalNameForFile][selectionName]
-            CreateAndWriteHist(outputRootFile, mass_point, fullSignalName, signalEvts, signalEvtErrs)
+            CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, fullSignalName, signalEvts, signalEvtErrs)
             signalFailEvts = d_signal_failRates[signalNameForFile][selectionName]
             signalFailEvtErrs = d_signal_failRateErrs[signalNameForFile][selectionName]
-            CreateAndWriteHist(outputRootFile, mass_point, fullSignalName, signalFailEvts, signalFailEvtErrs, "yieldFailFinalSelection", "Yield failing final selection for LQ")
+            CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, fullSignalName, signalFailEvts, signalFailEvtErrs, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             for ibkg, background_name in enumerate(background_names):
                 thisBkgEvts = d_background_rates[background_name][selectionName]
                 thisBkgEvtsErr = d_background_rateErrs[background_name][selectionName]
-                CreateAndWriteHist(outputRootFile, mass_point, background_name, thisBkgEvts, thisBkgEvtsErr)
+                CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgEvts, thisBkgEvtsErr)
                 thisBkgFailEvts = d_background_failRates[background_name][selectionName]
                 thisBkgFailEvtsErr = d_background_failRateErrs[background_name][selectionName]
-                CreateAndWriteHist(outputRootFile, mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
-            CreateAndWriteHist(outputRootFile, mass_point, "DATA", d_data_rates["DATA"][selectionName], d_data_rateErrs["DATA"][selectionName])
-            CreateAndWriteHist(outputRootFile, mass_point, "DATA", d_data_failRates["DATA"][selectionName], d_data_failRateErrs["DATA"][selectionName], "yieldFailFinalSelection", "Yield failing final selection for LQ")
+                CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
+            CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, "DATA", d_data_rates["DATA"][selectionName], d_data_rateErrs["DATA"][selectionName])
+            CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, "DATA", d_data_failRates["DATA"][selectionName], d_data_failRateErrs["DATA"][selectionName], "yieldFailFinalSelection", "Yield failing final selection for LQ")
             outputRootFile.Close()
+    allOutputRootFile.Close()
 
 
 def FillDicts(rootFilepath, sampleNames, bkgType, verbose=False):
