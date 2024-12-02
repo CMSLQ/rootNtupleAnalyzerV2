@@ -2269,7 +2269,7 @@ def SeparateDatacards(txtFilePath, cardIndex, dirPath, writeCards=True, verbose=
     mass = None
     with open(os.path.expandvars(txtFilePath)) as cardFile:
         for line in cardFile:
-            matched = re.match("# LQ_M(\d+)\.txt", line)
+            matched = re.match(".*LQ_M(\d+)\.txt", line)
             if matched is not None:
                 if mass is not None:
                     if writeCards:
