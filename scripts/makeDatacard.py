@@ -812,7 +812,7 @@ def WriteDatacard(card_file_path):
             #     # print 'use selection name=',selectionName,'for fullSignalName=',fullSignalName
             #     doMassPointLoop = False
             if selectionName != "preselection" and selectionName != "trainingSelection":
-                txt_file_name = datacardHistoDir.rstrip("/") + "/" + fullSignalName + ".txt"
+                txt_file_name = datacardHistoDir.rstrip("/") + "/datacard_" + year + "_" + fullSignalName + ".txt"
                 indivMassPointCard = open(txt_file_name, "w")
                 indivMassPointCard.write(yearStr)
                 indivMassPointCard.write(lumiStr)
