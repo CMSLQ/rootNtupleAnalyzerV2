@@ -227,6 +227,8 @@ def GetSystematicEffectAbs(systName, sampleName, selection, fullSystDict, verbos
             sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection))
     if entry == "-":
         # this means the systematic doesn't apply
+        # print("INFO: GetSystematicEffectAbs() systematic doesn't apply: For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
+        #     sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection))
         return "-", 0, 0, systNominal, systSelection
     nomYield = systNominal
     systNomSelection = systSelection
@@ -902,9 +904,10 @@ def WriteDatacard(card_file_path):
                         d_systDownDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystDown
                         if EntryIsValid(systEntry):
                             d_systematicsApplied[selectionName][signalNameForFile].append(syst)
-                            # if syst == "LHEPdfWeight": systEntry = 1.1  # hack signal PDF uncertainty
                             line += str(systEntry) + " "
                         else:
+                            # print("INFO: Got invalid syst entry For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                            #         background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                             line += "- "
                     else:
                         line += "- "
@@ -934,12 +937,14 @@ def WriteDatacard(card_file_path):
                             d_systematicsApplied[selectionName][background_name].append(syst)
                             line += str(systEntry) + " "
                         else:
+                            # print("INFO: Got invalid syst entry For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                            #         background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                             line += "- "
                         # if "ZJet" in background_name and "800" in selectionNameSyst and "EES" in syst:
                         try:
                             if float(systEntry) < 0:
                                  #print("INFO: For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
-                                 raise RuntimeError("INFO: For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                                 raise RuntimeError("For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
                                          background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                         except ValueError:
                             continue
