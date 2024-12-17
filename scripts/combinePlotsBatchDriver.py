@@ -86,9 +86,6 @@ def CreateAndSubmitJobs(sampleDict):
     condorSubfileDir = "combinePlotsCondor"
     Path(condorSubfileDir).mkdir(parents=True, exist_ok=True)
     samplesToCombine = [sample for sample, keys in sampleDict.items() if keys["save"]]
-    # sampleSubdir = condorSubfileDir + "/" + sample
-    # Path(sampleSubdir).mkdir(exist_ok=True)
-    # shFilename = sampleSubdir + "/condor.sh"
     shFilename = condorSubfileDir + "/condor.sh"
     WriteCondorShFile(samplesToCombine, shFilename)
     print("INFO: wrote sh file to {}".format(shFilename))

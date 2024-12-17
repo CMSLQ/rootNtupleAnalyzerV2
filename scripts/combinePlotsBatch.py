@@ -38,10 +38,21 @@ def RunCommand(args):
     return timeDelta
 
 
-def CheckForFile(filename):
-    filename = filename.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
+def CheckRootFile(filename):
+    rootFile = TFile.Open(filename)
+    if not rootFile or rootFile.IsZombie():
+        print("Could not open root file: {}".format(rootFile.GetName()))
+        return False
+    rootFile.Close()
+    return True
+
+
+def CheckForFile(filenameOrig):
+    filename = filenameOrig.replace("root://eoscms/", "/eos/cms/").replace("root://eosuser/", "/eos/user/")
     if not filename.startswith("/eos"):
         if os.path.isfile(filename):
+            if filename.endswith(".root"):
+                return CheckRootFile(filename)
             return True
     else:
         if not filename.startswith("/eos/user"):
@@ -52,6 +63,8 @@ def CheckForFile(filename):
         my_env["EOS_MGM_URL"] = "root://{}.cern.ch/".format(serverName)
         result = subprocess.run(["eos", "ls", filename], env=my_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if result == 0:
+            if filename.endswith(".root"):
+                return CheckRootFile(filenameOrig)
             return True
     return False
 
@@ -267,8 +280,9 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
 
             if not options.tablesOnly:
                 print("INFO: doWeightingThisFile=", doWeightingThisFile, "; updating thisPieceHistos using plotWeight=", plotWeight)
-                thisPieceHistos = combineCommon.UpdateHistoDict(thisPieceHistos, sampleHistos, matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
+                thisPieceHistos, _ = combineCommon.UpdateHistoDict(thisPieceHistos, sampleHistos, matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
 
+        # combine thisPiece with the rest of the sample
         if not doWeightingThisFile:
             doPDFReweight = False
             # if "2016" in inputRootFile:
@@ -292,11 +306,17 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
             print("\t[{}] zeroing negative histo bins for piece={}".format(sample, currentPiece), flush=True)
             combineCommon.ZeroNegativeHistoBins(thisPieceHistos.values())
             print("INFO: finally, doWeightingThisFile=", doWeightingThisFile, "; updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
-            histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, thisPieceHistos.values(), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+            histoDictThisSample, pieceHistoList = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisPieceHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+        # write out hists to always save for each piece
+        objectNamesToKeep = ["eventspassingcuts", "eventspassingcuts_unscaled", "systematicnametobranchesmap", "systematics"]
+        histsToKeep = {pieceHistoList.index(v):v for v in pieceHistoList if any(objectName == v.GetName().lower() for objectName in objectNamesToKeep)}
+        sampleName = combineCommon.FindSampleName(matchingPiece, dictSamples)
+        for hist in histsToKeep.values():
+            RenameHist(hist, sampleName)
+        combineCommon.WriteHistos(outputTfile, histsToKeep, matchingPiece, corrLHESysts, isMC, True)
         piecesAdded.append(matchingPiece)
 
     # validation of combining pieces
-    # if set(piecesAdded) != set(pieceList):
     if set(piecesAdded) != set(piecesToAdd):
         errMsg = "ERROR: for sample {}, the following pieces requested in sampleListForMerging were not added: ".format(sample)
         errMsg += str(list(set(piecesAdded).symmetric_difference(set(piecesToAdd))))
@@ -384,6 +404,22 @@ def GetHistosFromInclusionList(tfileName, sample, inclusionList, keepHistName=Tr
         raise RuntimeError(
                 "GetHistosFromInclusionList({}, {}) -- failed to read any histos for the sampleName from this file!".format(tfile.GetName(), sampleName))
     return sampleHistos
+
+
+def RenameHist(hist, sampleName):
+    if "TH2" in hist.ClassName():
+        hist.SetName("histo2D__" + sampleName + "__" + hist.GetName())
+    elif "TH1" in hist.ClassName():
+        hist.SetName("histo1D__" + sampleName + "__" + hist.GetName())
+    elif "TH3" in hist.ClassName():
+        hist.SetName("histo3D__" + sampleName + "__" + hist.GetName())
+    elif "TProfile" in hist.ClassName():
+        hist.SetName("profile1D__" + sampleName + "__" + hist.GetName())
+    elif "TMap" in hist.ClassName():
+        hist.SetName("tmap__" + sampleName + "__" + hist.GetName())
+    else:
+        raise RuntimeError("Cannot determine renaming string for class name '{}' found in hist named '{}'".format(hist.ClassName(), hist.GetName()))
+
 
 ####################################################################################################
 # RUN
