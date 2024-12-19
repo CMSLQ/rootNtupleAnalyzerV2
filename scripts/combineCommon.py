@@ -1941,23 +1941,16 @@ def GetXSecTimesIntLumi(sampleNameFromDataset):
     return xsection * intLumiF
 
 
-def GetFinalSelection(selectionPoint, doEEJJ):
+def GetFinalSelection(selectionPoint):
     # min_M_ej_LQ300 for eejj
     selectionsToKeep = ["preselection", "trainingSelection"]
     if any(selectionPoint == sel for sel in selectionsToKeep):
         return selectionPoint
     else:
-        if doEEJJ:
-            if selectionPoint.isdigit():
-                selection = finalSelectionName+"LQ"+selectionPoint
-            else:
-                selection = finalSelectionName+selectionPoint
+        if selectionPoint.isdigit():
+            selection = finalSelectionName+"LQ"+selectionPoint
         else:
-            # enujj
-            if selectionPoint.isdigit():
-                selection = finalSelectionName+"_LQ"+selectionPoint
-            else:
-                selection = finalSelectionName+"_"+selectionPoint
+            selection = finalSelectionName+selectionPoint
     return selection
 
 
@@ -1965,13 +1958,12 @@ def GetRatesAndErrors(
         combinedRootFile,
         sampleName,
         selection,
-        doEEJJ=True,
         isDataOrQCD=False,
         isTTBarFromData=False
         ):
     verbose = False
     if verbose or isTTBarFromData:
-        print("GetRatesAndErrors(", combinedRootFile.GetName(), sampleName, selection, doEEJJ, isDataOrQCD, isTTBarFromData, ")")
+        print("GetRatesAndErrors(", combinedRootFile.GetName(), sampleName, selection, isDataOrQCD, isTTBarFromData, ")")
     histName = "EventsPassingCuts"
     # special case of TTBar from data
     # if isTTBarFromData:
@@ -2032,7 +2024,7 @@ def GetRatesAndErrors(
     scaledHist = combinedRootFile.Get(scaledHistName)
     if not scaledHist or scaledHist.ClassName() != "TProfile":
         raise RuntimeError("Could not find TProfile named '{}' in file: {}".format(scaledHistName, combinedRootFile.GetName()))
-    selection = GetFinalSelection(selection, doEEJJ)
+    selection = GetFinalSelection(selection)
     selectionBin = scaledHist.GetXaxis().FindFixBin(selection)
     if selectionBin < 1:
         raise RuntimeError("Could not find requested selection name '{}' in hist {} in file {}".format(
@@ -2049,19 +2041,18 @@ def GetFailingRatesAndErrors(
         sampleName,
         selection,
         trainingSelectionCutName,
-        doEEJJ=True,
         isDataOrQCD=False,
         isTTBarFromData=False,
         ):
     verbose = False
     if verbose or isTTBarFromData:
-        print("GetFailingRatesAndErrors(", combinedRootFile.GetName(), sampleName, selection, doEEJJ, isDataOrQCD, isTTBarFromData, ")")
+        print("GetFailingRatesAndErrors(", combinedRootFile.GetName(), sampleName, selection, isDataOrQCD, isTTBarFromData, ")")
     histName = "EventsPassingCuts"
     scaledHistName = "profile1D__"+sampleName+"__"+histName
     scaledHist = combinedRootFile.Get(scaledHistName)
     if not scaledHist or scaledHist.ClassName() != "TProfile":
         raise RuntimeError("Could not find TProfile named '{}' in file: {}".format(scaledHistName, combinedRootFile.GetName()))
-    selection = GetFinalSelection(selection, doEEJJ)
+    selection = GetFinalSelection(selection)
     selectionBin = scaledHist.GetXaxis().FindFixBin(selection)
     if selectionBin < 1:
         raise RuntimeError("Could not find requested selection name '{}' in hist {} in file {}".format(
