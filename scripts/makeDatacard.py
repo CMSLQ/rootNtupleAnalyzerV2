@@ -5,6 +5,7 @@ import sys
 import math
 import string
 import re
+import copy
 from prettytable import PrettyTable
 from tabulate import tabulate
 from pathlib import Path
@@ -35,10 +36,57 @@ class SampleInfo:
         self.unscaledFailRates = unscaledFailRates
         self.systematics = systematics
         self.systematicsApplied = set()  # we assume the same systematics for every selection
-        self.systNominals = {}
-        self.systNominalErrs = {}
-        self.systUpDeltas = {}
-        self.systDownDeltas = {}
+        # self.systNominals = {}
+        # self.systNominalErrs = {}
+        # self.systUpDeltas = {}
+        # self.systDownDeltas = {}
+
+    def __add__(self, other):
+        new = SampleInfo(self.sampleName, self.rates, self.rateErrs, self.unscaledRates, self.totalEvents, self.failRates, self.failRateErrs, self.unscaledFailRates, self.systematics)
+        new += other
+        return new
+
+    def __iadd__(self, other):
+        for selection in self.rates.keys():
+            self.rates[selection] += other.rates[selection]
+            self.rateErrs[selection] = math.sqrt(self.rateErrs[selection]**2 + other.rateErrs[selection]**2)
+            self.unscaledRates[selection] += other.unscaledRates[selection]
+            self.failRates[selection] += other.failRates[selection]
+            self.failRateErrs[selection] = math.sqrt(self.failRateErrs[selection]**2 + other.failRateErrs[selection]**2)
+            self.unscaledFailRates[selection] += other.unscaledFailRates[selection]
+            # print("SIC DEBUG2: iadd called for self={}, other={}".format(self.sampleName, other.sampleName))
+            self.systematics = self.CheckAndAddSystematics(other)
+            for syst in other.systematics.keys():
+                self.systematicsApplied.add(syst)
+        self.totalEvents += other.totalEvents
+        return self
+
+    def CheckAndAddSystematics(self, other):
+        systDictSelf = self.systematics
+        systDictOther = other.systematics
+        if sorted(systDictSelf.keys()) != sorted(systDictOther.keys()):
+            raise RuntimeError("systematics dicts for sample={} and sample={} have different systematics: '{}' vs. '{}'. Cannot add them.".format(
+                self.sampleName, other.sampleName, systDictSelf.keys(), systDictOther.keys()))
+        for syst in systDictSelf.keys():
+            for selection in systDictSelf[syst].keys():
+                if selection not in list(systDictOther[syst].keys()):
+                    raise RuntimeError("cannot find selection '{}' in sample={}; systematics dicts for sample={} and sample={} have different selections for syst={}: '{}' vs. '{}'. Cannot add them.".format(
+                        selection, other.sampleName, self.sampleName, other.sampleName, syst, list(systDictSelf[syst].keys()), list(systDictOther[syst].keys())))
+                if "branchTitles" not in selection:
+                    systDictSelf[syst][selection]["yield"] += systDictOther[syst][selection]["yield"]
+                    # print("SIC DEBUG: sample={}, other={}, systDictSelf[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictSelf[syst][selection]))
+                    # print("SIC DEBUG: sample={}, other={}, systDictOther[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictOther[syst][selection]))
+                    if systDictSelf[syst][selection]["preselYield"] is None and systDictOther[syst][selection]["preselYield"] is not None:
+                        systDictSelf[syst][selection]["preselYield"] = systDictOther[syst][selection]["preselYield"]
+                    elif systDictSelf[syst][selection]["preselYield"] is not None and systDictOther[syst][selection]["preselYield"] is not None:
+                        systDictSelf[syst][selection]["preselYield"] += systDictOther[syst][selection]["preselYield"]
+                else:
+                    # if the branch titles are different, then we just glom them together here
+                    # again, for composite samples, this might make no sense
+                    if systDictSelf[syst][selection] != systDictOther[syst][selection]:
+                        systDictSelf[syst][selection].extend(systDictOther[syst][selection])
+                # print("SIC DEBUG: sample={}, systDictSelf[{}][{}]={}".format(self.sampleName, syst, selection, systDictSelf[syst][selection]))
+        return systDictSelf
 
     def GetRateAndErr(self, selectionName):
         return self.rates[selectionName], self.rateErrs[selectionName]
@@ -52,7 +100,7 @@ class SampleInfo:
     def UpdateSystsApplied(self, syst):
         self.systematicsApplied.add(syst)
 
-    def GetNearestPositiveSelectionYield(self, selection):
+    def GetNearestPositiveSelectionYield(self, selection, minRawEvents=2):
         massPointsRev = list(reversed(mass_points))
         idxInc = mass_points.index(selection.replace("LQ", ""))
         idxInc += 1
@@ -61,7 +109,6 @@ class SampleInfo:
         rate = 0
         err = 0
         rawEvents = 0
-        minRawEvents = 2
         selectionsToCheck = []
         trimmedMassesInc = mass_points[idxInc:]
         trimmedMassesDec = massPointsRev[idxDec:]
@@ -97,7 +144,7 @@ class SampleInfo:
     # return abs val of syst; also checks for deltaOverNom==1 and does renorm if needed
     def GetSystematicEffectAbs(self, year, systName, selection, applicableSysts, verbose=False):
         # verbose = True
-        entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts)
+        entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts[year])
         if verbose:
             print("For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
                 self.sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection))
@@ -116,7 +163,7 @@ class SampleInfo:
                     print("\tINFO: renormalizing syst={} for background={}".format(systName, self.sampleName))
                     print("\t original entry={}, deltaOverNomUp={}, deltaOverNomDown={}".format(entry, deltaOverNomUp, deltaOverNomDown))
                 preselNomYield, preselNomSelection, preselRawEvents = self.GetSystNominalYield(systName, "preselection")
-                preselEntry, preselDOverNUp, preselDOverNDown, preselSymm, preselSystNominal, preselSystSelection = self.GetSystematicEffect(year, systName, "preselection", applicableSysts)
+                preselEntry, preselDOverNUp, preselDOverNDown, preselSymm, preselSystNominal, preselSystSelection = self.GetSystematicEffect(year, systName, "preselection", applicableSysts[year])
                 if preselSystSelection != preselNomSelection:
                     raise RuntimeError("Something strange happened: the selection used for the preselection systematic '{}' was not the same as the presel syst nominal yield selection '{}'.".format(
                         preselSystSelection, preselNomSelection))
@@ -177,7 +224,7 @@ class SampleInfo:
                     self.sampleName, selection, systName, 100*tolerance, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection, rawEvents))
         return entry, math.fabs(deltaOverNomUp), math.fabs(deltaOverNomDown), nomYield, systNomSelection
 
-    def GetSystematicEffect(self, year, systName, selection, d_applicableSystematics):
+    def GetSystematicEffect(self, year, systName, selection, applicableSystematics):
         # print("GetSystematicEffect(systName={}, selection={}. d_applicableSystematics={})".format(systName, selection, d_applicableSystematics))
         verbose = False
         systDict = self.systematics
@@ -187,7 +234,7 @@ class SampleInfo:
             raise RuntimeError("Could not find key 'nominal' in systDict for sampleName={}; systDict.keys()={}".format(sampleName, systDict.keys()))
         except Exception as e:
             raise RuntimeError("Got exception accessing systDict[{}][{}][{}] for sampleName={}; systDict[{}]={}".format("nominal", selection, "yield", sampleName, "nominal", systDict["nominal"]))
-        if not DoesSystematicApply(systName, self.sampleName, d_applicableSystematics):
+        if not DoesSystematicApply(systName, self.sampleName, applicableSystematics):
             return "-", 0, 0, True, nominal, selection
         if "shape" in systName.lower():
             entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic("LHEScaleComb", selection, verbose)
@@ -202,19 +249,15 @@ class SampleInfo:
             #             print("INFO: Cannot print PDF systematic output for sample {} as it was not saved.".format(sampleName))
             #         else:
             #             CalculateUpDownSystematic("LHEPdfComb", fullSystDict[sampleName], selection, sampleName, True)  # this call is broken somehow
-        elif systName == "Lumi":
-            lumiDeltaXOverX = d_lumiDeltaXOverX[year]
-            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = str(1+lumiDeltaXOverX), lumiDeltaXOverX, lumiDeltaXOverX, True, nominal, selection
-        elif systName == "LumiCorrelated":
-            lumiCorrelatedDeltaXOverX = d_lumiCorrelatedDeltaXOverX[year]
-            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = str(1+lumiCorrelatedDeltaXOverX), lumiCorrelatedDeltaXOverX, lumiCorrelatedDeltaXOverX, True, nominal, selection
-        elif systName == "LumiCorrelated1718":
-            lumi1718CorrelatedDeltaXOverX = d_lumi1718CorrelatedDeltaXOverX[year]
-            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = str(1+lumi1718CorrelatedDeltaXOverX), lumi1718CorrelatedDeltaXOverX, lumi1718CorrelatedDeltaXOverX, True, nominal, selection
+        elif "lumi" in systName.lower():
+                entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
+                # newNominal = nominal if nominal > 0 else 1
+                newNominal = nominal
+                newSelection = selection
         elif "norm" in systName.lower():
             if "tt" in systName.lower() or "dy" in systName.lower() or "qcd" in systName.lower():
                 entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
-                newNominal = nominal if nominal > 0 else 1
+                newNominal = nominal if nominal > 0 else 1  # XXX SICF FIXME WHY?!?!
                 newSelection = selection
         else:
             entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic(systName, selection)
@@ -341,16 +384,20 @@ class SampleInfo:
         #            systName, requestedSelection, sampleName, selection, unscaledRate, nominal, err))
         return nominal, selection, rawEvents
 
-    def HasPreselectionSystYield(self, systName, selection, up):
+    def HasPreselectionSystYield(self, systName, selection, up=None, verbose=False):
         if "shape" in systName.lower():
             systName = "LHEScaleComb"
         elif "LHEPdfWeight" == systName:
             systName = "LHEPdfComb"
-        systName += "Up" if up else "Down"
+        systName += "Up" if up else "Down" if not up else ""
         preselSystYield = None
         systDict = self.systematics
         if systName in systDict.keys():
+            if verbose:
+                print("SIC DEBUG: sample {} hasPreselSystYield for systName={}, selection={}, up={}; systDict[{}]={}".format(self.sampleName, systName, selection, up, systName, systDict[systName]))
             preselSystYield = systDict[systName][selection]["preselYield"]
+        elif verbose:
+            print("SIC DEBUG: sample {} hasPreselSystYield [systName not in systDict keys] for systName={}, selection={}, up={}; systDict.keys={}".format(self.sampleName, systName, selection, up, systName, systDict.keys()))
         if preselSystYield is not None:
             return True, preselSystYield
         else:
@@ -487,10 +534,11 @@ def GetStatErrorsFromDatacard(dictEntry, nevts):
 
 
 # returns dict like systDict[systName][selection] = yield
-def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
+def GetSystematicsDict(rootFile, sampleName, selections, year, verbose=False):
     systHistName = "histo2D__{}__systematics".format(sampleName)
     systHist = rootFile.Get(systHistName)
     systDict = {}
+    systDict["branchTitles"] = {}
     xBinPresel = systHist.GetXaxis().FindFixBin("preselection")
     for selection in selections:
         # expect that selections are either "preselection" or "LQXXXX"
@@ -503,23 +551,35 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
         for yBin in range(1, systHist.GetNbinsY()+1):
             systName = systHist.GetYaxis().GetBinLabel(yBin)
             preselYield = None
-            if "LHEPdfWeight" in systName or "LHEScaleWeight" in systName:
-                continue
-            elif "LHEPdf" in systName or "LHEScale" in systName:
-                systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
+            # if "LHEPdfWeight" in systName or "LHEScaleWeight" in systName:
+            #     continue
+            # if "LHEPdf" in systName or "LHEScale" in systName:
+            #     systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
+            #     if "LHEScale" in systName:
+            #         preselYieldBin = systHist.GetYaxis().FindFixBin("LHEScaleWeight_preselYield")
+            #         preselYield = systHist.GetBinContent(xBin, preselYieldBin)
+                    # print("DEBUG: for systName={}, selection={}, sampleName={}, with xBinPresel={}, preselYieldBin={}; preselYield={}".format(
+                    #     systName, selection, sampleName, xBinPresel, preselYieldBin, preselYield))
+            if "LHEPdf" in systName or "LHEScale" in systName:
+                if "comb" in systName.lower():
+                    systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
                 if "LHEScale" in systName:
                     preselYieldBin = systHist.GetYaxis().FindFixBin("LHEScaleWeight_preselYield")
                     preselYield = systHist.GetBinContent(xBin, preselYieldBin)
-                    # print("DEBUG: for systName={}, selection={}, sampleName={}, with xBinPresel={}, preselYieldBin={}; preselYield={}".format(
-                    #     systName, selection, sampleName, xBinPresel, preselYieldBin, preselYield))
             systDict[selection][systName] = {}
             systDict[selection][systName]["yield"] = systHist.GetBinContent(xBin, yBin)
             systDict[selection][systName]["preselYield"] = preselYield
             # print("DEBUG: ASSIGNED for systName={}, selection={}, preselYield={}".format(systName, selection, preselYield))
             # if "ZJet" in sampleName and "LQ3000" in selection:
             #     print("INFO: for sampleName={} and selection={}, xBin={} yBin={} ({}), got content={}".format(sampleName, selection, xBin, yBin, systName, systDict[selection][systName]))
+        # add flat systematics here
+        for systName, effect in d_flatSystematics[year].items():
+            # systDict[selection][systName]["yield"] = (systDict[selection]["nominal"]["yield"] + 1) * effect  # effect being deltaX/X = (X'-X)/X = X'/X - 1
+            systDict[selection][systName] = {}
+            systDict[selection][systName]["yield"] = effect 
+            systDict[selection][systName]["preselYield"] = None
+            systDict["branchTitles"][systName] = []
     # add special entry for branch titles
-    systDict["branchTitles"] = {}
     tmapName = "tmap__{}__systematicNameToBranchesMap".format(sampleName)
     tmap = rootFile.Get(tmapName)
     if not tmap or tmap is None:
@@ -527,31 +587,50 @@ def GetSystematicsDict(rootFile, sampleName, selections, verbose=False):
     for yBin in range(1, systHist.GetNbinsY()+1):
         branchTitleList = []
         systName = systHist.GetYaxis().GetBinLabel(yBin)
-        # special handling for LHEPdf/LHEScalesysts
-        if "LHEPdfWeight" in systName or "LHEScaleWeight" in systName:
-            continue
-        elif "LHEPdf" in systName or "LHEScale" in systName:
-            systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
-            systDict["branchTitles"][systName] = [systName]
-            continue
-        mapObject = tmap.FindObject(systName)
+        # for branch titles, because of how we combine the samples, the TMap is just taken from the first file in the first sample
+        #   so it's not necessarily correct for composite samples!
+        systNameForLookup = systName
+        if "lhe" in systName.lower():
+            if not "comb" in systName.lower():
+                if "LHEPdfWeight" in systName:
+                    systNameForLookup = "LHEPdfWeight"
+                elif "LHEScaleWeight" in systName:
+                    systNameForLookup = "LHEScaleWeight"
+            else:
+                systName = systName.replace("_UpComb", "CombUp").replace("_DownComb", "CombDown")
+                systDict["branchTitles"][systName] = [systName]
+                continue
+        mapObject = tmap.FindObject(systNameForLookup)
         if not mapObject:
             # print("\tINFO: look again for matching TObject for syst {}".format(systName[:systName.rfind("_")]), flush=True)
             # assume it's an array syst, so try to match stripping off the _N part
-            mapObject = tmap.FindObject(systName[:systName.rfind("_")])
+            mapObject = tmap.FindObject(systNameForLookup[:systNameForLookup.rfind("_")])
         if not mapObject:
             tmap.Print()
-            raise RuntimeError("Could not find matching TObject in map for syst {} or {}; see map content above".format(systName, systName[:systName.rfind("_")]))
+            raise RuntimeError("Could not find matching TObject in map for syst {} using lookup {} or {}; see map content above".format(systName, systNameForLookup, systNameForLookup[:systNameForLookup.rfind("_")]))
         branchTitleListItr = r.TIter(mapObject.Value())
         branchTitle = branchTitleListItr.Next()
         while branchTitle:
             branchTitleList.append(branchTitle.GetName())
             branchTitle = branchTitleListItr.Next()
         systDict["branchTitles"][systName] = branchTitleList
-        # print "INFO: systDict[\"branchTitles\"][{}] = {}".format(systName, branchTitleList)
+        # print("INFO: sampleName={}, systDict[\"branchTitles\"][{}] = {}".format(sampleName, systName, branchTitleList))
+
     #if verbose:
-    #    print("sampleName={}: systDict={}".format(sampleName, systDict["LQ300"]))
-    # print("DEBUG: sampleName={}: systDict={}".format(sampleName, systDict))
+    # print("sampleName={}: systDict['LQ300']={}".format(sampleName, systDict["LQ300"]))
+
+    # #XXX SIC DEBUG REMOVE
+    # print("DEBUG: sampleName={}: systDict.keys()={}".format(sampleName, systDict.keys()))
+    # print("DEBUG: sampleName={}: systDict[systDict.keys()[0]].keys()={}".format(sampleName, systDict[list(systDict.keys())[0]].keys()))
+    # print("DEBUG: sampleName={}: list(systDict[selections[0]].keys())={}".format(sampleName, list(systDict[selections[0]].keys())))
+    # for syst in list(systDict[selections[0]].keys()):
+    #     print("DEBUG: syst={}".format(syst))
+    #     for sel in systDict:
+    #         print("\tDEBUG: syst={}, sel={}, systDict[sel].keys()={}".format(syst, sel, systDict[sel].keys()))
+    #         print("\t\tDEBUG2:  systDict[sel][syst]={}".format(systDict[sel][syst]))
+
+        
+    
     # reindex by syst name
     systDict = {syst: {sel: systDict[sel][syst] for sel in systDict} for syst in list(systDict[selections[0]].keys())}
     # print("sampleName={}: systDict=".format(sampleName), systDict)
@@ -569,14 +648,32 @@ def GetSystYield(deltaOverNom, systNomYield):
     return systYield
 
 
-def DoesSystematicApply(systName, sampleName, d_applicableSystematics):
+def DoesSystematicApply(systName, sampleName, applicableSysts):
     # if "LQ" in sampleName:
-    #     print("DoesSystematicApply? {} for systName={}, sampleName={}, d_applicableSystematics={}".format(systName in d_applicableSystematics[sampleName], systName, sampleName, d_applicableSystematics))
-    return systName in d_applicableSystematics[sampleName]
+    #     print("DoesSystematicApply? {} for systName={}, sampleName={}, applicableSysts={}".format(systName in applicableSysts[sampleName], systName, sampleName, applicableSysts))
+    try:
+        return systName in applicableSysts[sampleName]
+    except KeyError as e:
+        if not sampleName in applicableSysts.keys():
+            raise RuntimeError("Could not find sampleName '{}' in applicable systs dict; keys = {}".format(sampleName, applicableSysts.keys()))
+        raise RuntimeError("Could not find systName '{}' in keys for sampleName = {}; keys = {}".format(systName, sampleName, applicableSysts[sampleName].keys()))
+
+
+def DoesSystematicApplyAnyYear(systName, sampleName, d_applicableSystematicsAllYears):
+    for year, applicableSysts in d_applicableSystematicsAllYears.items():
+        if DoesSystematicApply(systName, sampleName, applicableSysts):
+            return True
+    return False
 
 
 def IsComponentBackground(sampleName):
     if sampleName in dictSamplesContainingSample.keys():
+        return True
+    return False
+
+
+def IsBackground(sampleName):
+    if sampleName in background_names:
         return True
     return False
 
@@ -675,8 +772,6 @@ def GetLatexHeaderFromColumnNames(columnNames):
     return headerLine
 
 
-
-
 # def GetNearestPositiveSelectionYields(sampleName, selection, d_backgroundRates, d_signalRates, d_background_rateErrs, d_signal_rateErrs, d_background_unscaledRates, d_signal_unscaledRates):
 #     # print("DEBUG: GetNearestPositiveSelectionYields({}, {})".format(sampleName, selection))
 #     if sampleName in list(d_background_rates[year].keys()):
@@ -688,6 +783,62 @@ def GetLatexHeaderFromColumnNames(columnNames):
 #     else:
 #         raise RuntimeError("Could not find sampleName={} in background keys={} or signal keys={}".format(
 #             sampleName, list(d_background_rates[year].keys()), list(d_signal_rates[year].keys())))
+
+
+#FIXME REMOVE, probably
+# def GetTotalSignalRateAndErr(years, sampleName, selection):
+#     return GetTotalRateAndErr(years, sampleName, selection, d_signalSampleInfos)
+# 
+# 
+# def GetTotalBackgroundRateAndErr(years, sampleName, selection):
+#     return GetTotalRateAndErr(years, sampleName, selection, d_backgroundSampleInfos)
+# 
+# 
+# def GetTotalRateAndErr(years, sampleName, selection, sampleInfos):
+#     sumRate = 0
+#     sumRateErr = 0
+#     for year in years:
+#         rate, rateErr = sampleInfos[year][sampleName].GetRateAndErr(selection)
+#         sumRate += rate
+#         sumRateErr += rateErr
+#     return sumRate, sumRateErr
+# 
+# 
+# def GetTotalSignalFailRateAndErr(years, sampleName, selection):
+#     return GetTotalFailRateAndErr(years, sampleName, selection, d_signalSampleInfos)
+# 
+# 
+# def GetTotalBackgroundFailRateAndErr(years, sampleName, selection):
+#     return GetTotalFailRateAndErr(years, sampleName, selection, d_backgroundSampleInfos)
+# 
+# 
+# def GetTotalFailRateAndErr(years, sampleName, selection, sampleInfos):
+#     sumFailRate = 0
+#     sumFailRateErr = 0
+#     for year in years:
+#         rate, rateErr = sampleInfos[year][sampleName].GetFailRateAndErr(selection)
+#         sumFailRate += rate
+#         sumFailRateErr += rateErr
+#     return sumFailRate, sumFailRateErr
+# 
+# 
+# def GetTotalNearestPositiveSelectionYield(years, sampleInfos, background_name, selectionName):
+#     lastSelMassesByYear = {}
+#     for year in years:
+#         lastSel, rate, err, rawEvents = sampleInfos[year][background_name].GetNearestPositiveSelectionYield(selectionName, 1)  # 1 min raw event required
+#         lastSelMass = lastSel.replace("LQ", "")
+#         lastSelMassesByYear[year] = int(lastSelMass)
+
+
+def SumSampleInfoOverYears(sampleInfos, years):
+    for year in years:
+        for sample, sampleInfo in sampleInfos[year].items():
+            # print("SIC DEBUG2: summing sample info for sample={} for year={}".format(sample, year))
+            if not sample in sampleInfos.keys():
+                sampleInfos[sample] = sampleInfo
+            else:
+                sampleInfos[sample] += sampleInfo
+    firstSample = list(sampleInfos.keys())[1]
 
 
 def CheckHistBins(hist):
@@ -724,22 +875,22 @@ def CreateAndWriteHistograms(year):
             mass_point = selectionName.replace("LQ", "")
             outputRootFile = r.TFile.Open(outputRootFilename.format(mass_point), "recreate")
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, mass_point)
-            signalEvts, signalEvtErrs = d_signalSampleInfos[year][signalNameForFile].GetRateAndErr(selectionName)
+            signalEvts, signalEvtErrs = d_signalSampleInfos[signalNameForFile].GetRateAndErr(selectionName)
             CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, fullSignalName, signalEvts, signalEvtErrs)
-            signalFailEvts, signalFailEvtErrs = d_signalSampleInfos[year][signalNameForFile].GetFailRateAndErr(selectionName)
+            signalFailEvts, signalFailEvtErrs = d_signalSampleInfos[signalNameForFile].GetFailRateAndErr(selectionName)
             CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, fullSignalName, signalFailEvts, signalFailEvtErrs, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             for ibkg, background_name in enumerate(background_names):
-                thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[year][background_name].GetRateAndErr(selectionName)
+                thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
                 if thisBkgEvts <= 0:
-                    # lastSel, rate, err, rawEvents = GetNearestPositiveSelectionYieldsFromDicts(background_name, d_background_rates[year][background_name], d_background_rateErrs[year][background_name], d_background_unscaledRates[year][background_name], selectionName)
-                    lastSel, rate, err, rawEvents = d_backgroundSampleInfos[year][background_name].GetNearestPositiveSelectionYield(selectionName)
+                    print("INFO: Got thisBkgEvts={} for background_name={}, selectionName={}".format(thisBkgEvts, background_name, selectionName))
+                    lastSel, rate, err, rawEvents = d_backgroundSampleInfos[background_name].GetNearestPositiveSelectionYield(selectionName)
                     # take upper Poisson 68% CL limit of 1.8410216450092634 and scale it by the factor obtained from the nearest nonzero selection
                     thisBkgEvtsErr = 1.8410216450092634 * rate/rawEvents
                 CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgEvts, thisBkgEvtsErr)
-                thisBkgFailEvts, thisBkgFailEvtsErr = d_backgroundSampleInfos[year][background_name].GetFailRateAndErr(selectionName)
+                thisBkgFailEvts, thisBkgFailEvtsErr = d_backgroundSampleInfos[background_name].GetFailRateAndErr(selectionName)
                 CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
-            dataRate, dataRateErr = d_dataSampleInfos[year]['DATA'].GetRateAndErr(selectionName)
-            dataFailRate, dataFailRateErr = d_dataSampleInfos[year]['DATA'].GetFailRateAndErr(selectionName)
+            dataRate, dataRateErr = d_dataSampleInfos['DATA'].GetRateAndErr(selectionName)
+            dataFailRate, dataFailRateErr = d_dataSampleInfos['DATA'].GetFailRateAndErr(selectionName)
             CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, "DATA", dataRate, dataRateErr)
             CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, "DATA", dataFailRate, dataFailRateErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             outputRootFile.Close()
@@ -831,7 +982,7 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
                     print("WARN: for sample {}, selection {}: found negative unscaled fail rate: {}; set to zero.".format(sampleName, selectionName, sampleFailUnscaledRate))
                     unscaledFailRatesDict[selectionName] = 0.0
         if not isData and doSystematics:
-            systematics = GetSystematicsDict(scaledRootFile, sampleName, selectionNames)  # , sampleName == "LQToDEle_M-300_pair")
+            systematics = GetSystematicsDict(scaledRootFile, sampleName, selectionNames, year)  # , sampleName == "LQToDEle_M-300_pair")
             if "zjet" in sampleName.lower():
                 systematics.update({"DY_Norm": {sel: {"yield": dyNormDeltaXOverX, "preselYield": None} for sel in selectionNames}})
             if "ttbar" in sampleName.lower() or "ttto2l2nu" in sampleName.lower():
@@ -847,8 +998,257 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
     return sampleInfos
 
 
+def GetSystNames(year, forBackground):
+    systematicsSet = set()
+    for sampleName, systList in d_applicableSystematics[year].items():
+        if not isinstance(systList, list):
+            systList = [systList]
+        if forBackground and sampleName not in background_names:
+            continue
+        if not forBackground and (IsBackground(sampleName) or IsComponentBackground(sampleName)):
+            continue
+        systematicsSet.update(systList)
+    return list(systematicsSet)
+
+
+def GetSignalSystNames(year):
+    return GetSystNames(year, False)
+
+
+def GetBackgroundSystNames(year):
+    return GetSystNames(year, True)
+
+
+def GetNTotalSysts(years):
+    systNames = set()
+    for year in years:
+        systNames.update(GetBackgroundSystNames(year))
+        systNames.update(GetSignalSystNames(year))
+    return len(systNames), systNames
+
+
+def ResetSystematic(sampleInfo, systName):
+    for selection in allSelections:
+        for subStr in ["Up", "Down"]:
+            if not systName+subStr in sampleInfo.systematics.keys():
+                sampleInfo.systematics[systName+subStr] = {}
+            if not selection in sampleInfo.systematics[systName+subStr].keys():
+                sampleInfo.systematics[systName+subStr][selection] = {}
+            sampleInfo.systematics[systName+subStr][selection]["yield"] = 0
+            sampleInfo.systematics[systName+subStr][selection]["preselYield"] = 0
+
+
+def AppendSystematics(systNames, selections, sampleInfo):
+    for systName in systNames:
+        sampleInfo.systematics[systName] = {}
+        for selection in selections:
+            sampleInfo.systematics[systName][selection] = {}
+
+
+def AddSystematics(sampleInfo1, sampleInfo2, systNameStr):
+    for selection in allSelections:
+        for syst in [syst for syst in sampleInfo1.systematics.keys() if systNameStr in syst]:
+            sampleInfo1.systematics[syst][selection]["yield"] += sampleInfo2.systematics[syst][selection]["yield"]
+            hasPreselSystYield1, preselSystYield1 = sampleInfo1.HasPreselectionSystYield(syst, selection)
+            hasPreselSystYield2, preselSystYield2 = sampleInfo2.HasPreselectionSystYield(syst, selection)
+            if hasPreselSystYield2:
+                if not hasPreselSystYield1:
+                    sampleInfo1.systematics[syst][selection]["preselYield"] = 0
+                sampleInfo1.systematics[syst][selection]["preselYield"] += sampleInfo2.systematics[syst][selection]["preselYield"]
+
+
+
+def AddSystematic(sampleInfo1, sampleInfo2, systName):
+    for selection in allSelections:
+        for subStr in ["Up", "Down"]:
+            sampleInfo1.systematics[systName+subStr][selection]["yield"] += sampleInfo2.systematics[sysName+subStr][selection]["yield"]
+            sampleInfo1.systematics[systName+subStr][selection]["preselYield"] += sampleInfo2.systematics[systName+subStr][selection]["preselYield"]
+
+
+def AddSystematicQuad(sampleInfo1, sampleInfo2, systName):
+    for selection in allSelections:
+        # here. we assume that it's a symmetric uncertainty
+        delta = sampleInfo2.systematics[systName+"Up"][selection]["yield"] - sampleInfo2.systematics["nominal"][selection]["yield"]
+        if not "deltaQuad" in sampleInfo1.systematics[systName+"Up"][selection].keys():
+            sampleInfo1.systematics[systName+"Up"][selection]["deltaQuad"] = 0
+        sampleInfo1.systematics[systName+"Up"][selection]["deltaQuad"] += delta**2
+        for subStr in ["Up", "Down"]:
+            sampleInfo1.systematics[systName+subStr][selection]["preselYield"] += sampleInfo2.systematics[systName+subStr][selection]["preselYield"]
+
+
+def ComputeYieldFromDeltaQuad(sampleInfo, systName):
+    for selection in allSelections:
+        # here. we assume that it's a symmetric uncertainty
+        totalDelta = math.sqrt(sampleInfo.systematics[systName+"Up"][selection]["deltaQuad"])
+        nominal = sampleInfo.systematics["nominal"][selection]["yield"]
+        sampleInfo.systematics[systName+"Up"][selection]["yield"] = nominal + totalDelta
+        sampleInfo.systematics[systName+"Down"][selection]["yield"] = nominal - totalDelta
+
+
+def GetBranchTitle(sampleInfo, systName):
+    branchTitles = sampleInfo.systematics[systName]["branchTitles"]
+    if len(branchTitles) > 1:
+        raise RuntimeError("Not sure how to handle multiple ({}) branch titles '{}' found for sample={}".format(len(branchTitles), branchTitles, sampleInfo.sampleName))
+    return branchTitles[0]
+
+
+def GetPDFVariationTypeAndName(sampleInfo):
+    branchTitle = GetBranchTitle(sampleInfo, "LHEPdfWeight_0")
+    return cc.GetPDFVariationType(branchTitle)
+
+
+def ComputePDFVariationMC(sampleInfo, pdfKeys, verbose=False):
+    pdfKeys = sorted(pdfKeys, key=lambda x: int(x[x.rfind("_")+1:]))
+    # now, if we still have over 100, remove the last two
+    if len(pdfKeys) > 100:
+        pdfKeys = pdfKeys[:-2]
+    elif len(pdfKeys) == 32:
+        pdfKeys = pdfKeys[:-2]
+    if verbose:
+        print("INFO: CalculatePDFVariationMC() -- sampleName={}, we now have {} pdf variations to consider".format(sampleName, len(pdfKeys)), flush=True)
+    for selection in selectionNames:
+        nominal = sampleInfo.systematics["nominal"][selection]["yield"]
+        pdfYieldsUnsorted = [sampleInfo.systematics[pdfKey][selection]["yield"] for pdfKey in pdfKeys]
+        # Order the 100 yields and take the 84th and 16th.
+        # See eq. 25 here: https://arxiv.org/pdf/1510.03865.pdf
+        pdfYields = sorted(pdfYieldsUnsorted)
+        if len(pdfKeys) == 100:
+            pdfUp = pdfYields[83]
+            pdfDown = pdfYields[15]
+        elif len(pdfKeys) == 30:
+            pdfUp = pdfYields[27]
+            pdfDown = pdfYields[5]
+        else:
+            raise RuntimeError("Could not determine MC PDF variations as we have {} PDF keys".format(len(pdfKeys)))
+        if verbose:
+            print("INFO: CalculatePDFVariationMC() -- for sampleName={}, selection={}, nominal={}; pdfUp={}, pdfDown={}; pdfUp-nominal={}, pdfDown-nominal={}".format(
+                    sampleInfo.sampleName, selection, nominal, pdfUp, pdfDown, pdfUp-nominal, pdfDown-nominal), flush=True)
+            # if len(pdfKeys) == 100:
+            #     print("INFO: CalculatePDFVariationMC() -- yield 15 = {}; yield 83 = {}".format(pdfYields[15], pdfYields[83]), flush=True)
+            # elif len(pdfKeys) == 30:
+            #     print("INFO: CalculatePDFVariationMC() -- yield 27 = {}; yield 5 = {}".format(pdfYields[27], pdfYields[5]), flush=True)
+            # print("\tINFO: CalculatePDFVariationMC() -- pdfYields={}".format(pdfYields), flush=True)
+        sampleInfo.systematics["LHEPdfWeightUp"][selection]["yield"] = pdfUp
+        sampleInfo.systematics["LHEPdfWeightDown"][selection]["yield"] = pdfDown
+
+
+def ComputePDFVariationHessian(sampleInfo, pdfKeys, verbose=False):
+    # Sum in quadrature central - var, and use this as a symmetric uncertainty (both the up and down)
+    pdfKeys = sorted(pdfKeys, key=lambda x: int(x[x.rfind("_")+1:]))
+    # now, if we still have over 100, remove the last two
+    if len(pdfKeys) > 100:
+        pdfKeys = pdfKeys[:-2]
+    elif len(pdfKeys) == 32:
+        pdfKeys = pdfKeys[:-2]
+    if verbose:
+        print("INFO: sampleName={}, we now have {} pdf variations to consider".format(sampleInfo.sampleName, len(pdfKeys)))
+    for selection in selectionNames:
+        # if not sampleInfo.systematics["LHEPdfWeightHessianNominal"][selection]["yield"]:
+        #     sampleInfo.systematics["LHEPdfWeightHessianNominal"][selection]["yield"] = sampleInfo.systematics["nominal"][selection]["yield"]
+        # nominal = sampleInfo.systematics["LHEPdfWeightHessianNominal"][selection]["yield"]
+        nominal = sampleInfo.systematics["nominal"][selection]["yield"]
+        pdfYields = [sampleInfo.systematics[pdfKey][selection]["yield"] for pdfKey in pdfKeys]
+        pdfVars = [pow(nominal-pdfYield, 2) for pdfYield in pdfYields]
+        pdfDeltaX = math.sqrt(sum(pdfVars))
+        if not "LHEPdfWeightHessianUp" in sampleInfo.systematics.keys():
+            AppendSystematics(["LHEPdfWeightHessianUp", "LHEPdfWeightHessianDown"], selectionNames, sampleInfo)
+        sampleInfo.systematics["LHEPdfWeightHessianUp"][selection]["yield"] = nominal + pdfDeltaX
+        sampleInfo.systematics["LHEPdfWeightHessianDown"][selection]["yield"] = nominal - pdfDeltaX
+
+
+def ComputePDFSystematic(sampleInfo):
+    branchTitle = GetBranchTitle(sampleInfo, "LHEPdfWeight_0")
+    pdfVariationType, pdfName = GetPDFVariationTypeAndName(sampleInfo)
+    pdfKeys = [syst for syst in sampleInfo.systematics.keys() if syst[:syst.rfind("_")] == "LHEPdfWeight"]
+    if pdfVariationType != "mcNoCentral":
+        pdfKeys.remove("LHEPdfWeight_0")  # don't consider index 0, central value
+    verbose = False
+    if "mc" in pdfVariationType:
+        ComputePDFVariationMC(sampleInfo, pdfKeys, verbose)
+    elif pdfVariationType == "hessian":
+        ComputePDFVariationHessian(sampleInfo, pdfKeys, verbose)
+    else:
+        raise RuntimeError("Unknown PDF type '{}'. Can't calculate the PDF variations for this type (unimplemented).".format(pdfVariationType))
+
+
+def CombineHessianAndMC(sampleInfo, sampleInfoHessian):
+    for selection in selectionNames:
+        systName = "LHEPdfWeight"
+        totalMCDelta = 0
+        if "deltaQuad" in sampleInfo.systematics[systName+"Up"][selection].keys():
+            totalMCDelta = math.sqrt(sampleInfo.systematics[systName+"Up"][selection]["deltaQuad"])
+        nominal = sampleInfo.systematics["nominal"][selection]["yield"]
+        nominalHessian = sampleInfoHessian.systematics["nominal"][selection]["yield"]
+        if systName+"HessianUp" in sampleInfoHessian.systematics.keys():
+            hessianDelta = sampleInfoHessian.systematics[systName+"HessianUp"][selection]["yield"] - nominalHessian
+            totalDelta = math.sqrt(totalMCDelta**2 + hessianDelta**2)
+        else:
+            totalDelta = totalMCDelta
+        sampleInfo.systematics[systName+"Up"][selection]["yield"] = nominal + totalDelta
+        sampleInfo.systematics[systName+"Down"][selection]["yield"] = nominal - totalDelta
+
+
+def ComputeScaleSystematic(sampleInfo, verbose=False):
+    branchTitle = GetBranchTitle(sampleInfo, "LHEScaleWeight_0")
+    validIndices, shapeTitles = cc.ParseShapeBranchTitle(branchTitle)
+    shapeKeys = [syst for syst in sampleInfo.systematics.keys() if syst[:syst.rfind("_")] == "LHEScaleWeight"]
+    validShapeKeys = [shapeKey for shapeKey in shapeKeys if shapeKey[shapeKey.rfind("_")+1:] in validIndices]
+    for selection in selectionNames:
+        nominal = sampleInfo.systematics["nominal"][selection]["yield"]
+        shapeYields = [sampleInfo.systematics[shapeKey][selection]["yield"] for shapeKey in validShapeKeys]
+        if verbose:
+            print("\tINFO: For sampleName={}, systName=LHEScaleWeight, selection={}, found validShapeKeys={}, valid shapeTitles={}, shapeYields={}".format(
+                    sampleInfo.sampleName, selection, validShapeKeys, shapeTitles, shapeYields))
+        deltas = [shapeYield-nominal for shapeYield in shapeYields]
+        deltasAbs = [math.fabs(delta) for delta in deltas]
+        maxDeltaIdx = deltasAbs.index(max(deltasAbs))
+        maxDelta = deltas[maxDeltaIdx]
+        if verbose:
+            print("\tINFO: For sampleName={}, systName=LHEScaleWeight, selection={}, found deltas={} with maxDelta={} and nominal={}".format(
+                    sampleInfo.sampleName, selection, deltas, maxDelta, nominal))
+        sampleInfo.systematics["LHEScaleWeightUp"][selection]["yield"] = nominal + math.fabs(maxDelta)
+        sampleInfo.systematics["LHEScaleWeightDown"][selection]["yield"] = nominal - math.fabs(maxDelta)
+        sampleInfo.systematics["LHEScaleWeightUp"][selection]["preselYield"] = sampleInfo.systematics[validShapeKeys[maxDeltaIdx]]["preselection"]["yield"]
+        sampleInfo.systematics["LHEScaleWeightDown"][selection]["preselYield"] = sampleInfo.systematics[validShapeKeys[maxDeltaIdx]]["preselection"]["yield"]
+
+
+def RecomputeBackgroundSystematic(systName, sampleInfos):
+    for sample in sampleInfos.keys():
+        if not IsBackground(sample):
+            continue
+        if sample not in dictSampleComponents.keys():
+            continue  # this background doens't have more than one component
+        if "LHEScaleWeight" == systName:
+            ResetSystematic(sampleInfos[sample], systName)
+            for component in dictSampleComponents[sample]:
+                    ResetSystematic(sampleInfos[component], systName)
+                    ComputeScaleSystematic(sampleInfos[component])
+                    AddSystematicQuad(sampleInfos[sample], sampleInfos[component], systName)
+            ComputeYieldFromDeltaQuad(sampleInfos[sample], systName) #FIXME: handle ZJets differently?
+        if "LHEPdfWeight" == systName:
+            ResetSystematic(sampleInfos[sample], systName)
+            componentsWithMCVariations = []
+            hessianComponent = None
+            for component in dictSampleComponents[sample]:
+                ResetSystematic(sampleInfos[component], systName)
+                pdfType, pdfName = GetPDFVariationTypeAndName(sampleInfos[component])
+                if "mc" in pdfType:
+                    ComputePDFSystematic(sampleInfos[component])
+                    componentsWithMCVariations.append(component)
+                    AddSystematicQuad(sampleInfos[sample], sampleInfos[component], systName)
+                else:
+                    AddSystematics(sampleInfos[sample], sampleInfos[component], systName)
+                    if not hessianComponent:
+                        hessianComponent = copy.deepcopy(sampleInfos[sample])
+                    else:
+                        hessianComponent += sampleInfos[sample]
+            if hessianComponent is not None:
+                ComputePDFSystematic(hessianComponent)
+            CombineHessianAndMC(sampleInfos[sample], hessianComponent)
+
+
+
 def WriteDatacard(card_file_path, year):
-    #FIXME extend to multiple years later
     thresholdForAutoMCStats = 10
     yearStr = "# " + year + "\n"
     lumiStr = "# " + str(intLumi) + "\n\n"
@@ -857,7 +1257,6 @@ def WriteDatacard(card_file_path, year):
     card_file.write(lumiStr)
     for i_signal_name, signal_name in enumerate(signal_names):
         doMassPointLoop = True
-        #for i_mass_point, mass_point in enumerate(mass_points):
         for iSel, selectionName in enumerate(selectionNames):
             # fullSignalName = signal_name.replace('[masspoint]',mass_point)
             mass_point = selectionName.replace("LQ", "") if "LQ" in selectionName else "0"
@@ -884,7 +1283,8 @@ def WriteDatacard(card_file_path, year):
                 datacardLines.append("imax " + str(n_channels) + "\n")
                 datacardLines.append("jmax " + str(n_background) + "\n")
                 if doSystematics:
-                    datacardLines.append("kmax " + str(n_systematics[year]) + "\n\n")
+                    n_systs, systNames = GetNTotalSysts(years)
+                    datacardLines.append("kmax " + str(n_systs) + "\n\n")
                 else:
                     datacardLines.append("kmax 0\n\n")
                 datacardLines.append("---------------\n")
@@ -892,7 +1292,7 @@ def WriteDatacard(card_file_path, year):
                 datacardLines.append("---------------\n")
                 datacardLines.append("bin bin1\n\n")
     
-                total_data, total_data_err = d_dataSampleInfos[year]["DATA"].GetRateAndErr(selectionName)
+                total_data, total_data_err = d_dataSampleInfos["DATA"].GetRateAndErr(selectionName)
                 datacardLines.append("observation " + str(total_data) + "\n\n")
     
                 line = "bin "
@@ -911,11 +1311,11 @@ def WriteDatacard(card_file_path, year):
                 datacardLines.append(line + "\n\n")
     
                 # rate line
-                signalYield, signalYieldErr = d_signalSampleInfos[year][signalNameForFile].GetRateAndErr(selectionName)
+                signalYield, signalYieldErr = d_signalSampleInfos[signalNameForFile].GetRateAndErr(selectionName)
                 line = "rate {} ".format(signalYield)
                 totalBackgroundYield = 0
                 for background_name in background_names:
-                    bkgYield, bkgYieldErr = d_backgroundSampleInfos[year][background_name].GetRateAndErr(selectionName)
+                    bkgYield, bkgYieldErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
                     line += "{} ".format(bkgYield)
                     totalBackgroundYield += bkgYield
                 datacardLines.append(line.strip() + "\n")
@@ -927,7 +1327,6 @@ def WriteDatacard(card_file_path, year):
     
             # recall the form: systDict['PileupUp'/systematicFromHist]['ZJet_amcatnlo_ptBinned'/sampleName]['LQXXXX'/selection] = yield
             # for RPV, select proper signalSystDict based on ctau of signal
-            # FIXME
             # if doRPV:
             #     ctau = int(signal_name[signal_name.find("CTau") + 4:])
             #     signalSystDict = signalSystDictByCTau[ctau]
@@ -938,76 +1337,81 @@ def WriteDatacard(card_file_path, year):
                     # else:
                     #     selectionNameSyst = selectionName
                     selectionNameSyst = selectionName
-                    line = syst + " lnN "
+                    systName = syst
+                    if systName == "Lumi":
+                        systName += year.replace("preVFP", "").replace("postVFP", "")
+                    line = systName + " lnN "
                     if syst in systematicsNamesSignal[year] and selectionName != "preselection" and selectionName != "trainingSelection":
-                        if signalNameForFile not in list(d_systNominals[year].keys()):
-                            d_systNominals[year][signalNameForFile] = {}
-                            d_systNominalErrs[year][signalNameForFile] = {}
-                            d_systUpDeltas[year][signalNameForFile] = {}
-                            d_systDownDeltas[year][signalNameForFile] = {}
-                        if syst not in list(d_systNominals[year][signalNameForFile].keys()):
-                            d_systNominals[year][signalNameForFile][syst] = {}
-                            d_systNominalErrs[year][signalNameForFile][syst] = {}
-                            d_systUpDeltas[year][signalNameForFile][syst] = {}
-                            d_systDownDeltas[year][signalNameForFile][syst] = {}
-                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_signalSampleInfos[year][signalNameForFile].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                        thisSigEvts, thisSigEvtsErr = d_signalSampleInfos[year][signalNameForFile].GetRateAndErr(selectionNameSyst)
+                        if signalNameForFile not in list(d_systNominals.keys()):
+                            d_systNominals[signalNameForFile] = {}
+                            d_systNominalErrs[signalNameForFile] = {}
+                            d_systUpDeltas[signalNameForFile] = {}
+                            d_systDownDeltas[signalNameForFile] = {}
+                        if syst not in list(d_systNominals[signalNameForFile].keys()):
+                            d_systNominals[signalNameForFile][syst] = {}
+                            d_systNominalErrs[signalNameForFile][syst] = {}
+                            d_systUpDeltas[signalNameForFile][syst] = {}
+                            d_systDownDeltas[signalNameForFile][syst] = {}
+                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_signalSampleInfos[signalNameForFile].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics)
+                        thisSigEvts, thisSigEvtsErr = d_signalSampleInfos[signalNameForFile].GetRateAndErr(selectionNameSyst)
                         thisSigSystUp = deltaOverNominalUp*systNomYield
                         thisSigSystDown = deltaOverNominalDown*systNomYield
-                        d_systNominals[year][signalNameForFile][syst][selectionNameSyst] = systNomYield
-                        _, d_systNominalErrs[year][signalNameForFile][syst][selectionNameSyst] = d_signalSampleInfos[year][signalNameForFile].GetRateAndErr(systSelection)
-                        d_systUpDeltas[year][signalNameForFile][syst][selectionNameSyst] = thisSigSystUp
-                        d_systDownDeltas[year][signalNameForFile][syst][selectionNameSyst] = thisSigSystDown
+                        d_systNominals[signalNameForFile][syst][selectionNameSyst] = systNomYield
+                        _, d_systNominalErrs[signalNameForFile][syst][selectionNameSyst] = d_signalSampleInfos[signalNameForFile].GetRateAndErr(systSelection)
+                        d_systUpDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystUp
+                        d_systDownDeltas[signalNameForFile][syst][selectionNameSyst] = thisSigSystDown
                         if EntryIsValid(systEntry):
-                            d_signalSampleInfos[year][signalNameForFile].UpdateSystsApplied(syst)
+                            d_signalSampleInfos[signalNameForFile].UpdateSystsApplied(syst)
                             line += str(systEntry) + " "
+                            # print("INFO: Got valid syst entry For sample={} selection={} syst={}, systEntry={}, thisSigEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                            #         signalNameForFile, selectionNameSyst, syst, systEntry, thisSigEvts, thisSigSystUp, thisSigSystDown))
                         else:
-                            # print("INFO: Got invalid syst entry For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
-                            #         background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
+                            print("INFO: Got invalid syst entry For sample={} selection={} syst={}, systEntry={}, thisSigEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                                    signalNameForFile, selectionNameSyst, syst, systEntry, thisSigEvts, thisSigSystUp, thisSigSystDown))
                             line += "- "
                     else:
                         line += "- "
                     for ibkg, background_name in enumerate(background_names):
-                        if background_name not in list(d_systNominals[year].keys()):
-                            d_systNominals[year][background_name] = {}
-                            d_systNominalErrs[year][background_name] = {}
-                            d_systUpDeltas[year][background_name] = {}
-                            d_systDownDeltas[year][background_name] = {}
-                        if syst not in list(d_systNominals[year][background_name].keys()):
-                            d_systNominals[year][background_name][syst] = {}
-                            d_systNominalErrs[year][background_name][syst] = {}
-                            d_systUpDeltas[year][background_name][syst] = {}
-                            d_systDownDeltas[year][background_name][syst] = {}
-                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[year][background_name].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                        thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[year][background_name].GetRateAndErr(selectionNameSyst)
+                        if background_name not in list(d_systNominals.keys()):
+                            d_systNominals[background_name] = {}
+                            d_systNominalErrs[background_name] = {}
+                            d_systUpDeltas[background_name] = {}
+                            d_systDownDeltas[background_name] = {}
+                        if syst not in list(d_systNominals[background_name].keys()):
+                            d_systNominals[background_name][syst] = {}
+                            d_systNominalErrs[background_name][syst] = {}
+                            d_systUpDeltas[background_name][syst] = {}
+                            d_systDownDeltas[background_name][syst] = {}
+                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[background_name].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics)
+                        thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionNameSyst)
                         thisBkgSystUp = deltaOverNominalUp*systNomYield
                         thisBkgSystDown = deltaOverNominalDown*systNomYield
-                        d_systNominals[year][background_name][syst][selectionNameSyst] = systNomYield
-                        _, d_systNominalErrs[year][background_name][syst][selectionNameSyst] = d_backgroundSampleInfos[year][background_name].GetRateAndErr(systSelection)
-                        d_systUpDeltas[year][background_name][syst][selectionNameSyst] = thisBkgSystUp
-                        d_systDownDeltas[year][background_name][syst][selectionNameSyst] = thisBkgSystDown
+                        d_systNominals[background_name][syst][selectionNameSyst] = systNomYield
+                        _, d_systNominalErrs[background_name][syst][selectionNameSyst] = d_backgroundSampleInfos[background_name].GetRateAndErr(systSelection)
+                        d_systUpDeltas[background_name][syst][selectionNameSyst] = thisBkgSystUp
+                        d_systDownDeltas[background_name][syst][selectionNameSyst] = thisBkgSystDown
                         # bkg component info, for those backgrounds which have multiple components/subprocesses
                         if background_name in dictSampleComponents.keys():
                             for componentBkg in dictSampleComponents[background_name]:
-                                if componentBkg not in list(d_systNominals[year].keys()):
-                                    d_systNominals[year][componentBkg] = {}
-                                    d_systNominalErrs[year][componentBkg] = {}
-                                    d_systUpDeltas[year][componentBkg] = {}
-                                    d_systDownDeltas[year][componentBkg] = {}
-                                if syst not in list(d_systNominals[year][componentBkg].keys()):
-                                    d_systNominals[year][componentBkg][syst] = {}
-                                    d_systNominalErrs[year][componentBkg][syst] = {}
-                                    d_systUpDeltas[year][componentBkg][syst] = {}
-                                    d_systDownDeltas[year][componentBkg][syst] = {}
-                                systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[year][componentBkg].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                                d_systNominals[year][componentBkg][syst][selectionNameSyst] = systNomYield
-                                compBkgEvts, d_systNominalErrs[year][componentBkg][syst][selectionNameSyst] = d_backgroundSampleInfos[year][componentBkg].GetRateAndErr(systSelection)
-                                d_systUpDeltas[year][componentBkg][syst][selectionNameSyst] = deltaOverNominalUp*systNomYield
-                                d_systDownDeltas[year][componentBkg][syst][selectionNameSyst] = deltaOverNominalDown*systNomYield
+                                if componentBkg not in list(d_systNominals.keys()):
+                                    d_systNominals[componentBkg] = {}
+                                    d_systNominalErrs[componentBkg] = {}
+                                    d_systUpDeltas[componentBkg] = {}
+                                    d_systDownDeltas[componentBkg] = {}
+                                if syst not in list(d_systNominals[componentBkg].keys()):
+                                    d_systNominals[componentBkg][syst] = {}
+                                    d_systNominalErrs[componentBkg][syst] = {}
+                                    d_systUpDeltas[componentBkg][syst] = {}
+                                    d_systDownDeltas[componentBkg][syst] = {}
+                                systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[componentBkg].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics)
+                                d_systNominals[componentBkg][syst][selectionNameSyst] = systNomYield
+                                compBkgEvts, d_systNominalErrs[componentBkg][syst][selectionNameSyst] = d_backgroundSampleInfos[componentBkg].GetRateAndErr(systSelection)
+                                d_systUpDeltas[componentBkg][syst][selectionNameSyst] = deltaOverNominalUp*systNomYield
+                                d_systDownDeltas[componentBkg][syst][selectionNameSyst] = deltaOverNominalDown*systNomYield
                                 # print("INFO: Got syst entry for sample={} selectionNameSyst={} systSelection={}, syst={}, systEntry={}, thisBkgEvts={}, systNomYield={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
                                 #         componentBkg, selectionNameSyst, systSelection, syst, systEntry, compBkgEvts, systNomYield, deltaOverNominalUp*systNomYield, deltaOverNominalDown*systNomYield))
                         if EntryIsValid(systEntry):
-                            d_backgroundSampleInfos[year][background_name].UpdateSystsApplied(syst)
+                            d_backgroundSampleInfos[background_name].UpdateSystsApplied(syst)
                             line += str(systEntry) + " "
                         else:
                             # print("INFO: Got invalid syst entry for sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
@@ -1152,6 +1556,7 @@ backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 
 selectionPoints = ["preselection", "trainingSelection"] + mass_points
 selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in selectionPoints]
+allSelections = selectionNames + ["preselection", "trainingSelection"]
 additionalBkgSystsDict = {}
 
 # QCDNorm is 0.40 [40% norm uncertainty for eejj = uncertaintyPerElectron*2]
@@ -1159,21 +1564,27 @@ additionalBkgSystsDict = {}
 dyNormDeltaXOverX = 0.1
 ttBarNormDeltaXOverX = 0.1
 qcdNormDeltaXOverX = 0.4
-d_lumiDeltaXOverX = {}
-d_lumiCorrelatedDeltaXOverX = {}
-d_lumi1718CorrelatedDeltaXOverX = {}
-d_lumiDeltaXOverX["2016preVFP"] = 0.01
-d_lumiCorrelatedDeltaXOverX["2016preVFP"] = 0.006
-d_lumiDeltaXOverX["2016postVFP"] = 0.01
-d_lumiCorrelatedDeltaXOverX["2016postVFP"] = 0.006
+lumiDeltaXOverX = {}
+lumiCorrelatedDeltaXOverX = {}
+lumi1718CorrelatedDeltaXOverX = {}
+lumiDeltaXOverX["2016preVFP"] = 0.01
+lumiCorrelatedDeltaXOverX["2016preVFP"] = 0.006
+lumiDeltaXOverX["2016postVFP"] = 0.01
+lumiCorrelatedDeltaXOverX["2016postVFP"] = 0.006
 # from: https://arxiv.org/pdf/1506.04072.pdf tables 1-3: 5% is probably good enough for SingleTop PDF syst
 # additionalBkgSystsDict["SingleTop"] = {"LHEPdfWeight": {sel: 0.10 for sel in selectionNames}}
-d_lumiDeltaXOverX["2017"] = 0.02
-d_lumiCorrelatedDeltaXOverX["2017"] = 0.009
-d_lumi1718CorrelatedDeltaXOverX["2017"] = 0.006
-d_lumiDeltaXOverX["2018"] = 0.015
-d_lumiCorrelatedDeltaXOverX["2018"] = 0.02
-d_lumi1718CorrelatedDeltaXOverX["2018"] = 0.002
+lumiDeltaXOverX["2017"] = 0.02
+lumiCorrelatedDeltaXOverX["2017"] = 0.009
+lumi1718CorrelatedDeltaXOverX["2017"] = 0.006
+lumiDeltaXOverX["2018"] = 0.015
+lumiCorrelatedDeltaXOverX["2018"] = 0.02
+lumi1718CorrelatedDeltaXOverX["2018"] = 0.002
+d_flatSystematics = {}
+for year in allYears:
+    d_flatSystematics.update({year: {"Lumi": lumiDeltaXOverX[year]} })
+    d_flatSystematics[year].update({"LumiCorrelated": lumiCorrelatedDeltaXOverX[year]})
+    if year == "2017" or year == "2018":
+        d_flatSystematics[year].update({"LumiCorrelated1718": lumiCorrelatedDeltaXOverX[year]})
 
 n_background = len(background_names)
 # all bkg systematics, plus stat 'systs' for all bkg plus signal plus 3 backNormSysts
@@ -1199,18 +1610,18 @@ if len(sys.argv) < 4:
 
 qcdAnaName = sys.argv[1]
 dataMCAnaName = sys.argv[2]
-year = sys.argv[3]
-# FIXME TODO: add support for specifying signal type via command line argument
+requestedYear = sys.argv[3]
+# TODO: add support for specifying signal type via command line argument
 # if len(sys.argv > 4):
 #     signalNameTemplate = sys.argv[4]
 
-if year == "2016pre":
-    year = "2016preVFP"
-elif year == "2016post":
-    year = "2016postVFP"
+if requestedYear == "2016pre":
+    requestedYear = "2016preVFP"
+elif requestedYear == "2016post":
+    requestedYear = "2016postVFP"
 
-if year != "all":
-    years = [year]
+if requestedYear != "all":
+    years = [requestedYear]
 else:
     years = allYears
 
@@ -1220,29 +1631,22 @@ if not signalNameTemplate.split("_")[0] in dataMCAnaName or not signalNameTempla
 d_systTitles = {}
 intLumi = 0
 validYear = False
-if "2016preVFP" in years:
-    intLumi += 19501.601622000
-    validYear = True
+for year in years:
+    if year not in allYears:
+        raise RuntimeError("Provided year '{}' is not one of 2016pre(VFP)/2016post(VFP)/2017/2018.")
     d_systTitles[year] = systTitleDict
-if "2016postVFP" in years:
-    intLumi += 16812.151722000
-    validYear = True
-    d_systTitles[year] = systTitleDict
-if "2017" in years:
-    do2017 = True
-    intLumi += 41477.877399
-    d_systTitles[year] = systTitleDict
-    d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
-    validYear = True
-if "2018" in years:
-    do2018 = True
-    intLumi += 59827.449483
-    d_systTitles[year] = systTitleDict
-    d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
-    validYear = True
-if not validYear:
-    print("ERROR: could not find one of 2016pre(VFP)/2016post(VFP)/2017/2018 as year. Quitting.")
-    exit(-1)
+    if "2016preVFP" == year:
+        intLumi += 19501.601622000
+    elif "2016postVFP" in years:
+        intLumi += 16812.151722000
+    elif "2017" == year:
+        do2017 = True
+        intLumi += 41477.877399
+        d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
+    elif "2018" in years:
+        do2018 = True
+        intLumi += 59827.449483
+        d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
 cc.intLumi = intLumi
 # ttbarFilePath = (
 #     os.environ["LQDATA"]
@@ -1272,7 +1676,7 @@ systematicsNamesBackground = {year:list(systTitlesDict.keys()) for year, systTit
 allBkgSysts = {year: [syst for syst in systematicsNamesBg if "norm" not in syst.lower() and "shape" not in syst.lower()] for year, systematicsNamesBg in systematicsNamesBackground.items()}
 d_applicableSystematics = {year: {bkg: list(allBkgSysts[year]) for bkg in background_fromMC_names} for year in years}
 for year in years:
-    d_applicableSystematics[year].update({bkg: "QCD_Norm" for bkg in background_QCDfromData})
+    d_applicableSystematics[year].update({bkg: ["QCD_Norm"] for bkg in background_QCDfromData})
     d_applicableSystematics[year][zjetsSampleName].append("DY_Norm")
     d_applicableSystematics[year][zjetsSampleName].append("DY_Shape")
     d_applicableSystematics[year][ttbarSampleName].append("TT_Norm")
@@ -1342,7 +1746,7 @@ for year, dictSamples in dictSamplesByYear.items():
         dictDesiredSamples[sample] = dictSamples[sample]
         pieceList = dictSavedSamples[sample]["pieces"]
         if len(pieceList) < 2:
-            continue
+            continue  # in this case, we have only a single background component
         expandedPieces = cc.ExpandCompositePieces(pieceList, dictSamples) if len(pieceList) > 1 else [pieceList]
         dictSampleComponents[sample] = []
         for piece in expandedPieces:
@@ -1356,6 +1760,22 @@ for year, dictSamples in dictSamplesByYear.items():
     dictSamplesContainingSampleByYear[year] = dictSamplesContainingSample
     dictSampleComponentsByYear[year] = dictSampleComponents
     dictDesiredSamplesByYear[year] = dictDesiredSamples
+
+d_applicableSystematics["all"] = {}
+allSamples = set()
+for year in years:
+    for sampleName in d_applicableSystematics[year].keys():
+        if sampleName not in d_applicableSystematics["all"].keys():
+            d_applicableSystematics["all"][sampleName] = []
+        d_applicableSystematics["all"][sampleName].extend(d_applicableSystematics[year][sampleName])
+        allSamples.add(sampleName)
+for sampleName in allSamples:
+    d_applicableSystematics["all"][sampleName] = set(d_applicableSystematics["all"][sampleName])
+
+systematicsNamesSignal["all"] = []
+for year in years:
+    systematicsNamesSignal["all"].extend(systematicsNamesSignal[year])
+systematicsNamesSignal["all"] = set(systematicsNamesSignal["all"])
 
 d_systUpDeltas = {}
 d_systDownDeltas = {}
@@ -1383,11 +1803,12 @@ for idx, year in enumerate(years):
     #     dictSamplesTTBar[ttbarSampleName] = [ttbarSampleName]
     #     dictSamples.update(dictSamplesTTBar)
     #     print "found ttbar samples:", dictSamplesTTBar
-    d_systUpDeltas[year] = {}
-    d_systDownDeltas[year] = {}
-    d_systNominals[year] = {}  # same as rates, but more conveniently indexed
-    d_systNominalErrs[year] = {}
-    d_datacardStatErrs[year] = {}
+
+    # d_systUpDeltas[year] = {}
+    # d_systDownDeltas[year] = {}
+    # d_systNominals[year] = {}  # same as rates, but more conveniently indexed
+    # d_systNominalErrs[year] = {}
+    # d_datacardStatErrs[year] = {}
 
     # rates/etc.
     print("INFO: Filling background [MC] information for year {}...".format(year))
@@ -1396,6 +1817,7 @@ for idx, year in enumerate(years):
     dictDesiredBackgroundSamples = dictDesiredBackgroundSamplesByYear[year]
     dictSamples = dictSavedSamplesByYear[year]
     dictSamplesContainingSample = dictSamplesContainingSampleByYear[year]
+    dictSampleComponents = dictSampleComponentsByYear[year]
     qcdFilePath = qcdFilePaths[idx]
     d_backgroundSampleInfos[year] = FillDicts(dataMC_filepath, list(dictDesiredBackgroundSamples.keys()), "MC", dictSavedSamples, dictSamplesContainingSample)
     if doQCD:
@@ -1419,16 +1841,29 @@ for idx, year in enumerate(years):
     #    break
     # print signalSystDict
     # print backgroundSystDict
-    print("INFO: Preparing shape histograms...", end=' ')
-    CreateAndWriteHistograms(year)
-    print("Done")
+
+SumSampleInfoOverYears(d_backgroundSampleInfos, years)
+SumSampleInfoOverYears(d_signalSampleInfos, years)
+SumSampleInfoOverYears(d_dataSampleInfos, years)
+# now, need to recompute LHEScale/LHEPdfUncertainties
+RecomputeBackgroundSystematic("LHEScaleWeight", d_backgroundSampleInfos)
+RecomputeBackgroundSystematic("LHEPdfWeight", d_backgroundSampleInfos)
+systematicsNamesBackground["all"] = []
+d_systTitles["all"] = {}
+for year in years:
+    systematicsNamesBackground["all"].extend(systematicsNamesBackground[year])
+    d_systTitles["all"].update(d_systTitles[year])
+systematicsNamesBackground["all"] = set(systematicsNamesBackground["all"])
+
+print("INFO: Preparing shape histograms...", end=' ')
+CreateAndWriteHistograms(requestedYear)
+print("Done")
 
 # selectionNames = ["preselection"]
 # selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
-
 print("INFO: Preparing datacard...", end=' ')
-datacard_filePath = "tmp_card_file_{}_{}.txt".format(signalNameTemplate.split("_")[0], year)
-WriteDatacard(datacard_filePath, year)
+datacard_filePath = "tmp_card_file_{}_{}.txt".format(signalNameTemplate.split("_")[0], requestedYear)
+WriteDatacard(datacard_filePath, requestedYear)
 print("Done")
 
 if not os.path.exists(tablesDir):
@@ -1437,405 +1872,408 @@ if not os.path.exists(tablesDir):
 if doSystematics:
     # tables
     columnNames = ["Systematic", "Signal (%)", "Background (%)"]
-    for year in years:
-        for selectionName in selectionNames:
-            table = []
-            for syst in systematicsNamesBackground[year]:
-                print("INFO: total syst table for selection {}".format(selectionName))
+    for selectionName in selectionNames:
+        table = []
+        for syst in systematicsNamesBackground["all"]:
+            print("INFO: total syst table for selection {}".format(selectionName))
+            selectionNameSyst = selectionName
+            if selectionName != "preselection" and selectionName != "trainingSelection":
+                massPoint = selectionName.replace("LQ", "")
+                if int(massPoint) > maxLQSelectionMass:
+                    selectionNameSyst = "LQ"+str(maxLQSelectionMass)
+            if syst in systematicsNamesSignal["all"] and selectionName != "preselection" and selectionName != "trainingSelection":
+                for i_signal_name, signal_name in enumerate(signal_names):
+                    fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
+                    thisEntry, sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown, _, _ = d_signalSampleInfos[signalNameForFile].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
+                    if thisEntry == "-":
+                        thisSigSystPercent = 0
+                        continue
+                    thisSigSyst = max(sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown)
+                    thisSigSystPercent = round(100*thisSigSyst, 1)
+            else:
+                thisSigSystPercent = "  - "
+            totalBkgSyst = 0
+            totalBkgNominal = 0
+            for background_name in background_names:
+                # compute effect of this systematic on the total background yield
+                thisEntry, bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown, _, _ = d_backgroundSampleInfos[background_name].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
+                thisBkgNominalEvts, _ = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
+                # print("INFO: for background {}, systematic {}, selection {}, bkgYieldNominalAtSyst={}, bkgEvts={}".format(background_name, syst, selectionNameSyst, d_systNominals[background_name][syst][selectionNameSyst], thisBkgNominalEvts))
+                # print("INFO: for background {}, systematic {}, selection {}, d_systNominals={}, bkgEvts={}".format(background_name, syst, selectionNameSyst, d_systNominals, thisBkgNominalEvts))
+                totalBkgNominal += d_systNominals[background_name][syst][selectionNameSyst]
+                if thisEntry != "-":
+                    thisBkgSyst = max(bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown)
+                    thisBkgDelta = thisBkgSyst*d_systNominals[background_name][syst][selectionNameSyst]
+                    totalBkgSyst += thisBkgDelta*thisBkgDelta
+                    # print("INFO: for background {}, systematic {}, selection {}, thisBkgSyst={}, bkgYieldNominalAtSyst={}, thisBkgDelta={}.".format(background_name, syst, selectionNameSyst, thisBkgSyst, d_systNominals[background_name][syst][selectionNameSyst], thisBkgDelta))
+                else:
+                    print("INFO: for background {}, systematic {}, selection {}, syst not applied as thisEntry='{}'.".format(background_name, syst, selectionNameSyst, thisEntry))
+            if totalBkgNominal > 0:
+                totalBkgSystPercent = 100*(math.sqrt(totalBkgSyst))/totalBkgNominal
+                print("INFO: for systematic {}, selection {}, totalBkgSyst={}, totalBkgNominal={}.".format(syst, selectionNameSyst, math.sqrt(totalBkgSyst), totalBkgNominal))
+            else:
+                totalBkgSystPercent = -1
+            table.append([d_systTitles["all"][syst], thisSigSystPercent, totalBkgSystPercent])
+        print("Selection: {}".format(selectionName))
+        print(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
+        print(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
+        print()
+        with open(tablesDir+"/"+selectionName+".txt", "w") as table_file:
+            table_file.write(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
+        with open(tablesDir+"/"+selectionName+".tex", "w") as table_file:
+            table_file.write(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
+
+    # print info on systematics used
+    print(requestedYear)
+    print("{0:40}\t{1}".format("sampleName", "systematics applied"))
+    for sampleName, info in d_backgroundSampleInfos.items():
+        if isinstance(info, dict):
+            continue
+        if sampleName in background_names:
+            print("*", end="")
+        print("{0:40}\t{1}".format(sampleName, sorted(list(info.systematicsApplied))))
+    print("{0:40}\t{1}".format("sampleName", "systematics applied"))
+    for sampleName, info in d_signalSampleInfos.items():
+        if signalNameTemplate.format(300) not in sampleName:
+            continue
+        print("{0:40}\t{1}".format(sampleName, sorted(list(info.systematicsApplied))))
+    print()
+
+    # compute total syst for all backgrounds at each selection
+    d_totalSystDeltaXOverX = {}
+    for selectionName in selectionNames:
+        if selectionName not in list(d_totalSystDeltaXOverX.keys()):
+            d_totalSystDeltaXOverX[selectionName] = {}
+        otherBkgTotalDeltaXOverXSqr = 0
+        for background_name in background_names:
+            thisBkgTotalSystOverNomSqr = 0
+            thisBkgSystOverNom = 0
+            for syst in systematicsNamesBackground:
                 selectionNameSyst = selectionName
                 if selectionName != "preselection" and selectionName != "trainingSelection":
                     massPoint = selectionName.replace("LQ", "")
                     if int(massPoint) > maxLQSelectionMass:
                         selectionNameSyst = "LQ"+str(maxLQSelectionMass)
-                if syst in systematicsNamesSignal[year] and selectionName != "preselection" and selectionName != "trainingSelection":
-                    for i_signal_name, signal_name in enumerate(signal_names):
-                        fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
-                        thisEntry, sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown, _, _ = d_signalSampleInfos[year][signalNameForFile].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                        if thisEntry == "-":
-                            thisSigSystPercent = 0
-                            continue
-                        thisSigSyst = max(sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown)
-                        thisSigSystPercent = round(100*thisSigSyst, 1)
-                else:
-                    thisSigSystPercent = "  - "
-                totalBkgSyst = 0
-                totalBkgNominal = 0
-                for background_name in background_names:
-                    # compute effect of this systematic on the total background yield
-                    # print("INFO: for background {}, systematic {}, selection {}, bkgYieldNominalAtSyst={}, bkgEvts={}".format(background_name, syst, selectionNameSyst, d_systNominals[background_name][syst][selectionNameSyst], thisBkgNominalEvts))
-                    thisEntry, bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown, _, _ = d_backgroundSampleInfos[year][background_name].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                    thisBkgNominalEvts, _ = d_backgroundSampleInfos[year][background_name].GetRateAndErr(selectionName)
-                    totalBkgNominal += d_systNominals[year][background_name][syst][selectionNameSyst]
-                    if thisEntry != "-":
-                        thisBkgSyst = max(bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown)
-                        thisBkgDelta = thisBkgSyst*d_systNominals[year][background_name][syst][selectionNameSyst]
-                        totalBkgSyst += thisBkgDelta*thisBkgDelta
-                        # print("INFO: for background {}, systematic {}, selection {}, thisBkgSyst={}, bkgYieldNominalAtSyst={}, thisBkgDelta={}.".format(background_name, syst, selectionNameSyst, thisBkgSyst, d_systNominals[background_name][syst][selectionNameSyst], thisBkgDelta))
-                    else:
-                        print("INFO: for background {}, systematic {}, selection {}, syst not applied as thisEntry='{}'.".format(background_name, syst, selectionNameSyst, thisEntry))
-                if totalBkgNominal > 0:
-                    totalBkgSystPercent = 100*(math.sqrt(totalBkgSyst))/totalBkgNominal
-                    print("INFO: for systematic {}, selection {}, totalBkgSyst={}, totalBkgNominal={}.".format(syst, selectionNameSyst, math.sqrt(totalBkgSyst), totalBkgNominal))
-                else:
-                    totalBkgSystPercent = -1
-                table.append([d_systTitles[year][syst], thisSigSystPercent, totalBkgSystPercent])
-            print("Selection: {}".format(selectionName))
-            print(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
-            print(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
-            print()
-            with open(tablesDir+"/"+selectionName+".txt", "w") as table_file:
-                table_file.write(tabulate(table, headers=columnNames, tablefmt="fancy_grid", floatfmt=".1f"))
-            with open(tablesDir+"/"+selectionName+".tex", "w") as table_file:
-                table_file.write(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
-
-        # print info on systematics used
-        print(year)
-        print("{0:40}\t{1}".format("sampleName", "systematics applied"))
-        for sampleName, info in d_backgroundSampleInfos[year].items():
-            if sampleName in background_names:
-                print("*", end="")
-            print("{0:40}\t{1}".format(sampleName, sorted(list(info.systematicsApplied))))
-        print("{0:40}\t{1}".format("sampleName", "systematics applied"))
-        for sampleName, info in d_signalSampleInfos[year].items():
-            if signalNameTemplate.format(300) not in sampleName:
+                thisEntry, bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown, _, _ = d_backgroundSampleInfos[background_name].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
+                if thisEntry != "-":
+                    thisBkgSystOverNom = max(bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown)
+                    print("INFO: selection={}, background_name={}, syst={}, deltaX/X={}".format(selectionName, background_name, syst, thisBkgSystOverNom))
+                    thisBkgTotalSystOverNomSqr += thisBkgSystOverNom*thisBkgSystOverNom
+            print("INFO: selection={}, background_name={}, total deltaX/X={}".format(selectionName, background_name, math.sqrt(thisBkgTotalSystOverNomSqr)))
+            d_totalSystDeltaXOverX[selectionName][background_name] = math.sqrt(thisBkgTotalSystOverNomSqr)
+            if background_name in otherBackgrounds:
+                otherBkgTotalDeltaXOverXSqr += thisBkgSystOverNom*thisBkgSystOverNom
+        d_totalSystDeltaXOverX[selectionName]["otherBackgrounds"] = math.sqrt(otherBkgTotalDeltaXOverXSqr)
+        for i_signal_name, signal_name in enumerate(signal_names):
+            fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
+            if selectionName == "preselection" and selectionName != "trainingSelection":
+                d_totalSystDeltaXOverX[selectionName][signalNameForFile] = 0.0
                 continue
-            print("{0:40}\t{1}".format(sampleName, sorted(list(info.systematicsApplied))))
-        print()
+            thisSigTotalSystOverNomSqr = 0
+            for syst in systematicsNamesSignal:
+                thisEntry, sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown, _, _ = d_signalSampleInfos[signalNameForFile].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
+                if thisEntry != "-":
+                    thisSigSystOverNom = max(sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown)
+                    print("INFO: selection={}, signal_name={}, syst={}, deltaX/X={}".format(selectionName, signalNameForFile, syst, thisSigSystOverNom))
+                    thisSigTotalSystOverNomSqr += thisSigSystOverNom*thisSigSystOverNom
+            print("INFO: selection={}, signal_name={}, total deltaX/X={}".format(selectionName, signalNameForFile, math.sqrt(thisSigTotalSystOverNomSqr)))
+            d_totalSystDeltaXOverX[selectionName][signalNameForFile] = math.sqrt(thisSigTotalSystOverNomSqr)
 
-        # compute total syst for all backgrounds at each selection
-        d_totalSystDeltaXOverX = {}
-        for selectionName in selectionNames:
-            if selectionName not in list(d_totalSystDeltaXOverX.keys()):
-                d_totalSystDeltaXOverX[selectionName] = {}
-            otherBkgTotalDeltaXOverXSqr = 0
-            for background_name in background_names:
-                thisBkgTotalSystOverNomSqr = 0
-                for syst in systematicsNamesBackground[year]:
-                    selectionNameSyst = selectionName
-                    if selectionName != "preselection" and selectionName != "trainingSelection":
-                        massPoint = selectionName.replace("LQ", "")
-                        if int(massPoint) > maxLQSelectionMass:
-                            selectionNameSyst = "LQ"+str(maxLQSelectionMass)
-                    thisEntry, bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown, _, _ = d_backgroundSampleInfos[year][background_name].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                    if thisEntry != "-":
-                        thisBkgSystOverNom = max(bkgSystDeltaOverNominalUp, bkgSystDeltaOverNominalDown)
-                        print("INFO: selection={}, background_name={}, syst={}, deltaX/X={}".format(selectionName, background_name, syst, thisBkgSystOverNom))
-                        thisBkgTotalSystOverNomSqr += thisBkgSystOverNom*thisBkgSystOverNom
-                print("INFO: selection={}, background_name={}, total deltaX/X={}".format(selectionName, background_name, math.sqrt(thisBkgTotalSystOverNomSqr)))
-                d_totalSystDeltaXOverX[selectionName][background_name] = math.sqrt(thisBkgTotalSystOverNomSqr)
-                if background_name in otherBackgrounds:
-                    otherBkgTotalDeltaXOverXSqr += thisBkgSystOverNom*thisBkgSystOverNom
-            d_totalSystDeltaXOverX[selectionName]["otherBackgrounds"] = math.sqrt(otherBkgTotalDeltaXOverXSqr)
-            for i_signal_name, signal_name in enumerate(signal_names):
-                if selectionName == "preselection" and selectionName != "trainingSelection":
-                    d_totalSystDeltaXOverX[selectionName][signalNameForFile] = 0.0
-                    continue
-                fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
-                thisSigTotalSystOverNomSqr = 0
-                for syst in systematicsNamesSignal[year]:
-                    thisEntry, sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown, _, _ = d_signalSampleInfos[year][signalNameForFile].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics[year])
-                    if thisEntry != "-":
-                        thisSigSystOverNom = max(sigSystDeltaOverNominalUp, sigSystDeltaOverNominalDown)
-                        print("INFO: selection={}, signal_name={}, syst={}, deltaX/X={}".format(selectionName, signalNameForFile, syst, thisSigSystOverNom))
-                        thisSigTotalSystOverNomSqr += thisSigSystOverNom*thisSigSystOverNom
-                print("INFO: selection={}, signal_name={}, total deltaX/X={}".format(selectionName, signalNameForFile, math.sqrt(thisSigTotalSystOverNomSqr)))
-                d_totalSystDeltaXOverX[selectionName][signalNameForFile] = math.sqrt(thisSigTotalSystOverNomSqr)
+    with open(systematics_dictFilePath.format(requestedYear), "w") as systematics_dictFile:
+        systematics_dictFile.write(str(d_totalSystDeltaXOverX))
+    print("systematics dict written to {}".format(systematics_dictFilePath.format(requestedYear)))
 
-        with open(systematics_dictFilePath.format(year), "w") as systematics_dictFile:
-            systematics_dictFile.write(str(d_totalSystDeltaXOverX))
-        print("systematics dict written to {}".format(systematics_dictFilePath.format(year)))
-
-        # make the plots
-        if not os.path.exists(plotsDir):
-            os.makedirs(plotsDir)
-        cc.SetDistinctiveTColorPalette()
-        plots_tfile = r.TFile(plots_filePath, "recreate")
-        systDir = plots_tfile.mkdir("systematics")
-        allSystCanvasNames = []
-        d_totalBkgSysts = {}
-        totalBkgSystsHeaders = []
-        includeYieldLine = True
-        for sampleName in list(d_systNominals[year].keys()):
-            yieldRow = ["yield"]
-            mcRow = ["mcEvts"]
-            yieldTable = []
-            table = []
-            systDeltaTable = []
-            tableHeaders = ["systematic"]
-            yieldTableHeaders = ["yield"]
-            systDeltaTableHeaders = ["delta"]
-            systStacks = []
-            systStacks.append(r.THStack())
-            systStacks[-1].SetName("allSystsStack_"+sampleName)
-            systematicsByNameAndMass = {}
-            systematicsSelectionsByNameAndMass = {}
-            for iSyst, syst in enumerate(d_systNominals[year][sampleName].keys()):
-                if not DoesSystematicApply(syst, sampleName, d_applicableSystematics[year]):
-                    continue
-                if not syst in d_totalBkgSysts.keys():
-                    d_totalBkgSysts[syst] = {}
-                if not "totalYield" in d_totalBkgSysts.keys():
-                    d_totalBkgSysts["totalYield"] = {}
-                tableRow = [d_systTitles[year][syst]]
-                systYieldRow = [d_systTitles[year][syst]]
-                systematicsByNameAndMass[d_systTitles[year][syst]] = []
-                systematicsSelectionsByNameAndMass[d_systTitles[year][syst]] = []
-                sortedSelectionDict = sorted(
-                        iter(d_systNominals[year][sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")))
-                systDir.cd()
-                systDir.mkdir(syst, syst, True).cd()
-                if "LQ" in sampleName:
-                    signalMass = int(sampleName.split("-")[-1].split("_")[0])
-                    systHists = [r.TH1D(syst+"_uncertVsMassHist_{}".format(sampleName), syst, 2, signalMass-100, signalMass+100)]
-                    massRanges = [signalMass-100, signalMass+100]
-                else:
-                    # split into 3 ranges
-                    splitInto = 3
-                    massPoints = [int(selection.replace("LQ", "")) for selection, _ in sortedSelectionDict if "selection" not in selection.lower()]
-                    minMass = min(massPoints)
-                    maxMass = max(massPoints)
-                    subRange = math.ceil((maxMass+100-minMass) / (1000*splitInto))*1000
-                    bins = int(subRange / 100)  # bins 100 GeV wide (one per mass point)
-                    systHists = []
-                    massRanges = []
-                    if len(systStacks) < len(systHists):
-                        systStacks[0].SetName(systStacks[0].GetName().replace("Stack_", "Stack_MassRange1_"))
-                    for idx in range(0, splitInto):
-                        minRange = idx*subRange+minMass-50
-                        maxRange = (idx+1)*subRange+minMass-50
-                        systHists.append(r.TH1D(syst+"_uncertVsMassHist{}_{}".format(idx, sampleName), syst, bins, minRange, maxRange))
-                        massRanges.append(minRange)
-                        if len(systStacks) < len(systHists) and idx > 0:
-                            systStacks.append(r.THStack())
-                            systStacks[-1].SetName("allSystsStack_MassRange{}_".format(idx+1)+sampleName)
-                massList = []
-                nominals = []
-                upVariation = []
-                downVariation = []
-                thisSystTableHeaders = ["% "+sName[0] for sName in sortedSelectionDict]
-                if len(tableHeaders) == 1:
-                    tableHeaders.extend(thisSystTableHeaders)
-                    yieldTableHeaders.extend([sName[0] for sName in sortedSelectionDict])
-                    systDeltaTableHeaders.extend([sName[0] for sName in sortedSelectionDict])
-                elif len(tableHeaders) - 1 != len(thisSystTableHeaders):
-                    raise RuntimeError("For sample {}, number of selections {} for this syst {} is larger than the other systs [{}]".format(
-                        sampleName, syst, len(thisSystTableHeaders), len(tableHeaders) - 1))
-                for selection, value in sortedSelectionDict:
-                    if selection not in d_totalBkgSysts[syst].keys():
-                        d_totalBkgSysts[syst][selection] = 0
-                    if selection not in d_totalBkgSysts["totalYield"].keys():
-                        d_totalBkgSysts["totalYield"][selection] = 0
-                    #if selection == "preselection":
-                    #    continue
-                    # massList.append(mass)
-                    # nominals.append(0.0)  # nominals.append(float(value))
-                    fillVal = "N/A"
-                    valid = False
-                    if value > 0:
-                        upVariation.append(100*float(d_systUpDeltas[year][sampleName][syst][selection])/value)
-                        downVariation.append(100*float(d_systDownDeltas[year][sampleName][syst][selection])/value)
-                        fillVal = max(100*float(d_systUpDeltas[year][sampleName][syst][selection])/value,
-                                      100*float(d_systDownDeltas[year][sampleName][syst][selection])/value)
-                        systYieldVal = max(float(d_systUpDeltas[year][sampleName][syst][selection]),
-                                      float(d_systDownDeltas[year][sampleName][syst][selection]))
-                        # print("DEBUG: for sample {}, syst {}, fill value (% deltaX/X) = {}".format(sampleName, syst, fillVal), flush=True)
-                        # tableRow.append(fillVal)
-                        if selection != "preselection" and selection != "trainingSelection":
-                            mass = float(selection.replace("LQ", ""))
-                            idxToFill = bisect(massRanges, mass) - 1
-                            systHists[idxToFill].Fill(mass, fillVal)
-                            valid = True
-                    if valid:
-                        systematicsByNameAndMass[d_systTitles[year][syst]].append(fillVal)
-                        systematicsSelectionsByNameAndMass[d_systTitles[year][syst]].append(mass)
-                    else:
-                        systematicsByNameAndMass[d_systTitles[year][syst]].append(0)
-                        if selection != "preselection" and selection != "trainingSelection":
-                            mass = float(selection.replace("LQ", ""))
-                            systematicsSelectionsByNameAndMass[d_systTitles[year][syst]].append(mass)
-                        else:
-                            systematicsSelectionsByNameAndMass[d_systTitles[year][syst]].append(-1)
-                    tableRow.append(fillVal)
-                    # systYieldRow.append(systYieldVal+value)
-                    systYieldRow.append(systYieldVal)
-                    if sampleName in background_names or IsComponentBackground(sampleName):
-                        toAdd = max(float(d_systUpDeltas[year][sampleName][syst][selection]), float(d_systDownDeltas[year][sampleName][syst][selection]))
-                        rawEvts = d_backgroundSampleInfos[year][sampleName].GetUnscaledRate(selection)
-                        val, err = d_backgroundSampleInfos[year][sampleName].GetRateAndErr(selection)
-                    if sampleName in background_names:
-                        d_totalBkgSysts[syst][selection] += toAdd*toAdd
-                        d_totalBkgSysts["totalYield"][selection] += value
-                    elif not IsComponentBackground(sampleName):
-                        rawEvts = d_signalSampleInfos[year][sampleName].GetUnscaledRate(selection)
-                        val, err = d_signalSampleInfos[year][sampleName].GetRateAndErr(selection)
-                    # else:
-                    #     lastSelection, rate, err, events = GetLastNonzeroSelectionYields(background_name)
-                    #     value = rate
-                    #     upVariation.append(100*float(d_systUpDeltas[sampleName][syst][lastSelection])/value)
-                    #     downVariation.append(100*float(d_systDownDeltas[sampleName][syst][lastSelection])/value)
-                    #     fillVal = max(100*float(d_systUpDeltas[sampleName][syst][lastSelection])/value,
-                    #                   100*float(d_systDownDeltas[sampleName][syst][lastSelection])/value)
-                    #     tableRow.append(fillVal)
-                    #     if selection != "preselection":
-                    #         mass = float(selection.replace("LQ", ""))
-                    #         systHist.Fill(mass, fillVal)
-                    # if "ZJet" in sampleName and "800" in selection and "EES" in syst:
-                    #     print "INFO: For sample={} selection={} syst={}, nominal={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
-                    #             sampleName, selection, syst, value, d_systUpDeltas[sampleName][syst][selection],
-                    #             d_systDownDeltas[sampleName][syst][selection])
-                    if len(yieldRow) < len(tableHeaders):
-                        # yieldRow.append("{:.4f} +/- {:.4f} [MC evts: {:.1f}]".format(value, err, thisBkgRawEvts))
-                        yieldRow.append("{v:.2{c}} +/- {e:.2{c}}".format(v=val, e=err, c='e' if val < 1e-2 and math.fabs(val) > 0 else 'f'))
-                        mcRow.append("{:.1f}".format(rawEvts))
-                        # if "TTbar" in sampleName:
-                        #     # print("systNominals[{}][{}][{}] = {}; d_background_rates[{}][{}] = {}".format(sampleName, syst, selection, value, sampleName, selection, val))
-                        #     print("systNominals[{}][{}][{}] = {}; d_background_rates[{}][{}] = {}".format(sampleName, syst, selection, value, sampleName, selection, d_background_rates[sampleName][selection]))
-                # if "Z" in sampleName:
-                #     if "EES" in syst:
-                #         print "INFO for sampleName={} syst={}".format(sampleName, syst)
-                #         print "massList:", massList
-                #         print "nominals:", nominals
-                #         print "downVariation:", downVariation
-                #         print "upVariation:", upVariation
-                for idx, systHist in enumerate(systHists):
-                    systHist.GetXaxis().SetTitle("M_{LQ} [GeV]")
-                    systHist.GetYaxis().SetTitle(syst+" Uncertainty [%]")
-                    systHist.SetLineWidth(2)
-                    systHist.SetBarWidth(0.08)
-                    systHist.Write()
-                    # print("Sample Name: {}; systHist name: {}; idx={}; nStacks={}; nSystHists={}".format(sampleName, systHist.GetName(), idx, len(systStacks), len(systHists)))
-                    systStacks[idx].Add(systHist, "hist")
-                table.append(tableRow)
-                systDeltaTable.append(systYieldRow)
-            yieldTable.append(yieldRow)
-            yieldTable.append(mcRow)
-            print("Systematics tables for sample Name: {}".format(sampleName))
-            print(tabulate(table, headers=tableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
-            print(tabulate(systDeltaTable, headers=systDeltaTableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
-            if includeYieldLine:
-                print(tabulate(yieldTable, headers=yieldTableHeaders, tablefmt="fancy_grid", floatfmt=".4f"))
-            print()
-
-            if len(totalBkgSystsHeaders) <= 0:
-                totalBkgSystsHeaders = tableHeaders
+    # make the plots
+    if not os.path.exists(plotsDir):
+        os.makedirs(plotsDir)
+    cc.SetDistinctiveTColorPalette()
+    plots_tfile = r.TFile(plots_filePath, "recreate")
+    systDir = plots_tfile.mkdir("systematics")
+    allSystCanvasNames = []
+    d_totalBkgSysts = {}
+    totalBkgSystsHeaders = []
+    includeYieldLine = True
+    for sampleName in list(d_systNominals.keys()):
+        yieldRow = ["yield"]
+        mcRow = ["mcEvts"]
+        yieldTable = []
+        table = []
+        systDeltaTable = []
+        tableHeaders = ["systematic"]
+        yieldTableHeaders = ["yield"]
+        systDeltaTableHeaders = ["delta"]
+        systStacks = []
+        systStacks.append(r.THStack())
+        systStacks[-1].SetName("allSystsStack_"+sampleName)
+        systematicsByNameAndMass = {}
+        systematicsSelectionsByNameAndMass = {}
+        for iSyst, syst in enumerate(d_systNominals[sampleName].keys()):
+            if not DoesSystematicApplyAnyYear(syst, sampleName, d_applicableSystematics):
+                continue
+            if not syst in d_totalBkgSysts.keys():
+                d_totalBkgSysts[syst] = {}
+            if not "totalYield" in d_totalBkgSysts.keys():
+                d_totalBkgSysts["totalYield"] = {}
+            tableRow = [d_systTitles["all"][syst]]
+            systYieldRow = [d_systTitles["all"][syst]]
+            systematicsByNameAndMass[d_systTitles["all"][syst]] = []
+            systematicsSelectionsByNameAndMass[d_systTitles["all"][syst]] = []
+            sortedSelectionDict = sorted(
+                    iter(d_systNominals[sampleName][syst].items()), key=lambda x: float(x[0].replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")))
             systDir.cd()
-            for idx, systStack in enumerate(systStacks):
-                canvas = r.TCanvas("c", "c", 1200, 600)
-                canvas.SetName("allSystsCanvas{}_".format(idx+1)+sampleName)
-                allSystCanvasNames.append(canvas.GetName())
-                canvas.cd()
-                canvas.SetGridy()
-                canvas.Draw()
-                r.gStyle.SetPaintTextFormat(".0f%")
-                systStack.Paint()
-                systStack.Draw("pfc plc nostackb text")
-                systStack.GetHistogram().GetXaxis().SetTitle("M_{LQ} [GeV]")
-                systStack.GetHistogram().GetYaxis().SetTitle("Max. Syst. Uncertainty [%]")
-                systStack.SetMaximum(100)
-                systStack.SetTitle(sampleName)
-                canvas.BuildLegend(0.15, 0.55, 0.5, 0.85, "", "l")
-                canvas.Write()
-                # this broke for some reason. it just hangs.
-                # if len(systStacks) > 1:
-                #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.pdf".format(idx+1, sampleName))
-                #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.png".format(idx+1, sampleName))
-                #     # print("\tDEBUG: canvas.SaveAs({})".format(plotsDir+"/systematics_massRange{}_{}".format(idx+1, sampleName)), flush=True)
-                #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.png".format(idx+1, sampleName))
-                # else:
-                #     # print("\tDEBUG: canvas.SaveAs({})".format(plotsDir+"/systematics_{}.pdf".format(sampleName)), flush=True)
-                #     # canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
-                systStack.Write()
-
-            # matplotlib bar chart for saving to png, since the root version above broke
-            # split the systematics into two groups, as otherwise there are too many bars
-            half = len(systematicsByNameAndMass) // 2
-            systsGroup1 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i < half}
-            systsGroup2 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i >= half}
-            systGroups = [systsGroup1, systsGroup2]
-            if "PDF" in systematicsByNameAndMass.keys():
-                systsGroupPDF = {"PDF": systematicsByNameAndMass["PDF"]}
-                systGroups.append(systsGroupPDF)
-            width = 6
-            multiplier = 0
-            for idx, systDict in enumerate(systGroups):
-                if len(systDict.keys()) < 1:
-                    continue
-                fig, ax = plt.subplots(layout='constrained')
-                fig.set_size_inches(12, 5)
-                plt.style.use(hep.style.CMS)
-                plt.grid(axis = 'y', linestyle = ':')
-                maxSyst = 10  # approx. minimum y-axis range (gets multiplied by 1.1 later)
-                for systName, effect in systDict.items():
-                    offset = width * multiplier
-                    x = np.array(systematicsSelectionsByNameAndMass[systName])
-                    rects = ax.bar(x + offset, effect, width, label=systName)
-                    ax.bar_label(rects, padding=3, fmt=lambda x: '{:.1f}%'.format(x) if x > 0 else '', rotation=90, fontsize=6)
-                    multiplier += 1
-                    # print("DEBUG: compute max effect on sequence {} for sample={} and syst={}".format(effect, sampleName, systName))
-                    maxEffect = max(effect)
-                    if maxEffect > maxSyst:
-                        maxSyst = maxEffect
-                # Add some text for labels, title and custom x-axis tick labels, etc.
-                ax = plt.gca()
-                ax.set_ylabel('Max. syst. uncert. [%]')
-                ax.set_xlabel('$\\mathrm{M}_{LQ}$ [GeV]')
-                ax.set_title(sampleName, fontsize=14)
-                ax.set_yticks(np.arange(start=0, stop=110, step=10))
-                # ax.set_xlim([300, 600])
-                # ax.set_ylim([0, 100])
-                ax.set_ylim([0, int(round(1.1*maxSyst))])
-                ax.legend(loc='upper left', ncols=2, fontsize=10, framealpha=1, frameon=True, facecolor='white')
-                plt.savefig(plotsDir+"/systematics_{}_group{}.png".format(sampleName, idx), dpi=100)
-                plt.close()
-
+            systDir.mkdir(syst, syst, True).cd()
+            if "LQ" in sampleName:
+                signalMass = int(sampleName.split("-")[-1].split("_")[0])
+                systHists = [r.TH1D(syst+"_uncertVsMassHist_{}".format(sampleName), syst, 2, signalMass-100, signalMass+100)]
+                massRanges = [signalMass-100, signalMass+100]
+            else:
+                # split into 3 ranges
+                splitInto = 3
+                massPoints = [int(selection.replace("LQ", "")) for selection, _ in sortedSelectionDict if "selection" not in selection.lower()]
+                minMass = min(massPoints)
+                maxMass = max(massPoints)
+                subRange = math.ceil((maxMass+100-minMass) / (1000*splitInto))*1000
+                bins = int(subRange / 100)  # bins 100 GeV wide (one per mass point)
+                systHists = []
+                massRanges = []
+                if len(systStacks) < len(systHists):
+                    systStacks[0].SetName(systStacks[0].GetName().replace("Stack_", "Stack_MassRange1_"))
+                for idx in range(0, splitInto):
+                    minRange = idx*subRange+minMass-50
+                    maxRange = (idx+1)*subRange+minMass-50
+                    systHists.append(r.TH1D(syst+"_uncertVsMassHist{}_{}".format(idx, sampleName), syst, bins, minRange, maxRange))
+                    massRanges.append(minRange)
+                    if len(systStacks) < len(systHists) and idx > 0:
+                        systStacks.append(r.THStack())
+                        systStacks[-1].SetName("allSystsStack_MassRange{}_".format(idx+1)+sampleName)
             massList = []
             nominals = []
-            deltaXOverX = []
-            for selection in list(d_totalSystDeltaXOverX.keys()):
-                if sampleName not in list(d_totalSystDeltaXOverX[selection].keys()):
-                    continue  # skip other signals besides the one corresponding to this selection
-                if selection == "preselection":
-                    massList.append(0.0)
-                elif selectionName != "trainingSelection":
-                    massList.append(1.0)
+            upVariation = []
+            downVariation = []
+            thisSystTableHeaders = ["% "+sName[0] for sName in sortedSelectionDict]
+            if len(tableHeaders) == 1:
+                tableHeaders.extend(thisSystTableHeaders)
+                yieldTableHeaders.extend([sName[0] for sName in sortedSelectionDict])
+                systDeltaTableHeaders.extend([sName[0] for sName in sortedSelectionDict])
+            elif len(tableHeaders) - 1 != len(thisSystTableHeaders):
+                raise RuntimeError("For sample {}, number of selections {} for this syst {} is larger than the other systs [{}]".format(
+                    sampleName, syst, len(thisSystTableHeaders), len(tableHeaders) - 1))
+            for selection, value in sortedSelectionDict:
+                if selection not in d_totalBkgSysts[syst].keys():
+                    d_totalBkgSysts[syst][selection] = 0
+                if selection not in d_totalBkgSysts["totalYield"].keys():
+                    d_totalBkgSysts["totalYield"][selection] = 0
+                #if selection == "preselection":
+                #    continue
+                # massList.append(mass)
+                # nominals.append(0.0)  # nominals.append(float(value))
+                fillVal = "N/A"
+                valid = False
+                if value > 0:
+                    upVariation.append(100*float(d_systUpDeltas[sampleName][syst][selection])/value)
+                    downVariation.append(100*float(d_systDownDeltas[sampleName][syst][selection])/value)
+                    fillVal = max(100*float(d_systUpDeltas[sampleName][syst][selection])/value,
+                                  100*float(d_systDownDeltas[sampleName][syst][selection])/value)
+                    systYieldVal = max(float(d_systUpDeltas[sampleName][syst][selection]),
+                                  float(d_systDownDeltas[sampleName][syst][selection]))
+                    # print("DEBUG: for sample {}, syst {}, fill value (% deltaX/X) = {}".format(sampleName, syst, fillVal), flush=True)
+                    # tableRow.append(fillVal)
+                    if selection != "preselection" and selection != "trainingSelection":
+                        mass = float(selection.replace("LQ", ""))
+                        idxToFill = bisect(massRanges, mass) - 1
+                        systHists[idxToFill].Fill(mass, fillVal)
+                        valid = True
+                if valid:
+                    systematicsByNameAndMass[d_systTitles["all"][syst]].append(fillVal)
+                    systematicsSelectionsByNameAndMass[d_systTitles["all"][syst]].append(mass)
                 else:
-                    massList.append(float(selection.replace("LQ", "")))
-                nominals.append(0.0)
-                deltaXOverX.append(100*d_totalSystDeltaXOverX[selection][sampleName])
-            systDir.cd()
-            systDir.mkdir("totalDeltaXOverX", "totalDeltaXOverX", True).cd()
-            plots_tfile.cd("systematics/totalDeltaXOverX")
-            # totalSystGraph = r.TGraphErrors(len(massList), np.array(massList), np.array(nominals), np.array([0.0]*len(massList)), np.array(deltaXOverX))
-            # totalSystGraph.SetNameTitle("uncertVsMass_{}".format(sampleName))
-            # totalSystGraph.GetXaxis().SetTitle("M_{LQ} [GeV]")
-            # totalSystGraph.GetYaxis().SetTitle("Rel. Uncertainty [%]")
-            # totalSystGraph.SetFillColor(9)
-            # totalSystGraph.SetFillStyle(3003)
-            # totalSystGraph.Write()
-        plots_tfile.Close()
-        print("plots written to: {}".format(plots_filePath))
+                    systematicsByNameAndMass[d_systTitles["all"][syst]].append(0)
+                    if selection != "preselection" and selection != "trainingSelection":
+                        mass = float(selection.replace("LQ", ""))
+                        systematicsSelectionsByNameAndMass[d_systTitles["all"][syst]].append(mass)
+                    else:
+                        systematicsSelectionsByNameAndMass[d_systTitles["all"][syst]].append(-1)
+                tableRow.append(fillVal)
+                # systYieldRow.append(systYieldVal+value)
+                systYieldRow.append(systYieldVal)
+                if sampleName in background_names or IsComponentBackground(sampleName):
+                    toAdd = max(float(d_systUpDeltas[sampleName][syst][selection]), float(d_systDownDeltas[sampleName][syst][selection]))
+                    rawEvts = d_backgroundSampleInfos[sampleName].GetUnscaledRate(selection)
+                    val, err = d_backgroundSampleInfos[sampleName].GetRateAndErr(selection)
+                if sampleName in background_names:
+                    d_totalBkgSysts[syst][selection] += toAdd*toAdd
+                    d_totalBkgSysts["totalYield"][selection] += value
+                elif not IsComponentBackground(sampleName):
+                    rawEvts = d_signalSampleInfos[sampleName].GetUnscaledRate(selection)
+                    val, err = d_signalSampleInfos[sampleName].GetRateAndErr(selection)
+                # else:
+                #     lastSelection, rate, err, events = GetLastNonzeroSelectionYields(background_name)
+                #     value = rate
+                #     upVariation.append(100*float(d_systUpDeltas[sampleName][syst][lastSelection])/value)
+                #     downVariation.append(100*float(d_systDownDeltas[sampleName][syst][lastSelection])/value)
+                #     fillVal = max(100*float(d_systUpDeltas[sampleName][syst][lastSelection])/value,
+                #                   100*float(d_systDownDeltas[sampleName][syst][lastSelection])/value)
+                #     tableRow.append(fillVal)
+                #     if selection != "preselection":
+                #         mass = float(selection.replace("LQ", ""))
+                #         systHist.Fill(mass, fillVal)
+                # if "ZJet" in sampleName and "800" in selection and "EES" in syst:
+                #     print "INFO: For sample={} selection={} syst={}, nominal={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                #             sampleName, selection, syst, value, d_systUpDeltas[sampleName][syst][selection],
+                #             d_systDownDeltas[sampleName][syst][selection])
+                if len(yieldRow) < len(tableHeaders):
+                    # yieldRow.append("{:.4f} +/- {:.4f} [MC evts: {:.1f}]".format(value, err, thisBkgRawEvts))
+                    yieldRow.append("{v:.2{c}} +/- {e:.2{c}}".format(v=val, e=err, c='e' if val < 1e-2 and math.fabs(val) > 0 else 'f'))
+                    mcRow.append("{:.1f}".format(rawEvts))
+                    # if "TTbar" in sampleName:
+                    #     # print("systNominals[{}][{}][{}] = {}; d_background_rates[{}][{}] = {}".format(sampleName, syst, selection, value, sampleName, selection, val))
+                    #     print("systNominals[{}][{}][{}] = {}; d_background_rates[{}][{}] = {}".format(sampleName, syst, selection, value, sampleName, selection, d_background_rates[sampleName][selection]))
+            # if "Z" in sampleName:
+            #     if "EES" in syst:
+            #         print "INFO for sampleName={} syst={}".format(sampleName, syst)
+            #         print "massList:", massList
+            #         print "nominals:", nominals
+            #         print "downVariation:", downVariation
+            #         print "upVariation:", upVariation
+            for idx, systHist in enumerate(systHists):
+                systHist.GetXaxis().SetTitle("M_{LQ} [GeV]")
+                systHist.GetYaxis().SetTitle(syst+" Uncertainty [%]")
+                systHist.SetLineWidth(2)
+                systHist.SetBarWidth(0.08)
+                systHist.Write()
+                # print("Sample Name: {}; systHist name: {}; idx={}; nStacks={}; nSystHists={}".format(sampleName, systHist.GetName(), idx, len(systStacks), len(systHists)))
+                systStacks[idx].Add(systHist, "hist")
+            table.append(tableRow)
+            systDeltaTable.append(systYieldRow)
+        yieldTable.append(yieldRow)
+        yieldTable.append(mcRow)
+        print("Systematics tables for sample Name: {}".format(sampleName))
+        print(tabulate(table, headers=tableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
+        print(tabulate(systDeltaTable, headers=systDeltaTableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
+        if includeYieldLine:
+            print(tabulate(yieldTable, headers=yieldTableHeaders, tablefmt="fancy_grid", floatfmt=".4f"))
         print()
-        print("Total background")
-        totalBkgSystTable = []
-        for syst in systematicsNamesBackground[year]:
-            if syst == "totalYield":
+
+        if len(totalBkgSystsHeaders) <= 0:
+            totalBkgSystsHeaders = tableHeaders
+        systDir.cd()
+        for idx, systStack in enumerate(systStacks):
+            canvas = r.TCanvas("c", "c", 1200, 600)
+            canvas.SetName("allSystsCanvas{}_".format(idx+1)+sampleName)
+            allSystCanvasNames.append(canvas.GetName())
+            canvas.cd()
+            canvas.SetGridy()
+            canvas.Draw()
+            r.gStyle.SetPaintTextFormat(".0f%")
+            systStack.Paint()
+            systStack.Draw("pfc plc nostackb text")
+            systStack.GetHistogram().GetXaxis().SetTitle("M_{LQ} [GeV]")
+            systStack.GetHistogram().GetYaxis().SetTitle("Max. Syst. Uncertainty [%]")
+            systStack.SetMaximum(100)
+            systStack.SetTitle(sampleName)
+            canvas.BuildLegend(0.15, 0.55, 0.5, 0.85, "", "l")
+            canvas.Write()
+            # this broke for some reason. it just hangs.
+            # if len(systStacks) > 1:
+            #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.pdf".format(idx+1, sampleName))
+            #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.png".format(idx+1, sampleName))
+            #     # print("\tDEBUG: canvas.SaveAs({})".format(plotsDir+"/systematics_massRange{}_{}".format(idx+1, sampleName)), flush=True)
+            #     # canvas.SaveAs(plotsDir+"/systematics_massRange{}_{}.png".format(idx+1, sampleName))
+            # else:
+            #     # print("\tDEBUG: canvas.SaveAs({})".format(plotsDir+"/systematics_{}.pdf".format(sampleName)), flush=True)
+            #     # canvas.SaveAs(plotsDir+"/systematics_{}.pdf".format(sampleName))
+            systStack.Write()
+
+        # matplotlib bar chart for saving to png, since the root version above broke
+        # split the systematics into two groups, as otherwise there are too many bars
+        half = len(systematicsByNameAndMass) // 2
+        systsGroup1 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i < half}
+        systsGroup2 = {k: v for i, (k, v) in enumerate(systematicsByNameAndMass.items()) if i >= half}
+        systGroups = [systsGroup1, systsGroup2]
+        if "PDF" in systematicsByNameAndMass.keys():
+            systsGroupPDF = {"PDF": systematicsByNameAndMass["PDF"]}
+            systGroups.append(systsGroupPDF)
+        width = 6
+        multiplier = 0
+        for idx, systDict in enumerate(systGroups):
+            if len(systDict.keys()) < 1:
                 continue
-            tableRow = [syst]
-            for selection in d_totalBkgSysts[syst].keys():
-                # total = d_totalBkgSysts["totalYield"][selection]
-                total = sum([d_systNominals[year][sampleName][syst][selection] for sampleName in background_names])
-                try:
-                    tableRow.append(100*math.sqrt(d_totalBkgSysts[syst][selection])/total)
-                except ZeroDivisionError as e:
-                    print("Caught a ZeroDivisionError! total is {}. Examine background yields for syst={}, selection={}".format(total, syst, selection))
-                    for sampleName in background_names:
-                        print("sampleName={}, systNominal (bkgYield) = {}".format(sampleName, d_systNominals[year][sampleName][syst][selection]))
-                    raise e
-            totalBkgSystTable.append(tableRow)
-            # if "norm" in syst.lower():
-            #     print("DEBUG: QCDFakes_DATA, syst={}, d_systNominals[{}][{}], total sum = {}".format(
-            #         syst, "QCDFakes_DATA", syst, d_systNominals["QCDFakes_DATA"][syst], total))
-        print(tabulate(totalBkgSystTable, headers=totalBkgSystsHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
+            fig, ax = plt.subplots(layout='constrained')
+            fig.set_size_inches(12, 5)
+            plt.style.use(hep.style.CMS)
+            plt.grid(axis = 'y', linestyle = ':')
+            maxSyst = 10  # approx. minimum y-axis range (gets multiplied by 1.1 later)
+            for systName, effect in systDict.items():
+                offset = width * multiplier
+                x = np.array(systematicsSelectionsByNameAndMass[systName])
+                rects = ax.bar(x + offset, effect, width, label=systName)
+                ax.bar_label(rects, padding=3, fmt=lambda x: '{:.1f}%'.format(x) if x > 0 else '', rotation=90, fontsize=6)
+                multiplier += 1
+                # print("DEBUG: compute max effect on sequence {} for sample={} and syst={}".format(effect, sampleName, systName))
+                maxEffect = max(effect)
+                if maxEffect > maxSyst:
+                    maxSyst = maxEffect
+            # Add some text for labels, title and custom x-axis tick labels, etc.
+            ax = plt.gca()
+            ax.set_ylabel('Max. syst. uncert. [%]')
+            ax.set_xlabel('$\\mathrm{M}_{LQ}$ [GeV]')
+            ax.set_title(sampleName, fontsize=14)
+            ax.set_yticks(np.arange(start=0, stop=110, step=10))
+            # ax.set_xlim([300, 600])
+            # ax.set_ylim([0, 100])
+            ax.set_ylim([0, int(round(1.1*maxSyst))])
+            ax.legend(loc='upper left', ncols=2, fontsize=10, framealpha=1, frameon=True, facecolor='white')
+            plt.savefig(plotsDir+"/systematics_{}_group{}.png".format(sampleName, idx), dpi=100)
+            plt.close()
+
+        massList = []
+        nominals = []
+        deltaXOverX = []
+        for selection in list(d_totalSystDeltaXOverX.keys()):
+            if sampleName not in list(d_totalSystDeltaXOverX[selection].keys()):
+                continue  # skip other signals besides the one corresponding to this selection
+            if selection == "preselection":
+                massList.append(0.0)
+            elif selectionName != "trainingSelection":
+                massList.append(1.0)
+            else:
+                massList.append(float(selection.replace("LQ", "")))
+            nominals.append(0.0)
+            deltaXOverX.append(100*d_totalSystDeltaXOverX[selection][sampleName])
+        systDir.cd()
+        systDir.mkdir("totalDeltaXOverX", "totalDeltaXOverX", True).cd()
+        plots_tfile.cd("systematics/totalDeltaXOverX")
+        # totalSystGraph = r.TGraphErrors(len(massList), np.array(massList), np.array(nominals), np.array([0.0]*len(massList)), np.array(deltaXOverX))
+        # totalSystGraph.SetNameTitle("uncertVsMass_{}".format(sampleName))
+        # totalSystGraph.GetXaxis().SetTitle("M_{LQ} [GeV]")
+        # totalSystGraph.GetYaxis().SetTitle("Rel. Uncertainty [%]")
+        # totalSystGraph.SetFillColor(9)
+        # totalSystGraph.SetFillStyle(3003)
+        # totalSystGraph.Write()
+    plots_tfile.Close()
+    print("plots written to: {}".format(plots_filePath))
+    print()
+    print("Total background")
+    totalBkgSystTable = []
+    for syst in systematicsNamesBackground["all"]:
+        if syst == "totalYield":
+            continue
+        tableRow = [syst]
+        for selection in d_totalBkgSysts[syst].keys():
+            # total = d_totalBkgSysts["totalYield"][selection]
+            total = sum([d_systNominals[sampleName][syst][selection] for sampleName in background_names])
+            try:
+                tableRow.append(100*math.sqrt(d_totalBkgSysts[syst][selection])/total)
+            except ZeroDivisionError as e:
+                print("Caught a ZeroDivisionError! total is {}. Examine background yields for syst={}, selection={}".format(total, syst, selection))
+                for sampleName in background_names:
+                    print("sampleName={}, systNominal (bkgYield) = {}".format(sampleName, d_systNominals[sampleName][syst][selection]))
+                raise e
+        totalBkgSystTable.append(tableRow)
+        # if "norm" in syst.lower():
+        #     print("DEBUG: QCDFakes_DATA, syst={}, d_systNominals[{}][{}], total sum = {}".format(
+        #         syst, "QCDFakes_DATA", syst, d_systNominals["QCDFakes_DATA"][syst], total))
+    print(tabulate(totalBkgSystTable, headers=totalBkgSystsHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
 
 # make final selection tables
 columnNames = [
@@ -1861,7 +2299,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
         if selectionName != "preselection" and selectionName != "trainingSelection":
             massPoint = selectionName.replace("LQ", "")
             fullSignalName, signalNameForFile = GetFullSignalName(signal_name, massPoint)
-            thisSigEvts, thisSigEvtsErr = d_signalSampleInfos[year][signalNameForFile].GetRateAndErr(selectionName)
+            thisSigEvts, thisSigEvtsErr = d_signalSampleInfos[signalNameForFile].GetRateAndErr(selectionName)
             # thisSigEvtsErrUp, thisSigEvtsErrDown = GetStatErrorsFromDatacard(d_datacardStatErrs[selectionName][signalNameForFile], thisSigEvts)
             thisSigEvtsErrUp = thisSigEvtsErr
             thisSigEvtsErrDown = thisSigEvtsErr
@@ -1882,7 +2320,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
         otherBackgroundErrStatUp = 0.0
         otherBackgroundErrStatDown = 0.0
         for i_background_name, background_name in enumerate(background_names):
-            thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[year][background_name].GetRateAndErr(selectionName)
+            thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
             # thisBkgEvtsErrUp, thisBkgEvtsErrDown = GetStatErrorsFromDatacard(d_datacardStatErrs[selectionName][background_name], thisBkgEvts)
             # print "GetStatErrorsFromDatacard for selection={}, background={}, thisBkgEvts={} + {} - {}".format(selectionName, background_name, thisBkgEvts, thisBkgEvtsErrUp, thisBkgEvtsErrDown)
             thisBkgEvtsErrUp = thisBkgEvtsErr
@@ -1891,7 +2329,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
             thisBkgEffEntries = thisBkgEvts**2/thisBkgEvtsErr**2 if thisBkgEvtsErr != 0 else 0
             thisBkgSyst = 0
             if doSystematics:
-                thisBkgSyst = d_backgroundSampleInfos[year][background_name].GetTotalSystDeltaOverNominal(year, selectionName, systematicsNamesBackground[year], d_applicableSystematics[year])
+                thisBkgSyst = d_backgroundSampleInfos[background_name].GetTotalSystDeltaOverNominal("all", selectionName, systematicsNamesBackground["all"], d_applicableSystematics)
             thisBkgSystErr = thisBkgEvts * thisBkgSyst
             totalBackgroundErrSyst += thisBkgSystErr * thisBkgSystErr
             totalBackground += thisBkgEvts
@@ -2044,5 +2482,5 @@ with open(tablesDir + "/eventYieldsPaper.tex", "w") as table_file:
     # table_file.write("\n")
 
 # acc * eff
-plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points], year)
+plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points], requestedYear)
 print("datacard written to {}".format(datacard_filePath))
