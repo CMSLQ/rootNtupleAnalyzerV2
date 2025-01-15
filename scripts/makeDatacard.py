@@ -229,7 +229,7 @@ class SampleInfo:
                     deltaOverNomDown = deltaOverNomUp
                 if verbose:
                     print("\t new entry={}, deltaOverNomUp={}, deltaOverNomDown={}".format(entry, deltaOverNomUp, deltaOverNomDown))
-        if deltaOverNomUp == 0 and deltaOverNomDown == 0:
+        if (deltaOverNomUp == 0 and deltaOverNomDown == 0) or math.isclose(float(entry), 1):
             # print("WARN: For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}".format(sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown))
             return "no effect", 0, 0, nomYield, systNomSelection
         tolerance = 0.5
@@ -266,10 +266,10 @@ class SampleInfo:
             #         else:
             #             CalculateUpDownSystematic("LHEPdfComb", fullSystDict[sampleName], selection, sampleName, True)  # this call is broken somehow
         elif "lumi" in systName.lower():
-                entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
-                newNominal = nominal if nominal > 0 else 1
-                # newNominal = nominal
-                newSelection = selection
+            entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
+            newNominal = nominal if nominal > 0 else 1
+            # newNominal = nominal
+            newSelection = selection
         elif "norm" in systName.lower():
             if "tt" in systName.lower() or "dy" in systName.lower() or "qcd" in systName.lower():
                 entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
@@ -361,7 +361,7 @@ class SampleInfo:
         # assumes that the number here is < 1
         systDict = self.systematics
         nominal, selection, rawEvents = self.GetSystNominalYield(systName, selection)
-        # print("CalculateFlatSystematic() - for sample={}, systName={}, selection={}, systDict[systName].keys()={}".format(sampleName, systName, selection, systDict[systName].keys()))
+        # print("INFO2: CalculateFlatSystematic() - for sample={}, systName={}, selection={}, syst nominal = {}, systDict[systName][selection]={}".format(self.sampleName, systName, selection, nominal, systDict[systName][selection]))
         deltaOverNom = systDict[systName][selection]["yield"]/nominal - 1 if nominal != 0 else 0
         # if "lumicorrelated" in systName.lower():
         #     print("CalculateFlatSystematic() - for sample={}, systName={}, selection={}, yield={}, nom={}, yield/nom -1 = {}".format(self.sampleName, systName, selection, systDict[systName][selection]["yield"], nominal, deltaOverNom))
@@ -1425,19 +1425,20 @@ def WriteDatacard(card_file_path, year):
                                     d_systNominalErrs[componentBkg][syst] = {}
                                     d_systUpDeltas[componentBkg][syst] = {}
                                     d_systDownDeltas[componentBkg][syst] = {}
-                                systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[componentBkg].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
-                                d_systNominals[componentBkg][syst][selectionNameSyst] = systNomYield
-                                compBkgEvts, d_systNominalErrs[componentBkg][syst][selectionNameSyst] = d_backgroundSampleInfos[componentBkg].GetRateAndErr(systSelection)
-                                d_systUpDeltas[componentBkg][syst][selectionNameSyst] = deltaOverNominalUp*systNomYield
-                                d_systDownDeltas[componentBkg][syst][selectionNameSyst] = deltaOverNominalDown*systNomYield
+                                compSystEntry, compDeltaOverNominalUp, compDeltaOverNominalDown, compSystNomYield, compSystSelection = d_backgroundSampleInfos[componentBkg].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
+                                d_systNominals[componentBkg][syst][selectionNameSyst] = compSystNomYield
+                                compBkgEvts, d_systNominalErrs[componentBkg][syst][selectionNameSyst] = d_backgroundSampleInfos[componentBkg].GetRateAndErr(compSystSelection)
+                                d_systUpDeltas[componentBkg][syst][selectionNameSyst] = compDeltaOverNominalUp*compSystNomYield
+                                d_systDownDeltas[componentBkg][syst][selectionNameSyst] = compDeltaOverNominalDown*compSystNomYield
                                 # print("INFO: Got syst entry for sample={} selectionNameSyst={} systSelection={}, syst={}, systEntry={}, thisBkgEvts={}, systNomYield={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
                                 #         componentBkg, selectionNameSyst, systSelection, syst, systEntry, compBkgEvts, systNomYield, deltaOverNominalUp*systNomYield, deltaOverNominalDown*systNomYield))
                         if EntryIsValid(systEntry):
                             d_backgroundSampleInfos[background_name].UpdateSystsApplied(syst)
                             line += str(systEntry) + " "
                         else:
-                            # print("INFO: Got invalid syst entry for sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
-                            #         background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
+                            # if "lumi" in syst.lower():
+                            #     print("INFO2: Got invalid syst entry for sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                            #             background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                             line += "- "
                         # if "ZJet" in background_name and "800" in selectionNameSyst and "EES" in syst:
                         try:
@@ -1532,7 +1533,6 @@ systTitleDict = {
         "Pileup": "Pileup",
         "Prefire": "L1EcalPrefiring",
         "LHEPdfWeight": "PDF",
-        "Lumi": "Lumi",
         "LumiCorrelated": "Lumi correlated",
         "JER": "Jet energy resolution",
         "JES": "Jet energy scale",
@@ -1603,7 +1603,7 @@ lumiCorrelatedDeltaXOverX["2018"] = 0.02
 lumi1718CorrelatedDeltaXOverX["2018"] = 0.002
 d_flatSystematics = {}
 for year in allYears:
-    d_flatSystematics.update({year: {"Lumi": lumiDeltaXOverX[year]} })
+    d_flatSystematics.update({year: {"Lumi"+year: lumiDeltaXOverX[year]} })
     d_flatSystematics[year].update({"LumiCorrelated": lumiCorrelatedDeltaXOverX[year]})
     if year == "2017" or year == "2018":
         d_flatSystematics[year].update({"LumiCorrelated1718": lumi1718CorrelatedDeltaXOverX[year]})
@@ -1663,15 +1663,19 @@ for year in years:
     d_systTitles[year] = systTitleDict
     if "2016preVFP" == year:
         intLumi += 19501.601622000
+        d_systTitles[year]["Lumi2016preVFP"] = "Lumi (2016preVFP)"
     elif "2016postVFP" in years:
         intLumi += 16812.151722000
+        d_systTitles[year]["Lumi2016postVFP"] = "Lumi (2016postVFP)"
     elif "2017" == year:
         do2017 = True
         intLumi += 41477.877399
+        d_systTitles[year]["Lumi2017"] = "Lumi (2017)"
         d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
     elif "2018" in years:
         do2018 = True
         intLumi += 59827.449483
+        d_systTitles[year]["Lumi2018"] = "Lumi (2018)"
         d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
 cc.intLumi = intLumi
 
@@ -1878,11 +1882,9 @@ RecomputeBackgroundSystematic("LHEPdfWeight", d_backgroundSampleInfos)
 systematicsNamesBackground["all"] = []
 d_systTitles["all"] = {}
 for year in years:
-    print("SIC DEBUG add systematicsNamesBackground for year={} to all: {}".format(year, systematicsNamesBackground[year]))
     systematicsNamesBackground["all"].extend(systematicsNamesBackground[year])
     d_systTitles["all"].update(d_systTitles[year])
 systematicsNamesBackground["all"] = set(systematicsNamesBackground["all"])
-print("SIC DEBUG systematicsNamesBackground[all]: {}".format(systematicsNamesBackground["all"]))
 
 print("INFO: Preparing shape histograms...", end=' ')
 CreateAndWriteHistograms(yearsRequestedStr)
