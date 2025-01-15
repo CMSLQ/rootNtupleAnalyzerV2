@@ -54,38 +54,54 @@ class SampleInfo:
             self.failRates[selection] += other.failRates[selection]
             self.failRateErrs[selection] = math.sqrt(self.failRateErrs[selection]**2 + other.failRateErrs[selection]**2)
             self.unscaledFailRates[selection] += other.unscaledFailRates[selection]
-            # print("SIC DEBUG2: iadd called for self={}, other={}".format(self.sampleName, other.sampleName))
-            self.systematics = self.CheckAndAddSystematics(other)
-            for syst in other.systematics.keys():
-                self.systematicsApplied.add(syst)
+        self.systematics = self.CheckAndAddSystematics(other)
+        for syst in other.systematics.keys():
+            self.systematicsApplied.add(syst)
         self.totalEvents += other.totalEvents
         return self
 
     def CheckAndAddSystematics(self, other):
         systDictSelf = self.systematics
         systDictOther = other.systematics
-        if sorted(systDictSelf.keys()) != sorted(systDictOther.keys()):
-            raise RuntimeError("systematics dicts for sample={} and sample={} have different systematics: '{}' vs. '{}'. Cannot add them.".format(
-                self.sampleName, other.sampleName, systDictSelf.keys(), systDictOther.keys()))
-        for syst in systDictSelf.keys():
+        systDictSelfOrig = copy.deepcopy(systDictSelf)
+        # if sorted(systDictSelf.keys()) != sorted(systDictOther.keys()):
+        #     systsSample1 = [x for x in sorted(systDictSelf.keys()) if x not in sorted(systDictOther.keys())]
+        #     systsSample2 = [x for x in sorted(systDictOther.keys()) if x not in sorted(systDictSelf.keys())]
+        #     raise RuntimeError("systematics dicts for sample={} and sample={} have different systematics: \n'{}'\npresent in sample1 and not in 2 while \n'{}'\npresent in sample2 and not in 1. Cannot add the systematics.".format(
+        #         self.sampleName, other.sampleName, systsSample1, systsSample2))
+        for syst in set(systDictSelf.keys()) & set(systDictOther.keys()):
             for selection in systDictSelf[syst].keys():
                 if selection not in list(systDictOther[syst].keys()):
                     raise RuntimeError("cannot find selection '{}' in sample={}; systematics dicts for sample={} and sample={} have different selections for syst={}: '{}' vs. '{}'. Cannot add them.".format(
                         selection, other.sampleName, self.sampleName, other.sampleName, syst, list(systDictSelf[syst].keys()), list(systDictOther[syst].keys())))
                 if "branchTitles" not in selection:
+                    # if "lumicorrelated" in syst.lower() and selection == "preselection":
+                    #     print("SIC DEBUG: CheckAndAddSystematics() - sample={}, other={}, systDictSelf[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictSelf[syst][selection]))
+                    #     print("SIC DEBUG: CheckAndAddSystematics() - sample={}, other={}, systDictOther[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictOther[syst][selection]))
                     systDictSelf[syst][selection]["yield"] += systDictOther[syst][selection]["yield"]
-                    # print("SIC DEBUG: sample={}, other={}, systDictSelf[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictSelf[syst][selection]))
-                    # print("SIC DEBUG: sample={}, other={}, systDictOther[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictOther[syst][selection]))
                     if systDictSelf[syst][selection]["preselYield"] is None and systDictOther[syst][selection]["preselYield"] is not None:
                         systDictSelf[syst][selection]["preselYield"] = systDictOther[syst][selection]["preselYield"]
                     elif systDictSelf[syst][selection]["preselYield"] is not None and systDictOther[syst][selection]["preselYield"] is not None:
                         systDictSelf[syst][selection]["preselYield"] += systDictOther[syst][selection]["preselYield"]
+                        # if "lumicorrelated" in syst.lower() and selection == "preselection":
+                        #     nominal = systDictSelf["nominal"][selection]["yield"]
+                        #     print("SIC DEBUG: CheckAndAddSystematics() - AFTER ADDING - sample={}, other={}, systDictSelf[{}][{}]={}, entry/nominal - 1 (if nominal != 0)".format(self.sampleName, other.sampleName, syst, selection, systDictSelf[syst][selection], systDictSelf[syst][selection]["yield"]/nominal-1 if nominal != 0 else 0))
                 else:
                     # if the branch titles are different, then we just glom them together here
                     # again, for composite samples, this might make no sense
                     if systDictSelf[syst][selection] != systDictOther[syst][selection]:
                         systDictSelf[syst][selection].extend(systDictOther[syst][selection])
                 # print("SIC DEBUG: sample={}, systDictSelf[{}][{}]={}".format(self.sampleName, syst, selection, systDictSelf[syst][selection]))
+        # handle systs only appearing in sample 2
+        systsSample2 = [x for x in sorted(systDictOther.keys()) if x not in systDictSelf.keys()]
+        for syst in systsSample2:
+            systDictSelf[syst] = systDictOther[syst]
+            # need to add nominal of self onto this
+            for sel in systDictSelf[syst].keys():
+                if "branchTitles" not in sel:
+                    # print("about to add yield in systDictSelfOrig[nominal][{}]={} to systDictSelf[{}][{}]={}".format(sel, systDictSelfOrig["nominal"][sel], syst, sel, systDictSelf[syst][sel]))
+                    systDictSelf[syst][sel]["yield"] += systDictSelfOrig["nominal"][sel]["yield"]
+            # print("SIC DEBUG2: CheckAndAddSystematics() - sample={}, other={}, added syst not found in systDictSelf before; systDictSelf[{}]={}".format(self.sampleName, other.sampleName, syst, systDictSelf[syst]))
         return systDictSelf
 
     def GetRateAndErr(self, selectionName):
@@ -251,8 +267,8 @@ class SampleInfo:
             #             CalculateUpDownSystematic("LHEPdfComb", fullSystDict[sampleName], selection, sampleName, True)  # this call is broken somehow
         elif "lumi" in systName.lower():
                 entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
-                # newNominal = nominal if nominal > 0 else 1
-                newNominal = nominal
+                newNominal = nominal if nominal > 0 else 1
+                # newNominal = nominal
                 newSelection = selection
         elif "norm" in systName.lower():
             if "tt" in systName.lower() or "dy" in systName.lower() or "qcd" in systName.lower():
@@ -343,10 +359,13 @@ class SampleInfo:
     
     def CalculateFlatSystematic(self, systName, selection):
         # assumes that the number here is < 1
-        # print "d_applicableSystematics["+sampleName+"]=", d_applicableSystematics[sampleName]
-        # print "for sample={}, systName={}, systDict.keys()={}".format(sampleName, systName, systDict.keys())
         systDict = self.systematics
-        return str(1 + systDict[systName][selection]["yield"]), systDict[systName][selection]["yield"], systDict[systName][selection]["yield"], True
+        nominal, selection, rawEvents = self.GetSystNominalYield(systName, selection)
+        # print("CalculateFlatSystematic() - for sample={}, systName={}, selection={}, systDict[systName].keys()={}".format(sampleName, systName, selection, systDict[systName].keys()))
+        deltaOverNom = systDict[systName][selection]["yield"]/nominal - 1 if nominal != 0 else 0
+        # if "lumicorrelated" in systName.lower():
+        #     print("CalculateFlatSystematic() - for sample={}, systName={}, selection={}, yield={}, nom={}, yield/nom -1 = {}".format(self.sampleName, systName, selection, systDict[systName][selection]["yield"], nominal, deltaOverNom))
+        return str(1 + deltaOverNom), deltaOverNom, deltaOverNom, True
     
     def GetSystNominalYield(self, systName, selection):
         verbose = False
@@ -394,10 +413,10 @@ class SampleInfo:
         systDict = self.systematics
         if systName in systDict.keys():
             if verbose:
-                print("SIC DEBUG: sample {} hasPreselSystYield for systName={}, selection={}, up={}; systDict[{}]={}".format(self.sampleName, systName, selection, up, systName, systDict[systName]))
+                print("INFO: sample {} hasPreselSystYield for systName={}, selection={}, up={}; systDict[{}]={}".format(self.sampleName, systName, selection, up, systName, systDict[systName]))
             preselSystYield = systDict[systName][selection]["preselYield"]
         elif verbose:
-            print("SIC DEBUG: sample {} hasPreselSystYield [systName not in systDict keys] for systName={}, selection={}, up={}; systDict.keys={}".format(self.sampleName, systName, selection, up, systName, systDict.keys()))
+            print("INFO: sample {} hasPreselSystYield [systName not in systDict keys] for systName={}, selection={}, up={}; systDict.keys={}".format(self.sampleName, systName, selection, up, systName, systDict.keys()))
         if preselSystYield is not None:
             return True, preselSystYield
         else:
@@ -574,9 +593,9 @@ def GetSystematicsDict(rootFile, sampleName, selections, year, verbose=False):
             #     print("INFO: for sampleName={} and selection={}, xBin={} yBin={} ({}), got content={}".format(sampleName, selection, xBin, yBin, systName, systDict[selection][systName]))
         # add flat systematics here
         for systName, effect in d_flatSystematics[year].items():
-            # systDict[selection][systName]["yield"] = (systDict[selection]["nominal"]["yield"] + 1) * effect  # effect being deltaX/X = (X'-X)/X = X'/X - 1
             systDict[selection][systName] = {}
-            systDict[selection][systName]["yield"] = effect 
+            systDict[selection][systName]["yield"] = (effect+1) * systDict[selection]["nominal"]["yield"]  # effect being deltaX/X = (X'-X)/X = X'/X - 1
+            # print("INFO: flat syst: year={}, systName={}, effect={}, nominal={}, x'={}".format(year, systName, effect, systDict[selection]["nominal"]["yield"], (effect+1) * systDict[selection]["nominal"]["yield"]))
             systDict[selection][systName]["preselYield"] = None
             systDict["branchTitles"][systName] = []
     # add special entry for branch titles
@@ -619,7 +638,6 @@ def GetSystematicsDict(rootFile, sampleName, selections, year, verbose=False):
     #if verbose:
     # print("sampleName={}: systDict['LQ300']={}".format(sampleName, systDict["LQ300"]))
 
-    # #XXX SIC DEBUG REMOVE
     # print("DEBUG: sampleName={}: systDict.keys()={}".format(sampleName, systDict.keys()))
     # print("DEBUG: sampleName={}: systDict[systDict.keys()[0]].keys()={}".format(sampleName, systDict[list(systDict.keys())[0]].keys()))
     # print("DEBUG: sampleName={}: list(systDict[selections[0]].keys())={}".format(sampleName, list(systDict[selections[0]].keys())))
@@ -831,13 +849,17 @@ def GetLatexHeaderFromColumnNames(columnNames):
 
 
 def SumSampleInfoOverYears(sampleInfos, years):
+    yearsDone = []
     for year in years:
         for sample, sampleInfo in sampleInfos[year].items():
-            # print("SIC DEBUG2: summing sample info for sample={} for year={}".format(sample, year))
-            if not sample in sampleInfos.keys():
-                sampleInfos[sample] = sampleInfo
-            else:
-                sampleInfos[sample] += sampleInfo
+            try:
+                if not sample in sampleInfos.keys():
+                    sampleInfos[sample] = sampleInfo
+                else:
+                    sampleInfos[sample] += sampleInfo
+            except RuntimeError as e:
+                raise RuntimeError("Caught RuntimeError when trying to add sample {} from year {} to sample {} from previously-summed years {}: '{}'".format(sampleInfo.sampleName, year, sampleInfos[sample].sampleName, yearsDone, e))
+        yearsDone.append(year)
     firstSample = list(sampleInfos.keys())[1]
 
 
@@ -984,12 +1006,12 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
         if not isData and doSystematics:
             systematics = GetSystematicsDict(scaledRootFile, sampleName, selectionNames, year)  # , sampleName == "LQToDEle_M-300_pair")
             if "zjet" in sampleName.lower():
-                systematics.update({"DY_Norm": {sel: {"yield": dyNormDeltaXOverX, "preselYield": None} for sel in selectionNames}})
+                systematics.update({"DY_Norm": {sel: {"yield": (1+dyNormDeltaXOverX)*ratesDict[sel], "preselYield": None} for sel in selectionNames}})
             if "ttbar" in sampleName.lower() or "ttto2l2nu" in sampleName.lower():
-                systematics.update({"TT_Norm": {sel: {"yield": ttBarNormDeltaXOverX, "preselYield": None} for sel in selectionNames}})
+                systematics.update({"TT_Norm": {sel: {"yield": (1+ttBarNormDeltaXOverX)*ratesDict[sel], "preselYield": None} for sel in selectionNames}})
         elif sampleName == "QCDFakes_DATA":
             # special handling for QCDFakes_DATA
-            selsAndSysts = {sel: {"yield": qcdNormDeltaXOverX, "preselYield": None} for sel in selectionNames}
+            selsAndSysts = {sel: {"yield": (1+qcdNormDeltaXOverX)*ratesDict[sel], "preselYield": None} for sel in selectionNames}
             systematics = {"QCD_Norm": selsAndSysts}
             systematics.update({"nominal": systematicsNominalDict})
         currentSampleInfo = SampleInfo(sampleName, ratesDict, rateErrsDict, unscaledRatesDict, unscaledTotalEvts, failRatesDict, failRateErrsDict, unscaledFailRatesDict, systematics)
@@ -1331,17 +1353,17 @@ def WriteDatacard(card_file_path, year):
             #     ctau = int(signal_name[signal_name.find("CTau") + 4:])
             #     signalSystDict = signalSystDictByCTau[ctau]
             if doSystematics:
-                for syst in systematicsNamesBackground[year]:
+                for syst in sorted(systematicsNamesBackground["all"]):
                     # if int(mass_point) > maxLQSelectionMass:
                     #     selectionNameSyst = "LQ"+str(maxLQSelectionMass)
                     # else:
                     #     selectionNameSyst = selectionName
                     selectionNameSyst = selectionName
                     systName = syst
-                    if systName == "Lumi":
-                        systName += year.replace("preVFP", "").replace("postVFP", "")
+                    # if systName == "Lumi":
+                    #     systName += year.replace("preVFP", "").replace("postVFP", "")
                     line = systName + " lnN "
-                    if syst in systematicsNamesSignal[year] and selectionName != "preselection" and selectionName != "trainingSelection":
+                    if syst in systematicsNamesSignal["all"] and selectionName != "preselection" and selectionName != "trainingSelection":
                         if signalNameForFile not in list(d_systNominals.keys()):
                             d_systNominals[signalNameForFile] = {}
                             d_systNominalErrs[signalNameForFile] = {}
@@ -1352,7 +1374,7 @@ def WriteDatacard(card_file_path, year):
                             d_systNominalErrs[signalNameForFile][syst] = {}
                             d_systUpDeltas[signalNameForFile][syst] = {}
                             d_systDownDeltas[signalNameForFile][syst] = {}
-                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_signalSampleInfos[signalNameForFile].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics)
+                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_signalSampleInfos[signalNameForFile].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
                         thisSigEvts, thisSigEvtsErr = d_signalSampleInfos[signalNameForFile].GetRateAndErr(selectionNameSyst)
                         thisSigSystUp = deltaOverNominalUp*systNomYield
                         thisSigSystDown = deltaOverNominalDown*systNomYield
@@ -1382,7 +1404,7 @@ def WriteDatacard(card_file_path, year):
                             d_systNominalErrs[background_name][syst] = {}
                             d_systUpDeltas[background_name][syst] = {}
                             d_systDownDeltas[background_name][syst] = {}
-                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[background_name].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics)
+                        systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[background_name].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
                         thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionNameSyst)
                         thisBkgSystUp = deltaOverNominalUp*systNomYield
                         thisBkgSystDown = deltaOverNominalDown*systNomYield
@@ -1403,7 +1425,7 @@ def WriteDatacard(card_file_path, year):
                                     d_systNominalErrs[componentBkg][syst] = {}
                                     d_systUpDeltas[componentBkg][syst] = {}
                                     d_systDownDeltas[componentBkg][syst] = {}
-                                systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[componentBkg].GetSystematicEffectAbs(year, syst, selectionNameSyst, d_applicableSystematics)
+                                systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection = d_backgroundSampleInfos[componentBkg].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
                                 d_systNominals[componentBkg][syst][selectionNameSyst] = systNomYield
                                 compBkgEvts, d_systNominalErrs[componentBkg][syst][selectionNameSyst] = d_backgroundSampleInfos[componentBkg].GetRateAndErr(systSelection)
                                 d_systUpDeltas[componentBkg][syst][selectionNameSyst] = deltaOverNominalUp*systNomYield
@@ -1422,7 +1444,7 @@ def WriteDatacard(card_file_path, year):
                             if float(systEntry) < 0:
                                  #print("INFO: For sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
                                  raise RuntimeError("For year={}, sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
-                                         year, background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
+                                         "all", background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                         except ValueError:
                             continue
                     # need to always fill the syst dicts, but only write the datacard if we have a BDT selection
@@ -1584,7 +1606,7 @@ for year in allYears:
     d_flatSystematics.update({year: {"Lumi": lumiDeltaXOverX[year]} })
     d_flatSystematics[year].update({"LumiCorrelated": lumiCorrelatedDeltaXOverX[year]})
     if year == "2017" or year == "2018":
-        d_flatSystematics[year].update({"LumiCorrelated1718": lumiCorrelatedDeltaXOverX[year]})
+        d_flatSystematics[year].update({"LumiCorrelated1718": lumi1718CorrelatedDeltaXOverX[year]})
 
 n_background = len(background_names)
 # all bkg systematics, plus stat 'systs' for all bkg plus signal plus 3 backNormSysts
@@ -1615,15 +1637,19 @@ requestedYear = sys.argv[3]
 # if len(sys.argv > 4):
 #     signalNameTemplate = sys.argv[4]
 
-if requestedYear == "2016pre":
-    requestedYear = "2016preVFP"
-elif requestedYear == "2016post":
-    requestedYear = "2016postVFP"
-
 if requestedYear != "all":
-    years = [requestedYear]
+    years = requestedYear.split(",")
+    yearsRequestedStr = ("_").join(years)
 else:
     years = allYears
+    yearsRequestedStr = "all"
+for idx, year in enumerate(years):
+    if year == "2016pre":
+        year = "2016preVFP"
+    elif year == "2016post":
+        year = "2016postVFP"
+    years[idx] = year
+
 
 if not signalNameTemplate.split("_")[0] in dataMCAnaName or not signalNameTemplate.split("_")[0] in qcdAnaName:
     raise RuntimeError("signalNameTemplate specified is {}, while it does not appear to match the dataMC or qcd analysis names given.".format(signalNameTemplate))
@@ -1633,7 +1659,7 @@ intLumi = 0
 validYear = False
 for year in years:
     if year not in allYears:
-        raise RuntimeError("Provided year '{}' is not one of 2016pre(VFP)/2016post(VFP)/2017/2018.")
+        raise RuntimeError("Provided year '{}' is not one of 2016pre(VFP)/2016post(VFP)/2017/2018.".format(year))
     d_systTitles[year] = systTitleDict
     if "2016preVFP" == year:
         intLumi += 19501.601622000
@@ -1648,6 +1674,7 @@ for year in years:
         intLumi += 59827.449483
         d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
 cc.intLumi = intLumi
+
 # ttbarFilePath = (
 #     os.environ["LQDATA"]
 #     + "/2016ttbar/mar17_emujj_fixMuons/output_cutTable_lq_ttbar_emujj_correctTrig/"
@@ -1851,19 +1878,21 @@ RecomputeBackgroundSystematic("LHEPdfWeight", d_backgroundSampleInfos)
 systematicsNamesBackground["all"] = []
 d_systTitles["all"] = {}
 for year in years:
+    print("SIC DEBUG add systematicsNamesBackground for year={} to all: {}".format(year, systematicsNamesBackground[year]))
     systematicsNamesBackground["all"].extend(systematicsNamesBackground[year])
     d_systTitles["all"].update(d_systTitles[year])
 systematicsNamesBackground["all"] = set(systematicsNamesBackground["all"])
+print("SIC DEBUG systematicsNamesBackground[all]: {}".format(systematicsNamesBackground["all"]))
 
 print("INFO: Preparing shape histograms...", end=' ')
-CreateAndWriteHistograms(requestedYear)
+CreateAndWriteHistograms(yearsRequestedStr)
 print("Done")
 
 # selectionNames = ["preselection"]
 # selectionNames.extend(["LQ"+str(mass) for mass in mass_points])
 print("INFO: Preparing datacard...", end=' ')
-datacard_filePath = "tmp_card_file_{}_{}.txt".format(signalNameTemplate.split("_")[0], requestedYear)
-WriteDatacard(datacard_filePath, requestedYear)
+datacard_filePath = "tmp_card_file_{}_{}.txt".format(signalNameTemplate.split("_")[0], yearsRequestedStr)
+WriteDatacard(datacard_filePath, yearsRequestedStr)
 print("Done")
 
 if not os.path.exists(tablesDir):
@@ -1924,7 +1953,7 @@ if doSystematics:
             table_file.write(tabulate(table, headers=columnNames, tablefmt="latex", floatfmt=".1f"))
 
     # print info on systematics used
-    print(requestedYear)
+    print(yearsRequestedStr)
     print("{0:40}\t{1}".format("sampleName", "systematics applied"))
     for sampleName, info in d_backgroundSampleInfos.items():
         if isinstance(info, dict):
@@ -1979,9 +2008,9 @@ if doSystematics:
             print("INFO: selection={}, signal_name={}, total deltaX/X={}".format(selectionName, signalNameForFile, math.sqrt(thisSigTotalSystOverNomSqr)))
             d_totalSystDeltaXOverX[selectionName][signalNameForFile] = math.sqrt(thisSigTotalSystOverNomSqr)
 
-    with open(systematics_dictFilePath.format(requestedYear), "w") as systematics_dictFile:
+    with open(systematics_dictFilePath.format(yearsRequestedStr), "w") as systematics_dictFile:
         systematics_dictFile.write(str(d_totalSystDeltaXOverX))
-    print("systematics dict written to {}".format(systematics_dictFilePath.format(requestedYear)))
+    print("systematics dict written to {}".format(systematics_dictFilePath.format(yearsRequestedStr)))
 
     # make the plots
     if not os.path.exists(plotsDir):
@@ -2482,5 +2511,5 @@ with open(tablesDir + "/eventYieldsPaper.tex", "w") as table_file:
     # table_file.write("\n")
 
 # acc * eff
-plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points], requestedYear)
+plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points], yearsRequestedStr)
 print("datacard written to {}".format(datacard_filePath))
