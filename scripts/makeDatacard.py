@@ -99,9 +99,14 @@ class SampleInfo:
             # need to add nominal of self onto this
             for sel in systDictSelf[syst].keys():
                 if "branchTitles" not in sel:
-                    # print("about to add yield in systDictSelfOrig[nominal][{}]={} to systDictSelf[{}][{}]={}".format(sel, systDictSelfOrig["nominal"][sel], syst, sel, systDictSelf[syst][sel]))
                     systDictSelf[syst][sel]["yield"] += systDictSelfOrig["nominal"][sel]["yield"]
-            # print("SIC DEBUG2: CheckAndAddSystematics() - sample={}, other={}, added syst not found in systDictSelf before; systDictSelf[{}]={}".format(self.sampleName, other.sampleName, syst, systDictSelf[syst]))
+        # handle systs only appearing in sample 1
+        systsSample1 = [x for x in sorted(systDictSelf.keys()) if x not in systDictOther.keys()]
+        for syst in systsSample1:
+            # need to add nominal of other onto this
+            for sel in systDictSelf[syst].keys():
+                if "branchTitles" not in sel:
+                    systDictSelf[syst][sel]["yield"] += systDictOther["nominal"][sel]["yield"]
         return systDictSelf
 
     def GetRateAndErr(self, selectionName):
@@ -1660,11 +1665,11 @@ validYear = False
 for year in years:
     if year not in allYears:
         raise RuntimeError("Provided year '{}' is not one of 2016pre(VFP)/2016post(VFP)/2017/2018.".format(year))
-    d_systTitles[year] = systTitleDict
+    d_systTitles[year] = copy.deepcopy(systTitleDict)
     if "2016preVFP" == year:
         intLumi += 19501.601622000
         d_systTitles[year]["Lumi2016preVFP"] = "Lumi (2016preVFP)"
-    elif "2016postVFP" in years:
+    elif "2016postVFP" == year:
         intLumi += 16812.151722000
         d_systTitles[year]["Lumi2016postVFP"] = "Lumi (2016postVFP)"
     elif "2017" == year:
@@ -1672,7 +1677,7 @@ for year in years:
         intLumi += 41477.877399
         d_systTitles[year]["Lumi2017"] = "Lumi (2017)"
         d_systTitles[year]["LumiCorrelated1718"] = "Lumi correlated 2017-2018"
-    elif "2018" in years:
+    elif "2018" == year:
         do2018 = True
         intLumi += 59827.449483
         d_systTitles[year]["Lumi2018"] = "Lumi (2018)"
@@ -2107,7 +2112,7 @@ if doSystematics:
                                   100*float(d_systDownDeltas[sampleName][syst][selection])/value)
                     systYieldVal = max(float(d_systUpDeltas[sampleName][syst][selection]),
                                   float(d_systDownDeltas[sampleName][syst][selection]))
-                    # print("DEBUG: for sample {}, syst {}, fill value (% deltaX/X) = {}".format(sampleName, syst, fillVal), flush=True)
+                    # print("SIC DEBUG: for sample {}, syst {}, fill value (% deltaX/X) = {}".format(sampleName, syst, fillVal), flush=True)
                     # tableRow.append(fillVal)
                     if selection != "preselection" and selection != "trainingSelection":
                         mass = float(selection.replace("LQ", ""))
