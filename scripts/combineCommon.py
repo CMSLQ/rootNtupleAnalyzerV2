@@ -1197,39 +1197,50 @@ def GetPDFVariationType(branchTitle):
     if "292200" in branchTitle:
         pdfType = "mc"
         pdfName = "NNPDF30_nlo_nf_5_pdfas"
+        members = 103
     elif "292201" in branchTitle:
         pdfType = "mcNoCentral"
         pdfName = "NNPDF30_nlo_nf_5_pdfas"
+        members = -1  # no 1000% sure how many in reality
     elif "262000" in branchTitle:
         pdfType = "mc"
         pdfName = "NNPDF30_lo_as_0118"
+        members = 101
     elif "260001" in branchTitle:
         pdfType = "mcNoCentral"
         pdfName = "NNPDF30_lo_as_0118"
-    elif "91400" in branchTitle:
-        pdfType = "hessian"
-        pdfName = "PDF4LHC15_nnlo_30_pdfas"
+        members = -1
+    # elif "91400" in branchTitle:
+    #     pdfType = "hessian"
+    #     pdfName = "PDF4LHC15_nnlo_30_pdfas"
+    #     members = 33
     elif "306000" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nnlo_hessian_pdfas"
+        members = 103
     elif "305800" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nlo_hessian_pdfas"
+        members = 103
     elif "325300" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nnlo_as_0118_mc_hessian_pdfas"
+        members = 103
     elif "320900" in branchTitle:
         pdfType = "mc"
         pdfName = "NNPDF31_nnlo_as_0118_nf_4"
+        members = 101
     elif "325500" in branchTitle:
         pdfType = "hessian"
         pdfName = "NNPDF31_nnlo_as_0118_nf_4_mc_hessian"
+        members = 101
     elif "315200" in branchTitle:
         pdfType = "mc"
         pdfName = "NNPDF31_lo_as_0130"
+        members = 101
     else:
         raise RuntimeError("Can't determine whether branch title '{}' is a Hessian or MC set".format(branchTitle))
-    return pdfType, pdfName
+    return pdfType, pdfName, members
 
 
 def CalculatePDFSystematic(hist, sampleName, systDict):
@@ -1244,7 +1255,7 @@ def CalculatePDFSystematic(hist, sampleName, systDict):
     #    return str(1 + systDict[systName][selection]), systDict[systName][selection], systDict[systName][selection], True
     # print "INFO: For sampleName={}, systName={}, found branch title={}".format(sampleName, systName, branchTitle)
     # print len(pdfKeys), "sorted(pdfKeys)=", sorted(pdfKeys, key=lambda x: int(x[x.rfind("_")+1:]))
-    pdfVariationType, pdfName = GetPDFVariationType(branchTitle)
+    pdfVariationType, pdfName, nMembers = GetPDFVariationType(branchTitle)
     if pdfVariationType != "mcNoCentral":
         pdfKeys.remove("LHEPdfWeight_0")  # don't consider index 0, central value
     if "mc" in pdfVariationType:
@@ -1521,7 +1532,7 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                 #  - make two special bins to hold this
                 #  - zero all the MC PDF weight bins
                 #  - at the end, call from WriteHistos(), we combine any hessian vars with the MC vars into one bin (and any hessian into one bin)
-                pdfVariationType, pdfName = GetPDFVariationType(GetBranchTitle("LHEPdfWeight", sample, systNameToBranchTitleDict)[0])
+                pdfVariationType, pdfName, nMembers = GetPDFVariationType(GetBranchTitle("LHEPdfWeight", sample, systNameToBranchTitleDict)[0])
                 if "mc" in pdfVariationType:
                     pdfSystDeltasUp, pdfSystDeltasDown, yBins = CalculatePDFSystematic(htemp, sample, systNameToBranchTitleDict)
                 elif "hessian" in pdfVariationType:
