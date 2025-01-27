@@ -363,12 +363,12 @@ DIBOSON_nlo:
 #  - TTX
 #  correlateLHESystematics: false
 #  save: true
-#OTHERBKG_dibosonNLO_singleTop:
-#  pieces:
-#  - SingleTop
-#  - DIBOSON_nlo
-#  correlateLHESystematics: false
-#  save: true
+OTHERBKG_dibosonNLO_singleTop:
+  pieces:
+  - SingleTop
+  - DIBOSON_nlo
+  correlateLHESystematics: false
+  save: true
 #ALLBKG_powhegTTBar_ZJetPtIncStitch_NLODiboson:
 #  pieces:
 #  - ZJet_amcatnlo_ptBinned_IncStitch
