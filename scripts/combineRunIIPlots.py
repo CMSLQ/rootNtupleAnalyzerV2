@@ -187,7 +187,7 @@ eosBasePath = "/eos/cms/store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultr
 includeQCD = True
 qcdFilePath = "output_qcdSubtractedYield/"  # after the first analysisName dir, and assuming the first analysisNameDir needs 'qcd_' prepended
 qcdFileName = "qcdSubtracted_plots.root"
-samplesToCombine = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "SingleTop", "DIBOSON_nlo", "DATA"]
+samplesToCombine = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "SingleTop", "DIBOSON_nlo", "OTHERBKG_dibosonNLO_singleTop", "DATA"]
 samplesToCombine.extend(["LQToBEle_M-{}_pair".format(mass) for mass in range(300, 3100, 100)])
 samplesToCombine.extend(["LQToDEle_M-{}_pair".format(mass) for mass in range(300, 3100, 100)])
 # ---Option Parser
