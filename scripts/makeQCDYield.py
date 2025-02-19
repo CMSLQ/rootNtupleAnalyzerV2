@@ -74,9 +74,15 @@ def DoHistoSubtraction(singleFRQCDHistos, doubleFRQCDHistos, dyjSingleFRHistos):
             doubleFRHisto.Sumw2()
         if dyjSingleFRHisto.GetSumw2N() < 1:
             dyjSingleFRHisto.Sumw2()
-        assert(singleFRHisto.GetNbinsX() == doubleFRHisto.GetNbinsX())
-        assert(singleFRHisto.GetNbinsY() == doubleFRHisto.GetNbinsY())
-        assert(singleFRHisto.GetNbinsZ() == doubleFRHisto.GetNbinsZ())
+        try:
+            assert(singleFRHisto.GetNbinsX() == doubleFRHisto.GetNbinsX())
+            assert(singleFRHisto.GetNbinsY() == doubleFRHisto.GetNbinsY())
+            assert(singleFRHisto.GetNbinsZ() == doubleFRHisto.GetNbinsZ())
+        except AssertionError as e:
+            raise RuntimeError("Checking number of bins of single FR histo and double FR histo failed consistency check; singleFR histo name = {}, xbins: {}, ybins: {}, zbins: {}; doubleFR histo name = {}, xbins: {}, ybins: {}, zbins: {}".format(
+                singleFRHisto.GetName(), singleFRHisto.GetNbinsX(), singleFRHisto.GetNbinsY(), singleFRHisto.GetNbinsZ(),
+                doubleFRHisto.GetName(), doubleFRHisto.GetNbinsX(), doubleFRHisto.GetNbinsY(), doubleFRHisto.GetNbinsZ()
+                ))
         # if "EventsPassingCuts" in singleFRHisto.GetName() and singleFRHisto.ClassName() == "TProfile":
         #     binToUse = 118
         #     verbose = True
