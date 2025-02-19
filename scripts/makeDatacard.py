@@ -40,6 +40,7 @@ class SampleInfo:
         # self.systNominalErrs = {}
         # self.systUpDeltas = {}
         # self.systDownDeltas = {}
+        self.minRawEvents = 3  # min number of events necessary to evaluate systematics
 
     def __add__(self, other):
         new = SampleInfo(self.sampleName, self.rates, self.rateErrs, self.unscaledRates, self.totalEvents, self.failRates, self.failRateErrs, self.unscaledFailRates, self.systematics)
@@ -75,7 +76,8 @@ class SampleInfo:
                     raise RuntimeError("cannot find selection '{}' in sample={}; systematics dicts for sample={} and sample={} have different selections for syst={}: '{}' vs. '{}'. Cannot add them.".format(
                         selection, other.sampleName, self.sampleName, other.sampleName, syst, list(systDictSelf[syst].keys()), list(systDictOther[syst].keys())))
                 if "branchTitles" not in selection:
-                    # if "lumicorrelated" in syst.lower() and selection == "preselection":
+                    # if "nominal" in syst.lower() and "selection" in selection.lower():
+                    # if "JES" in syst and ("LQ2700" in selection or "LQ2800" in selection):
                     #     print("SIC DEBUG: CheckAndAddSystematics() - sample={}, other={}, systDictSelf[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictSelf[syst][selection]))
                     #     print("SIC DEBUG: CheckAndAddSystematics() - sample={}, other={}, systDictOther[{}][{}]={}".format(self.sampleName, other.sampleName, syst, selection, systDictOther[syst][selection]))
                     systDictSelf[syst][selection]["yield"] += systDictOther[syst][selection]["yield"]
@@ -89,7 +91,11 @@ class SampleInfo:
                 else:
                     # if the branch titles are different, then we just glom them together here
                     # again, for composite samples, this might make no sense
-                    if systDictSelf[syst][selection] != systDictOther[syst][selection]:
+                    if "lhepdf" in syst.lower() and len(systDictOther[syst][selection]) > 1:
+                        raise RuntimeError("Not sure how to handle systDictOther for sampleName={} branchTitles={} which have more than 1 entry".format(other.sampleName, systDictOther[syst][selection]))
+                    elif len(systDictOther[syst][selection]) == 0:
+                        continue
+                    if systDictOther[syst][selection][0] not in systDictSelf[syst][selection]:
                         systDictSelf[syst][selection].extend(systDictOther[syst][selection])
                 # print("SIC DEBUG: sample={}, systDictSelf[{}][{}]={}".format(self.sampleName, syst, selection, systDictSelf[syst][selection]))
         # handle systs only appearing in sample 2
@@ -132,15 +138,17 @@ class SampleInfo:
         rawEvents = 0
         selectionsToCheck = []
         trimmedMassesInc = mass_points[idxInc:]
+        trimmedMassesInc = ["LQ"+mass for mass in trimmedMassesInc]
         trimmedMassesDec = massPointsRev[idxDec:]
+        trimmedMassesDec = ["LQ"+mass for mass in trimmedMassesDec] + ["trainingSelection", "preselection"]
         # look around given selection
         lastSelectionsChecked = []
         index = 0
-        while rate <= 0 or err <= 0 or rawEvents < minRawEvents:
+        while (rate <= 0 or err <= 0 or rawEvents < minRawEvents) and (index < len(trimmedMassesInc) or index < len(trimmedMassesDec)):
             # lastSelectionName = "LQ" + massPointsRev[idx]
             # lastSelectionName = selectionsToCheck[index]
             if index < len(trimmedMassesInc):
-                lastSelectionName = "LQ"+trimmedMassesInc[index]
+                lastSelectionName = trimmedMassesInc[index]
                 rate = self.rates[lastSelectionName]
                 err = self.rateErrs[lastSelectionName]
                 rawEvents = self.unscaledRates[lastSelectionName]
@@ -148,7 +156,7 @@ class SampleInfo:
                 # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
             if rate <= 0 or err <= 0 or rawEvents < minRawEvents:
                 if index < len(trimmedMassesDec):
-                    lastSelectionName = "LQ"+trimmedMassesDec[index]
+                    lastSelectionName = trimmedMassesDec[index]
                     rate = self.rates[lastSelectionName]
                     err = self.rateErrs[lastSelectionName]
                     rawEvents = self.unscaledRates[lastSelectionName]
@@ -188,7 +196,7 @@ class SampleInfo:
                 if preselSystSelection != preselNomSelection:
                     raise RuntimeError("Something strange happened: the selection used for the preselection systematic '{}' was not the same as the presel syst nominal yield selection '{}'.".format(
                         preselSystSelection, preselNomSelection))
-                if preselSystNominal != preselNomYield:
+                if not math.isclose(preselSystNominal, preselNomYield, rel_tol=1e-7):
                     raise RuntimeError("Something strange happened: the selection used for the preselection systematic yield '{}' was not the same as the presel syst nominal yield '{}'.".format(
                         preselSystNominal, preselNomYield))
                 preselSystYieldUp = GetSystYield(preselDOverNUp, preselNomYield)
@@ -374,7 +382,7 @@ class SampleInfo:
     
     def GetSystNominalYield(self, systName, selection):
         verbose = False
-        minRawEvents = 2
+        minRawEvents = self.minRawEvents
         requestedSelection = selection
         systDict = self.systematics
         # try:
@@ -391,12 +399,35 @@ class SampleInfo:
         #          )
         nominal = systDict["nominal"][selection]["yield"]
         rawEvents = self.GetUnscaledRate(selection)
-        if (nominal <= 0 or rawEvents < minRawEvents) and not IsComponentBackground(self.sampleName):
-            # take the last selection for which we have some rate, and use that for systematic evaluation
-            lastNonzeroSelection, rate, err, events = self.GetNearestPositiveSelectionYields(selection)
-            nominal = rate
-            selection = lastNonzeroSelection
-            rawEvents = events
+        # if self.sampleName in dictSampleComponents.keys():
+        #     allSelections = set()
+        #     for componentBkg in dictSampleComponents[self.sampleName]:
+        #         compSampleInfo = d_backgroundSampleInfos[componentBkg]
+        #         nominal = compSampleInfo.systematics["nominal"][selection]["yield"]
+        #         rawEvents = compSampleInfo.GetUnscaledRate(selection)
+        #         if nominal <= 0 or rawEvents < minRawEvents:
+        #             selections = FindAllSelectionsPassingThresholds(compSampleInfo, selectionNames, minRawEvents)
+        #             print("selections='{}'".format(selections))
+        #             allSelections.update(selections)
+        #         else:
+        #             allSelections.update([selection])
+        #     if "trainingSelection" in allSelections:
+        #         selection = "trainingSelection"
+        #     elif "preselection" in allSelections:
+        #         selection = "preselection"
+        #     else:
+        #         print("allSelections='{}'".format(allSelections))
+        #         selection = "LQ" + str(max([int(sel[2:]) for sel in list(allSelections)]))
+        #     # nominal = systDict["nominal"][selection]["yield"]
+        #     nominal, err = self.GetRateAndErr(selection)
+        #     rawEvents = self.GetUnscaledRate(selection)
+        #     print("GetSystNominalYield({}, {}), for sample={} with components - found best lastSelection: {}, raw events: {}, rate: {} +/- {}".format(
+        #         systName, requestedSelection, self.sampleName, selection, rawEvents, nominal, err))
+        # elif not IsComponentBackground(self.sampleName):
+        #     nominal, selection, rawEvents = self.FindNearestSelectionPassingThresholds(selection, nominal, rawEvents, minRawEvents)
+        if not IsComponentBackground(self.sampleName):
+            nominal, selection, rawEvents = self.FindNearestSelectionPassingThresholds(selection, nominal, rawEvents, minRawEvents)
+
         #if sampleName in list(d_background_unscaledRates.keys()):
         #    unscaledRate = d_background_unscaledRates[sampleName][selection]
         #    err = d_background_rateErrs[sampleName][selection]
@@ -406,6 +437,15 @@ class SampleInfo:
         #    if verbose:
         #        print("GetSystNominalYield({}, {}, {}), lastSelection: {}, raw events: {}, rate: {} +/- {}".format(
         #            systName, requestedSelection, sampleName, selection, unscaledRate, nominal, err))
+        return nominal, selection, rawEvents
+
+    def FindNearestSelectionPassingThresholds(self, selection, nominal, rawEvents, minRawEvents):
+        if nominal <= 0 or rawEvents < minRawEvents:
+            # take the last selection for which we have some rate, and use that for systematic evaluation
+            lastNonzeroSelection, rate, err, events = self.GetNearestPositiveSelectionYields(selection)
+            nominal = rate
+            selection = lastNonzeroSelection
+            rawEvents = events
         return nominal, selection, rawEvents
 
     def HasPreselectionSystYield(self, systName, selection, up=None, verbose=False):
@@ -458,41 +498,54 @@ class SampleInfo:
         rate = 0
         err = 0
         rawEvents = 0
-        minRawEvents = 2
+        minRawEvents = self.minRawEvents
         selectionsToCheck = []
         # for index in range(idx, len(mass_points)):
         #     selectionsToCheck.append("LQ" + mass_points[index])
         #     selectionsToCheck.append("LQ" + mass_points[index])
         trimmedMassesInc = mass_points[idxInc:]
         trimmedMassesDec = massPointsRev[idxDec:]
+        trimmedMassesInc = ["LQ"+mass for mass in trimmedMassesInc]
+        trimmedMassesDec = ["LQ"+mass for mass in trimmedMassesDec] + ["trainingSelection", "preselection"]
         # selectionsToCheck = list(set(["LQ"+val for pair in zip(massPointsRev, mass_points) for val in pair]))
         # unscaledRate = 0
         # look around given selection
         lastSelectionsChecked = []
         index = 0
-        while rate <= 0 or err <= 0 or rawEvents < minRawEvents:
+        while (rate <= 0 or err <= 0 or rawEvents < minRawEvents) and (index < len(trimmedMassesInc) or index < len(trimmedMassesDec)):
             # lastSelectionName = "LQ" + massPointsRev[idx]
             # lastSelectionName = selectionsToCheck[index]
             if index < len(trimmedMassesInc):
-                lastSelectionName = "LQ"+trimmedMassesInc[index]
+                lastSelectionName = trimmedMassesInc[index]
                 rate, err = self.GetRateAndErr(lastSelectionName)
                 rawEvents = self.GetUnscaledRate(lastSelectionName)
                 lastSelectionsChecked.append(lastSelectionName)
                 # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
             if rate <= 0 or err <= 0 or rawEvents < minRawEvents:
                 if index < len(trimmedMassesDec):
-                    lastSelectionName = "LQ"+trimmedMassesDec[index]
+                    lastSelectionName = trimmedMassesDec[index]
                     rate, err = self.GetRateAndErr(lastSelectionName)
                     rawEvents = self.GetUnscaledRate(lastSelectionName)
                     lastSelectionsChecked.append(lastSelectionName)
-                    # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
+                    # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}; rawEvents={}".format(sampleName, selection, lastSelectionName, rate, err, rawEvents))
             index += 1
         if len(lastSelectionsChecked) <= 0:
             raise RuntimeError("Could not find nonzero selection for sample={}; rates look like {} and errors look like {}; checked selections={}".format(
                 self.sampleName, self.rates, self.rateErrs, lastSelectionsChecked))
-        print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(self.sampleName, selection, lastSelectionName, rate, err, rawEvents))
+        print("INFO: GetNearestPositiveSelectionYields: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(self.sampleName, selection, lastSelectionName, rate, err, rawEvents))
         # print "INFO: GetNearestPositiveSelectionYieldsFromDicts: found last selectionName={} with {} unscaled events".format(selectionName, unscaledRate)
         return lastSelectionName, rate, err, rawEvents
+
+
+def FindAllSelectionsPassingThresholds(sampleInfo, selectionsToCheck, minRawEvents):
+    systDict = sampleInfo.systematics
+    selections = []
+    for selection in selectionsToCheck:
+        nominal = systDict["nominal"][selection]["yield"]
+        rawEvents = sampleInfo.GetUnscaledRate(selection)
+        if nominal > 0 and rawEvents >= minRawEvents:
+            selections.append(selection)
+    return selections
 
 
 def EntryIsValid(entry):
@@ -1054,8 +1107,8 @@ def GetNTotalSysts(years):
     return len(systNames), systNames
 
 
-def ResetSystematic(sampleInfo, systName):
-    for selection in allSelections:
+def ResetSystematic(sampleInfo, systName, resetWeights=False):
+    for selection in selectionNames:
         for subStr in ["Up", "Down"]:
             if not systName+subStr in sampleInfo.systematics.keys():
                 sampleInfo.systematics[systName+subStr] = {}
@@ -1063,6 +1116,11 @@ def ResetSystematic(sampleInfo, systName):
                 sampleInfo.systematics[systName+subStr][selection] = {}
             sampleInfo.systematics[systName+subStr][selection]["yield"] = 0
             sampleInfo.systematics[systName+subStr][selection]["preselYield"] = 0
+        if resetWeights and "weight" in systName.lower():
+            systs = [syst for syst in sampleInfo.systematics.keys() if systName in syst]
+            for syst in systs:
+                sampleInfo.systematics[syst][selection]["yield"] = 0
+                sampleInfo.systematics[syst][selection]["preselYield"] = 0
 
 
 def AppendSystematics(systNames, selections, sampleInfo):
@@ -1073,8 +1131,14 @@ def AppendSystematics(systNames, selections, sampleInfo):
 
 
 def AddSystematics(sampleInfo1, sampleInfo2, systNameStr):
-    for selection in allSelections:
-        for syst in [syst for syst in sampleInfo1.systematics.keys() if systNameStr in syst]:
+    # print("SIC DEBUG3: AddSystematics(): about to add sample2={} to sample1={}; selectionNames={}".format(sampleInfo2.sampleName, sampleInfo1.sampleName, selectionNames))
+    systs = [syst for syst in sampleInfo1.systematics.keys() if systNameStr in syst]
+    # print("SIC DEBUG3: AddSystematics():systs={},  sampleInfo1.systematics.keys()={}".format(systs, sampleInfo1.systematics.keys()))
+    for selection in selectionNames:
+        # print("SIC DEBUG3: AddSystematics(): selection={}; do systs loop".format(selection))
+        for syst in systs:
+            # if "selection" in selection:
+            #     print("SIC DEBUG3: add yield for syst={} selection={} from sample2={} of {} to sample1={} which has {}".format(syst, selection, sampleInfo2.sampleName, sampleInfo2.systematics[syst][selection]["yield"], sampleInfo1.sampleName, sampleInfo1.systematics[syst][selection]["yield"]))
             sampleInfo1.systematics[syst][selection]["yield"] += sampleInfo2.systematics[syst][selection]["yield"]
             hasPreselSystYield1, preselSystYield1 = sampleInfo1.HasPreselectionSystYield(syst, selection)
             hasPreselSystYield2, preselSystYield2 = sampleInfo2.HasPreselectionSystYield(syst, selection)
@@ -1082,18 +1146,20 @@ def AddSystematics(sampleInfo1, sampleInfo2, systNameStr):
                 if not hasPreselSystYield1:
                     sampleInfo1.systematics[syst][selection]["preselYield"] = 0
                 sampleInfo1.systematics[syst][selection]["preselYield"] += sampleInfo2.systematics[syst][selection]["preselYield"]
+        # print("SIC DEBUG3: AddSystematics(): selection={}; DONE with systs loop".format(selection))
+    # print("SIC DEBUG3: AddSystematics(): DONE adding sample2={} to sample1={}".format(sampleInfo2.sampleName, sampleInfo1.sampleName))
 
 
 
 def AddSystematic(sampleInfo1, sampleInfo2, systName):
-    for selection in allSelections:
+    for selection in selectionNames:
         for subStr in ["Up", "Down"]:
             sampleInfo1.systematics[systName+subStr][selection]["yield"] += sampleInfo2.systematics[sysName+subStr][selection]["yield"]
             sampleInfo1.systematics[systName+subStr][selection]["preselYield"] += sampleInfo2.systematics[systName+subStr][selection]["preselYield"]
 
 
 def AddSystematicQuad(sampleInfo1, sampleInfo2, systName):
-    for selection in allSelections:
+    for selection in selectionNames:
         # here. we assume that it's a symmetric uncertainty
         delta = sampleInfo2.systematics[systName+"Up"][selection]["yield"] - sampleInfo2.systematics["nominal"][selection]["yield"]
         if not "deltaQuad" in sampleInfo1.systematics[systName+"Up"][selection].keys():
@@ -1104,7 +1170,7 @@ def AddSystematicQuad(sampleInfo1, sampleInfo2, systName):
 
 
 def ComputeYieldFromDeltaQuad(sampleInfo, systName):
-    for selection in allSelections:
+    for selection in selectionNames:
         # here. we assume that it's a symmetric uncertainty
         totalDelta = math.sqrt(sampleInfo.systematics[systName+"Up"][selection]["deltaQuad"])
         nominal = sampleInfo.systematics["nominal"][selection]["yield"]
@@ -1112,16 +1178,29 @@ def ComputeYieldFromDeltaQuad(sampleInfo, systName):
         sampleInfo.systematics[systName+"Down"][selection]["yield"] = nominal - totalDelta
 
 
-def GetBranchTitle(sampleInfo, systName):
+def GetBranchTitle(sampleInfo, systName, doExcept=False):
     branchTitles = sampleInfo.systematics[systName]["branchTitles"]
-    if len(branchTitles) > 1:
+    if doExcept and len(branchTitles) > 1:
         raise RuntimeError("Not sure how to handle multiple ({}) branch titles '{}' found for sample={}".format(len(branchTitles), branchTitles, sampleInfo.sampleName))
-    return branchTitles[0]
+    return branchTitles
 
 
 def GetPDFVariationTypeAndName(sampleInfo):
-    branchTitle = GetBranchTitle(sampleInfo, "LHEPdfWeight_0")
-    return cc.GetPDFVariationType(branchTitle)
+    branchTitles = GetBranchTitle(sampleInfo, "LHEPdfWeight_0")
+    # print("SIC DEBUG3: GetPDFVariationTypeAndName for sample={} and branchTitles={} for LHEPdfWeight_0".format(sampleInfo.sampleName, branchTitles))
+    if not isinstance(branchTitles, list):
+        branchTitles = [branchTitles]
+    pdfTypes = set()
+    pdfNames = set()
+    pdfNMembers = set()
+    for bTitle in branchTitles:
+        pdfType, pdfName, nMembers = cc.GetPDFVariationType(bTitle)
+        pdfTypes.add(pdfType)
+        pdfNames.add(pdfName)
+        pdfNMembers.add(nMembers)
+    if len(pdfTypes) > 1 or len(pdfNMembers) > 1:
+        raise RuntimeError("Found multiple PDF types or different numbers of members from branches {} in sample={}: types={}, members={}".format(branchTitles, sampleInfo.sampleName, pdfTypes, pdfNMembers))
+    return list(pdfTypes)[0], list(pdfNames)[0]
 
 
 def ComputePDFVariationMC(sampleInfo, pdfKeys, verbose=False):
@@ -1177,6 +1256,8 @@ def ComputePDFVariationHessian(sampleInfo, pdfKeys, verbose=False):
         pdfYields = [sampleInfo.systematics[pdfKey][selection]["yield"] for pdfKey in pdfKeys]
         pdfVars = [pow(nominal-pdfYield, 2) for pdfYield in pdfYields]
         pdfDeltaX = math.sqrt(sum(pdfVars))
+        if verbose:
+            print("INFO: selection={}, nominal={}, pdfDeltaX={}; pdfYields={}; pdfVariations={}".format(selection, nominal, pdfDeltaX, pdfYields, pdfVars))
         if not "LHEPdfWeightHessianUp" in sampleInfo.systematics.keys():
             AppendSystematics(["LHEPdfWeightHessianUp", "LHEPdfWeightHessianDown"], selectionNames, sampleInfo)
         sampleInfo.systematics["LHEPdfWeightHessianUp"][selection]["yield"] = nominal + pdfDeltaX
@@ -1187,6 +1268,9 @@ def ComputePDFSystematic(sampleInfo):
     branchTitle = GetBranchTitle(sampleInfo, "LHEPdfWeight_0")
     pdfVariationType, pdfName = GetPDFVariationTypeAndName(sampleInfo)
     pdfKeys = [syst for syst in sampleInfo.systematics.keys() if syst[:syst.rfind("_")] == "LHEPdfWeight"]
+    # print("SIC DEBUG3: ComputePDFSystematic for sample={}, branchTitle={}, pdfVariationType={}, pdfName={}; pdfKeys={}".format(sampleInfo.sampleName,
+    #                                                                                                                            branchTitle, pdfVariationType,
+    #                                                                                                                            pdfName, pdfKeys))
     if pdfVariationType != "mcNoCentral":
         pdfKeys.remove("LHEPdfWeight_0")  # don't consider index 0, central value
     verbose = False
@@ -1216,7 +1300,7 @@ def CombineHessianAndMC(sampleInfo, sampleInfoHessian):
 
 
 def ComputeScaleSystematic(sampleInfo, verbose=False):
-    branchTitle = GetBranchTitle(sampleInfo, "LHEScaleWeight_0")
+    branchTitle = GetBranchTitle(sampleInfo, "LHEScaleWeight_0", True)[0]
     validIndices, shapeTitles = cc.ParseShapeBranchTitle(branchTitle)
     shapeKeys = [syst for syst in sampleInfo.systematics.keys() if syst[:syst.rfind("_")] == "LHEScaleWeight"]
     validShapeKeys = [shapeKey for shapeKey in shapeKeys if shapeKey[shapeKey.rfind("_")+1:] in validIndices]
@@ -1244,16 +1328,16 @@ def RecomputeBackgroundSystematic(systName, sampleInfos):
         if not IsBackground(sample):
             continue
         if sample not in dictSampleComponents.keys():
-            continue  # this background doens't have more than one component
+            continue  # this background only has one component
         if "LHEScaleWeight" == systName:
-            ResetSystematic(sampleInfos[sample], systName)
+            ResetSystematic(sampleInfos[sample], systName, True)
             for component in dictSampleComponents[sample]:
                     ResetSystematic(sampleInfos[component], systName)
                     ComputeScaleSystematic(sampleInfos[component])
                     AddSystematicQuad(sampleInfos[sample], sampleInfos[component], systName)
             ComputeYieldFromDeltaQuad(sampleInfos[sample], systName) #FIXME: handle ZJets differently?
         if "LHEPdfWeight" == systName:
-            ResetSystematic(sampleInfos[sample], systName)
+            ResetSystematic(sampleInfos[sample], systName, True)
             componentsWithMCVariations = []
             hessianComponent = None
             for component in dictSampleComponents[sample]:
@@ -1264,11 +1348,11 @@ def RecomputeBackgroundSystematic(systName, sampleInfos):
                     componentsWithMCVariations.append(component)
                     AddSystematicQuad(sampleInfos[sample], sampleInfos[component], systName)
                 else:
-                    AddSystematics(sampleInfos[sample], sampleInfos[component], systName)
                     if not hessianComponent:
-                        hessianComponent = copy.deepcopy(sampleInfos[sample])
+                        hessianComponent = copy.deepcopy(sampleInfos[component])
+                        hessianComponent.sampleName = sample + " [hessian component]"
                     else:
-                        hessianComponent += sampleInfos[sample]
+                        hessianComponent += sampleInfos[component]
             if hessianComponent is not None:
                 ComputePDFSystematic(hessianComponent)
             CombineHessianAndMC(sampleInfos[sample], hessianComponent)
@@ -1480,6 +1564,7 @@ doSystematics = True
 doQCD = True
 signalNameTemplate = "LQToDEle_M-{}_pair"
 # signalNameTemplate = "LQToBEle_M-{}_pair"
+combineSingleTopAndDiboson = True
 # doRPV = False
 # forceGmNNormBkgStatUncert = False
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
@@ -1499,6 +1584,9 @@ mass_points = [
     str(i) for i in range(300, 3100, 100)
 ]  # go from 300-3000 in 100 GeV steps
 ## mass_points.extend(["3500", "4000"])
+# mass_points = [
+#     str(i) for i in range(1500, 2100, 100)
+# ]
 signal_names = [signalNameTemplate]
 
 # if doRPV:
@@ -1520,17 +1608,13 @@ signal_names = [signalNameTemplate]
 maxLQSelectionMass = 100000 # FIXME remove
 # background_names =  [ "PhotonJets_Madgraph", "QCDFakes_DATA", "TTBarFromDATA", "ZJet_amcatnlo_ptBinned", "WJet_amcatnlo_ptBinned", "DIBOSON","SingleTop"  ]
 background_names = [
-    # "ZJet_powhegminnlo",
     "ZJet_amcatnlo_ptBinned_IncStitch",
     # "TTBarFromDATA",
-    "TTTo2L2Nu"] + (["QCDFakes_DATA"] if doQCD else []) + [
-    "DIBOSON_nlo",
-    # "TRIBOSON",
-    # "TTX",
-    "SingleTop",
-    # "WJet_amcatnlo_jetBinned",
-    # "PhotonJets_Madgraph",
-]
+    "TTTo2L2Nu"] + (["QCDFakes_DATA"] if doQCD else [])
+if combineSingleTopAndDiboson:
+    background_names.append("OTHERBKG_dibosonNLO_singleTop")
+else:
+    backgrond_names.extend(["DIBOSON_nlo", "SingleTop"])
 background_fromMC_names = [bkg for bkg in background_names if "data" not in bkg.lower()]
 background_QCDfromData = [bkg for bkg in background_names if "data" in bkg.lower() and "qcd" in bkg.lower()]
 systTitleDict = {
@@ -1549,29 +1633,28 @@ systTitleDict = {
         "TT_Norm": "TTbar normalization",
         "DY_Norm": "DYJ normalization",
         "DY_Shape": "DYJ shape",
-        "TT_Shape": "TTbar shape",
-        "Diboson_Shape": "Diboson shape",
-        "ST_Shape": "SingleTop shape",
-        "QCD_Norm": "QCD bkg. normalization",
+        "TT_Shape": "TTbar shape"
 }
-otherBackgrounds = [
-    # "PhotonJets_Madgraph",
-    # "WJet_amcatnlo_jetBinned",
-    "DIBOSON_nlo",
-    # "TRIBOSON",
-    # "TTW",
-    # "TTZ",
-    "SingleTop",
-]
+if combineSingleTopAndDiboson:
+    systTitleDict.update({
+        "OtherBkg_Shape": "Other bkg. shape"
+        })
+else:
+    systTitleDict.update({
+        "Diboson_Shape": "Diboson shape",
+        "ST_Shape": "SingleTop shape"
+        })
+systTitleDict.update({"QCD_Norm": "QCD bkg. normalization"})
+otherBackgrounds = ["OTHERBKG_dibosonNLO_singleTop"] if combineSingleTopAndDiboson else ["DIBOSON_nlo", "SingleTop"]
 
 zjetsSampleName = GetSampleNameFromSubstring("ZJet", background_names)
-#ttbarSampleName = GetSampleNameFromSubstring("TTbar", background_names)
 ttbarSampleName = GetSampleNameFromSubstring("TTTo2L2Nu", background_names)
-dibosonSampleName = GetSampleNameFromSubstring("DIBOSON", background_names)
-singleTopSampleName = GetSampleNameFromSubstring("SingleTop", background_names)
+dibosonSampleName = GetSampleNameFromSubstring("DIBOSON", background_names) if not combineSingleTopAndDiboson else "foo"
+singleTopSampleName = GetSampleNameFromSubstring("SingleTop", background_names) if not combineSingleTopAndDiboson else "bar"
 
 backgroundTitlesDict = {zjetsSampleName: "Z+jets", ttbarSampleName: "TTbar", "QCDFakes_DATA": "QCD(data)", "WJet_amcatnlo_ptBinned": "W+jets", "WJet_amcatnlo_jetBinned": "W+jets",
-        dibosonSampleName: "DIBOSON", "TRIBOSON": "TRIBOSON", "TTX": "TTX", "SingleTop": "SingleTop", "PhotonJets_Madgraph": "Gamma+jets"}
+                        dibosonSampleName: "DIBOSON", "TRIBOSON": "TRIBOSON", "TTX": "TTX", singleTopSampleName: "SingleTop",
+                        "PhotonJets_Madgraph": "Gamma+jets", "OTHERBKG_dibosonNLO_singleTop": "Other bkg. (VV+jets + SingleTop)"}
 backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 # SIC 6 Jul 2020 remove
 # if doEEJJ:
@@ -1583,7 +1666,6 @@ backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 
 selectionPoints = ["preselection", "trainingSelection"] + mass_points
 selectionNames = ["LQ"+sel if "selection" not in sel.lower() else sel for sel in selectionPoints]
-allSelections = selectionNames + ["preselection", "trainingSelection"]
 additionalBkgSystsDict = {}
 
 # QCDNorm is 0.40 [40% norm uncertainty for eejj = uncertaintyPerElectron*2]
@@ -1717,8 +1799,11 @@ for year in years:
     d_applicableSystematics[year][zjetsSampleName].append("DY_Shape")
     d_applicableSystematics[year][ttbarSampleName].append("TT_Norm")
     d_applicableSystematics[year][ttbarSampleName].append("TT_Shape")
-    d_applicableSystematics[year][dibosonSampleName].append("Diboson_Shape")
-    d_applicableSystematics[year][singleTopSampleName].append("ST_Shape")
+    if combineSingleTopAndDiboson:
+        d_applicableSystematics[year]["OTHERBKG_dibosonNLO_singleTop"].append("OtherBkg_Shape")
+    else:
+        d_applicableSystematics[year][dibosonSampleName].append("Diboson_Shape")
+        d_applicableSystematics[year][singleTopSampleName].append("ST_Shape")
 systematicsNamesSignal = {}
 systematicsNamesSignal = {year: [syst for syst in systematicsNamesBg if "shape" not in syst.lower() and "norm" not in syst.lower() and "LHEPdfWeight" not in syst] for year, systematicsNamesBg in systematicsNamesBackground.items()}
 # systematicsNamesSignal.remove("LHEPdfWeight")
@@ -1881,9 +1966,11 @@ for idx, year in enumerate(years):
 SumSampleInfoOverYears(d_backgroundSampleInfos, years)
 SumSampleInfoOverYears(d_signalSampleInfos, years)
 SumSampleInfoOverYears(d_dataSampleInfos, years)
-# now, need to recompute LHEScale/LHEPdfUncertainties
-RecomputeBackgroundSystematic("LHEScaleWeight", d_backgroundSampleInfos)
-RecomputeBackgroundSystematic("LHEPdfWeight", d_backgroundSampleInfos)
+if doSystematics:
+    # now, need to recompute LHEScale/LHEPdfUncertainties
+    RecomputeBackgroundSystematic("LHEScaleWeight", d_backgroundSampleInfos)
+    RecomputeBackgroundSystematic("LHEPdfWeight", d_backgroundSampleInfos)
+
 systematicsNamesBackground["all"] = []
 d_systTitles["all"] = {}
 for year in years:
@@ -2311,6 +2398,44 @@ if doSystematics:
         #         syst, "QCDFakes_DATA", syst, d_systNominals["QCDFakes_DATA"][syst], total))
     print(tabulate(totalBkgSystTable, headers=totalBkgSystsHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
 
+yieldTable = []
+yieldTableHeaders = ["sample/sel."]
+yieldTableHeaders.extend([selection for selection in selectionNames])
+pctTable = []
+pctTableHeaders = ["sample/sel. % of total"]
+pctTableHeaders.extend([selection for selection in selectionNames])
+sampleList = []
+for sampleName in d_backgroundSampleInfos.keys():
+    if sampleName in allYears or sampleName in sampleList:
+        continue
+    sampleList.append(sampleName)
+    if sampleName in dictSampleComponents.keys():
+        for componentBkg in dictSampleComponents[sampleName]:
+            sampleList.append(componentBkg)
+samplesAlwaysBelowOnePct = []
+for sampleName in sampleList:
+    yieldTableRow = [sampleName]
+    pctTableRow = [sampleName]
+    sampleBelowOnePct = True
+    for selection in selectionNames:
+        val, err = d_backgroundSampleInfos[sampleName].GetRateAndErr(selection)
+        yieldTableRow.append("{v:.2{c}} +/- {e:.2{c}}".format(v=val, e=err, c='e' if val < 1e-2 and math.fabs(val) > 0 else 'f'))
+        # total = sum([d_systNominals[sampleName][syst][selection] for sampleName in background_names])
+        total = sum([d_backgroundSampleInfos[sampleName].GetRateAndErr(selection)[0] for sampleName in background_names])
+        pctTableRow.append("{v:.2{c}} +/- {e:.2{c}}".format(v=100.*val/total, e=100.*err/total, c='f'))
+        if val/total >= 0.01:
+            sampleBelowOnePct = False
+    if sampleBelowOnePct:
+        samplesAlwaysBelowOnePct.append(sampleName)
+    yieldTable.append(yieldTableRow)
+    pctTable.append(pctTableRow)
+print(tabulate(yieldTable, headers=yieldTableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
+print(tabulate(pctTable, headers=pctTableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
+print(tabulate(pctTable, headers=pctTableHeaders, tablefmt="latex", floatfmt=".2f"))
+for sample in samplesAlwaysBelowOnePct:
+    print("INFO: sample {} always below 1% of total background".format(sample))
+print()
+
 # make final selection tables
 columnNames = [
     "MLQ",
@@ -2499,6 +2624,7 @@ with open(tablesDir + "/eventYieldsAN.tex", "w") as table_file:
     for line in latexRowsAN:
         print(line)
         table_file.write(line+"\n")
+    table_file.write(r"\hline\n")
     ending = r"\end{tabular}}"  # extra } to end resizebox
     print(ending)
     table_file.write(ending+"\n")
