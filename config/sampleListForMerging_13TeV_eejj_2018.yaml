@@ -165,9 +165,11 @@ TTTo2L2Nu:
 ST_tW_top_5f_NoFullyHadronicDecays:
   pieces:
   - /ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 ST_tW_antitop_5f_NoFullyHadronicDecays:
   pieces:
   - /ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 #ST_t-channel_top_5f_inclusiveDecays:
 #  pieces:
 #  - /ST_t-channel_top_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
@@ -223,6 +225,7 @@ SingleTop:
 WWTo2L2Nu_powheg:
   pieces:
   - /WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 WW_nlo:
   pieces:
   - WWTo2L2Nu_powheg
@@ -241,12 +244,15 @@ WW_nlo:
 ZZTo2Q2L:
   pieces:
   - /ZZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 ZZTo4L_powheg:
   pieces:
   - /ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 ZZTo2L2Nu_powheg:
   pieces:
   - /ZZTo2L2Nu_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM
+  save: true
 ZZ_nlo:
   pieces:
   - ZZTo2Q2L
@@ -274,6 +280,7 @@ ZZ_nlo:
 WZTo2Q2L:
   pieces:
   - /WZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM
+  save: true
 # WZTo3LNu_powheg:
 #   pieces:
 #   - /WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM
@@ -341,82 +348,20 @@ DIBOSON_nlo:
 #  - ttZJets
 #  correlateLHESystematics: false
 #  save: true
-#OTHERBKG_WJetAMCJetBinned_dibosonNLO_tribosonGJetsTTX:
-#  pieces:
-#  - WJet_amcatnlo_jetBinned
-#  - SingleTop_all
-#  - DIBOSON_nlo_all
-#  - TRIBOSON
-#  - PhotonJets_Madgraph
-#  - TTX
-#  correlateLHESystematics: false
-#  save: true
-#ALLBKG_powhegTTBar_ZJetPtIncStitchWJetAMCJetBinned_NLODiboson_tribosonGJetsTTX:
-#  pieces:
-#  - ZJet_amcatnlo_ptBinned_IncStitch
-#  - TTbar_powheg_all
-#  - WJet_amcatnlo_jetBinned
-#  - SingleTop_all
-#  - DIBOSON_nlo_all
-#  - TRIBOSON
-#  - PhotonJets_Madgraph
-#  - TTX
-#  correlateLHESystematics: false
-#  save: true
 OTHERBKG_dibosonNLO_singleTop:
   pieces:
   - SingleTop
   - DIBOSON_nlo
   correlateLHESystematics: false
   save: true
-#ALLBKG_powhegTTBar_ZJetPtIncStitch_NLODiboson:
-#  pieces:
-#  - ZJet_amcatnlo_ptBinned_IncStitch
-#  - TTTo2L2Nu
-#  - SingleTop
-#  - DIBOSON_nlo
-#  correlateLHESystematics: false
-#  save: true
-#ALLBKG_powhegTTBar_ZJetPowhegMiNNLOWJetAMCJetBinned_NLODiboson_tribosonGJetsTTX:
-#  pieces:
-#  - ZJet_powhegminnlo
-#  - TTbar_powheg_all
-#  - WJet_amcatnlo_jetBinned
-#  - SingleTop_all
-#  - DIBOSON_nlo_all
-#  - TRIBOSON
-#  - PhotonJets_Madgraph
-#  - TTX
-#  correlateLHESystematics: false
-#  save: true
-#ALLBKG_powhegTTBar_ZJetPowhegMiNNLO_NLODiboson:
-#  pieces:
-#  - ZJet_powhegminnlo
-#  - TTTo2L2Nu
-#  - SingleTop
-#  - DIBOSON_nlo
-#  correlateLHESystematics: false
-#  save: true
-#ALLBKG_powhegTTBar_ZJetMadgraphLOHT_NLODiboson:
-#  pieces:
-#  - ZJet_madgraphLO_HT
-#  - TTTo2L2Nu
-#  - SingleTop
-#  - DIBOSON_nlo
-#  correlateLHESystematics: false
-#  save: true
-#ALLBKG_powhegTTBar_ZJetMadgraphLOHTWJetAMCJetBinned_NLODiboson_tribosonGJetsTTX:
-#  pieces:
-#  - ZJet_madgraphLO_HT
-#  - TTbar_powheg_all
-#  - WJet_amcatnlo_jetBinned
-#  - SingleTop_all
-#  - DIBOSON_nlo_all
-#  - TRIBOSON
-#  - PhotonJets_Madgraph
-#  - TTX
-#  correlateLHESystematics: false
-#  save: true
+ALLBKG_powhegTTBar_ZJetPtIncStitch_NLODiboson:
+  pieces:
+  - ZJet_amcatnlo_ptBinned_IncStitch
+  - TTTo2L2Nu
+  - SingleTop
+  - DIBOSON_nlo
+  correlateLHESystematics: false
+  save: true
 EGamma_2018D:
   pieces:
   - /EGamma/Run2018D-UL2018_MiniAODv2_NanoAODv9-v3/NANOAOD
