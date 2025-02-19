@@ -568,3 +568,4 @@ if len(failedCommands) > 0:
     print("list of failed commands:")
     for cmd in failedCommands:
         print(cmd)
+    exit(1)
