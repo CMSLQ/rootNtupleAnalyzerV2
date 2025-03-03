@@ -631,8 +631,8 @@ def OptimizeBDTCut(args):
         # methodNames = [name]
         # print("name={}, bdtWeightFileName={}".format(name, bdtWeightFileName))
         # reader.BookMVA(name, bdtWeightFileName )
-        #tempDir = "/tmp/LQM{}".format(lqMassToUse)
-        tempDir = "LQM{}".format(lqMassToUse) #Can use this to save optimization trees to afs space. But only for a couple of masses at a time before you run out of storage space.
+        tempDir = "/tmp/LQM{}".format(lqMassToUse)
+        #tempDir = "LQM{}".format(lqMassToUse) #Can use this to save optimization trees to afs space. But only for a couple of masses at a time before you run out of storage space.
         if not os.path.isdir(tempDir):
             os.mkdir(tempDir)
         binsToUse = 200 #100 # 10000
@@ -1047,8 +1047,8 @@ def OptimizeBDTCut(args):
         maxVal = next(iter(sortedDict.items()))
         cutValInfoToUse = [maxVal[0]]
         cutValInfoToUse.extend(maxVal[1])
-        #if cutValInfoToUse[2] < 0:
-        #    cutValInfoToUse[2] = 0
+        if cutValInfoToUse[2] < 0:
+            cutValInfoToUse[2] = 0
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(lqMassToUse, maxVal[0], *maxVal[1]))
         # testVals=list(fomValueToCutInfoDict.items())
         # testVal=testVals[9949]
@@ -1390,9 +1390,6 @@ def OptimizeBDTCut(args):
                 print("   Yield after BDT cut      = {}".format(dyPtBinYields[year][name]["BDTCut"]))
                 print("   Raw events after BDT cut = {}".format(dyPtBinYields[year][name]["rawEvents"]))
                 print("   Yield after Meejj cut    = {}".format(dyPtBinYields[year][name]['full']))
-        if os.path.isdir(tempDir):# and not "DY" in tempDir:
-            subprocess.run(['cp','-r',tempDir, os.getenv("LQDATAEOS")+"/BDT_11NovSkim/LQToDEle/zeroNegativeYields/3febQCD/treesWithBDTBranch"])
-            subprocess.run(['rm','-r',tempDir])
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
@@ -1401,6 +1398,12 @@ def OptimizeBDTCut(args):
     endTime = time.time()
     totTime = endTime - startTime
     print("total time = ", totTime)
+    try:
+        if os.path.isdir(tempDir):
+            shutil.rmtree(tempDir)
+    except Exception as e:
+        traceback.print_exc()
+        print("ERROR: ",e)
     return True
 
 
@@ -2311,7 +2314,7 @@ if __name__ == "__main__":
     inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7FebSkim/tmvaInputs/{}/QCDFakes_1FR/"
     inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7FebSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -2343,10 +2346,12 @@ if __name__ == "__main__":
     lqMassesToUse = list(range(300, 3100, 100))
     #lqMassesToUse = [1500,1600,1700,1800]
     #lqMassesToUse = [2500]
+    signalNameTemplateD = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+    signalNameTemplateB = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
     if use_BEle_samples:
-        signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
+        signalNameTemplate = signalNameTemplateB
     else:
-        signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+        signalNameTemplate = signalNameTemplateD
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(1500)+"_APV_BDTG.weights.xml"
@@ -2449,7 +2454,7 @@ if __name__ == "__main__":
             for mass in lqMassesToUse:
                 if not parametrized:
                     signalDatasetName = signalNameTemplate.format(mass)
-                    weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
+                    weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplateD.format(mass)+"_BDTG.weights.xml"
                     #weightFile = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/febSkims/negWeightComparison/include/dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
                 dictOptFOMInfo[mass] = manager.dict()
                 try:
