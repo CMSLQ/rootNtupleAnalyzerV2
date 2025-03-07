@@ -17,7 +17,7 @@ weightFilesDest = "/eos/user/e/eipearso/LQ_BDTWeightFiles/LQToDEle/HTLO-amcatnlo
 print("copying weight files to "+weightFilesDest)
 
 #optimization results
-optResults = os.getenv("LQDATAEOS")+"/BDT_7FebSkim/LQToBEle/DEleModels/bdtOptimization.log"#.format(year,era)
+optResults = os.getenv("LQDATAEOS")+"/BDT_7FebSkim/LQToDEle/minNB0p5/bdtOptimization.log"#.format(year,era)
 
 #cut files
 #filenameBase = os.getenv("LQMACRO")+"/config{}/Analysis/{}LQToBEle/".format(year,era+"/")
@@ -31,14 +31,14 @@ filesToUpdate = []
 for year in years:
     for f in filenames:
         if year=="2016preVFP":
-            #directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/HTLO-amcatnlo/"
-            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/LQToBEle/"
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/HTLO-amcatnlo/"
+            #directory = os.getenv("LQMACRO")+"/config2016/Analysis/preVFP/LQToBEle/"
         elif year=="2016postVFP":
-            #directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/HTLO-amcatnlo/"
-            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/LQToBEle/"
+            directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/HTLO-amcatnlo/"
+            #directory = os.getenv("LQMACRO")+"/config2016/Analysis/postVFP/LQToBEle/"
         else:
-            #directory = os.getenv("LQMACRO")+"/config{}/Analysis/HTLO-amcatnlo/".format(year)
-            directory = os.getenv("LQMACRO")+"/config{}/Analysis/LQToBEle/".format(year)
+            directory = os.getenv("LQMACRO")+"/config{}/Analysis/HTLO-amcatnlo/".format(year)
+            #directory = os.getenv("LQMACRO")+"/config{}/Analysis/LQToBEle/".format(year)
         fullPath = directory+f
         print("add file {}".format(fullPath))
         filesToUpdate.append(fullPath)

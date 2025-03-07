@@ -994,10 +994,10 @@ def OptimizeBDTCut(args):
             #if "2016" in year:
             #    minNB = 0.5
             #else:
-            minNB = 1
+            #minNB = 1
             #minNB = 0
-            #minNB = 0.5
-            if not nB > minNB:
+            minNB = 0.5
+            if nB < minNB and not iBin==101: #iBin 101 is cut value == 0. This should mean that if we don't hit minNB by the time the BDT cut becomes negative, then the only FOM that gets evaluated at all is bin 101, meaning that it will be the maximum by definition.
                 skipFOMCalc = True
              
             if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
@@ -1047,8 +1047,8 @@ def OptimizeBDTCut(args):
         maxVal = next(iter(sortedDict.items()))
         cutValInfoToUse = [maxVal[0]]
         cutValInfoToUse.extend(maxVal[1])
-        if cutValInfoToUse[2] < 0:
-            cutValInfoToUse[2] = 0
+        #if cutValInfoToUse[2] < 0:
+        #    cutValInfoToUse[2] = 0
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(lqMassToUse, maxVal[0], *maxVal[1]))
         # testVals=list(fomValueToCutInfoDict.items())
         # testVal=testVals[9949]

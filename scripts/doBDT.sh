@@ -30,10 +30,10 @@ done
 fi
 
 years='2016preVFP 2016postVFP 2017 2018'
-destDir=$LQDATAEOS/BDT_7FebSkim/LQToBEle/DEleModels
+destDir=$LQDATAEOS/BDT_7FebSkim/LQToBEle/minNB0p5
 #destDir=testingBDTs
 #rm -r dataset
-#cp -r $LQDATAEOS/BDT_11NovSkim/LQToDEle/dataset .
+#cp -r $LQDATAEOS/BDT_7FebSkim/LQToDEle/dataset .
 
 if [ ! -d $destDir ]; then
     echo "EOS directory does not exist. Making one"
@@ -41,11 +41,11 @@ if [ ! -d $destDir ]; then
 fi
 
 #if [ "$doTraining" = true ]; then
-for year in $years; do
-	echo "Make input lists for $year"
+#for year in $years; do
+#	echo "Make input lists for $year"
 #	./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/7FebSkim/tmvaInputs $LQDATAEOS/BDTTrainingTrees/LQToDEle/$year/7FebSkims
-	./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/7FebSkim/tmvaInputsLQToBEle $LQDATAEOS/BDTTrainingTrees/LQToBEle/$year/7FebSkims
-done
+#	./scripts/createInputListsBDT.sh config/myDatasets/BDT/$year/7FebSkim/tmvaInputsLQToBEle $LQDATAEOS/BDTTrainingTrees/LQToBEle/$year/7FebSkims
+#done
 #fi
 
 #if [ "$doTraining" = true ]; then

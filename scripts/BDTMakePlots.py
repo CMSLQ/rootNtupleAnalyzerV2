@@ -40,14 +40,14 @@ parameterized = False
 #parameterized = True
 folderName = ""#str(minMLQ)+"To"+str(maxMLQ)+"GeV"
 
-base_folder = os.getenv("LQDATAEOS")+"/BDT_7FebSkim/LQToDEle"#{}".format(year)
-optimizationFile = base_folder+"/optimizationPlots.root"
+base_folder = os.getenv("LQDATAEOS")+"/BDT_7FebSkim/LQToBEle"#{}".format(year)
+optimizationFile = base_folder+"/minNB0p5/optimizationPlots.root"
 bdtPlotFile = base_folder+"/bdtPlots.root"
 
 modelName = "LQToDEle"#_{}".format(year)
 
-pdf_folder = base_folder+"/plots"
-outFileName = base_folder+"/"+modelName+"Plots.root"
+pdf_folder = base_folder+"/minNB0p5/plots"
+outFileName = base_folder+"/minNB0p5/"+modelName+"Plots.root"
 plotsForAN = pdf_folder+"/plotsForAN_{}.pdf".format(modelName)
 
 gROOT.SetBatch(True)
@@ -106,11 +106,18 @@ FOMVsMLQPlot = TGraph(len(LQmasses))
 for i, mass in enumerate(LQmasses):
     #print("get fom plot ", "LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
     fomPlot = optTFile.Get("LQM"+str(mass)+"/fomValVsBDTCutGraphLQM"+str(mass))
-    foms = fomPlot.GetY()
+    foms = {}
+    for ipoint in range(fomPlot.GetN()):
+        x = fomPlot.GetPointX(ipoint)
+        y = fomPlot.GetPointY(ipoint)
+        foms[str(x)] = y
+    #foms = fomPlot.GetY()
     cutVal = cutValues[str(mass)]
-    index = int((cutVal - (-1))/0.02) #100 cuts between -1 and 1
-    fomUsed = foms[index]
+    #index = int((cutVal - (-1))/0.02) #100 cuts between -1 and 1
+    fomUsed = foms[str(cutVal)]
+    print("fomUsed = foms[{}]".format(cutVal))
     FOMVsMLQPlot.SetPoint(i,mass,fomUsed)
+    print("FOMVsMLQPlot.SetPoint({},{},{})".format(i,mass,fomUsed))
     '''
     maxFOM = max(foms)
     if (mass<1000):
@@ -152,7 +159,6 @@ for i, mass in enumerate(LQmasses):
         fomPlot.Draw('psame')
         c.Print(pdf_folder+"/{}/FOM_withCuts_forAN.pdf".format(mass))
 
-
 c2 = TCanvas()
 c2.SetGridy()
 c2.SetLogy()
@@ -161,6 +167,7 @@ FOMVsMLQPlot.SetTitle("FOM of chosen BDT cut vs MLQ")
 FOMVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
 FOMVsMLQPlot.GetYaxis().SetTitle("FOM")
 FOMVsMLQPlot.SetMarkerStyle(8)
+FOMVsMLQPlot.GetYaxis().SetRangeUser(1e-3,5e3)
 FOMVsMLQPlot.Draw("ALP")
 outFile.cd()
 FOMVsMLQPlot.Write()
@@ -550,7 +557,7 @@ oneMaucVsMLQPlot.GetXaxis().SetTitle("MLQ (GeV)")
 oneMaucVsMLQPlot.GetYaxis().SetTitle("1 - ROC AUC")
 oneMaucVsMLQPlot.SetTitle("1 - area under ROC vs MLQ")
 c3.SetLogy()
-oneMaucVsMLQPlot.GetYaxis().SetRangeUser(1e-10,1)
+oneMaucVsMLQPlot.GetYaxis().SetRangeUser(1e-5,1)
 oneMaucVsMLQPlot.Draw("AP")
 outFile.cd()
 oneMaucVsMLQPlot.Write()
@@ -566,7 +573,7 @@ for i,mass in enumerate(LQmasses):
             TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8_APV.root")
     else:
         if "BEle" in pdf_folder:
-            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8.root")
+            TMVAFile = TFile.Open(base_folder.replace("BEle","DEle")+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
         else:
             TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     for var in variables:
@@ -659,7 +666,7 @@ for i,mass in enumerate(LQmasses):
             TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8_APV.root")
     else:
         if "BEle" in pdf_folder:
-            TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToBEle_M-"+str(mass)+"_pair_TuneCP2_13TeV-madgraph-pythia8.root")
+            TMVAFile = TFile.Open(base_folder.replace("BEle","DEle")+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
         else:
             TMVAFile = TFile.Open(base_folder+"/TMVA_ClassificationOutput_LQToDEle_M-"+str(mass)+"_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8.root")
     bkgTrain = TMVAFile.Get("dataset/Method_BDT/BDTG/MVA_BDTG_Train_B")
