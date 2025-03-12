@@ -127,15 +127,17 @@ class SampleInfo:
     def UpdateSystsApplied(self, syst):
         self.systematicsApplied.add(syst)
 
-    def GetNearestPositiveSelectionYield(self, selection, minRawEvents=2):
+    def GetNearestPositiveSelectionYield(self, selection, minRawEvents=-1):
+        if minRawEvents == -1:
+            minRawEvents = self.minRawEvents
         massPointsRev = list(reversed(mass_points))
         idxInc = mass_points.index(selection.replace("LQ", ""))
         idxInc += 1
         idxDec = massPointsRev.index(selection.replace("LQ", ""))
         idxDec += 1
-        rate = 0
-        err = 0
-        rawEvents = 0
+        rate = self.rates[selection]
+        err = self.rateErrs[selection]
+        rawEvents = self.unscaledRates[selection]
         selectionsToCheck = []
         trimmedMassesInc = mass_points[idxInc:]
         trimmedMassesInc = ["LQ"+mass for mass in trimmedMassesInc]
@@ -163,10 +165,11 @@ class SampleInfo:
                     lastSelectionsChecked.append(lastSelectionName)
                     # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
             index += 1
-        if len(lastSelectionsChecked) <= 0:
-            raise RuntimeError("Could not find nonzero selection for sample={}; rates look like {} and errors look like {}; checked selections={}".format(
+        if rate <= 0 or err <= 0 or rawEvents < minRawEvents:
+            raise RuntimeError("Could not find valid selection for sample={}; rates look like {} and errors look like {}; checked selections={}".format(
                 self.sampleName, self.rates, self.rateErrs, lastSelectionsChecked))
-        print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(self.sampleName, selection, lastSelectionName, rate, err, rawEvents))
+        # print("INFO: GetNearestPositiveSelectionYield: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(self.sampleName, selection, lastSelectionName, rate, err, rawEvents))
+        print("INFO: GetNearestPositiveSelectionYield: for sample {}, with rate {} +/- {} [ {} evts] for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(self.sampleName, self.GetRateAndErr(selection)[0], self.GetRateAndErr(selection)[1], self.GetUnscaledRate(selection), selection, lastSelectionName, rate, err, rawEvents))
         # print "INFO: GetNearestPositiveSelectionYieldsFromDicts: found last selectionName={} with {} unscaled events".format(selectionName, unscaledRate)
         return lastSelectionName, rate, err, rawEvents
 
@@ -442,7 +445,7 @@ class SampleInfo:
     def FindNearestSelectionPassingThresholds(self, selection, nominal, rawEvents, minRawEvents):
         if nominal <= 0 or rawEvents < minRawEvents:
             # take the last selection for which we have some rate, and use that for systematic evaluation
-            lastNonzeroSelection, rate, err, events = self.GetNearestPositiveSelectionYields(selection)
+            lastNonzeroSelection, rate, err, events = self.GetNearestPositiveSelectionYield(selection, minRawEvents)
             nominal = rate
             selection = lastNonzeroSelection
             rawEvents = events
@@ -488,54 +491,6 @@ class SampleInfo:
                 return "trainingSelection", self.GetRateAndErr("trainingSelection"), self.GetUnscaledRate("trainingSelection")
         return lastSelectionName, rate, err, rawEvents
     
-    def GetNearestPositiveSelectionYields(self, selection):
-        massPointsRev = list(reversed(mass_points))
-        # idx = massPointsRev.index(selection.replace("LQ", ""))
-        idxInc = mass_points.index(selection.replace("LQ", ""))
-        idxInc += 1
-        idxDec = massPointsRev.index(selection.replace("LQ", ""))
-        idxDec += 1
-        rate = 0
-        err = 0
-        rawEvents = 0
-        minRawEvents = self.minRawEvents
-        selectionsToCheck = []
-        # for index in range(idx, len(mass_points)):
-        #     selectionsToCheck.append("LQ" + mass_points[index])
-        #     selectionsToCheck.append("LQ" + mass_points[index])
-        trimmedMassesInc = mass_points[idxInc:]
-        trimmedMassesDec = massPointsRev[idxDec:]
-        trimmedMassesInc = ["LQ"+mass for mass in trimmedMassesInc]
-        trimmedMassesDec = ["LQ"+mass for mass in trimmedMassesDec] + ["trainingSelection", "preselection"]
-        # selectionsToCheck = list(set(["LQ"+val for pair in zip(massPointsRev, mass_points) for val in pair]))
-        # unscaledRate = 0
-        # look around given selection
-        lastSelectionsChecked = []
-        index = 0
-        while (rate <= 0 or err <= 0 or rawEvents < minRawEvents) and (index < len(trimmedMassesInc) or index < len(trimmedMassesDec)):
-            # lastSelectionName = "LQ" + massPointsRev[idx]
-            # lastSelectionName = selectionsToCheck[index]
-            if index < len(trimmedMassesInc):
-                lastSelectionName = trimmedMassesInc[index]
-                rate, err = self.GetRateAndErr(lastSelectionName)
-                rawEvents = self.GetUnscaledRate(lastSelectionName)
-                lastSelectionsChecked.append(lastSelectionName)
-                # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}".format(sampleName, selection, lastSelectionName, rate, err))
-            if rate <= 0 or err <= 0 or rawEvents < minRawEvents:
-                if index < len(trimmedMassesDec):
-                    lastSelectionName = trimmedMassesDec[index]
-                    rate, err = self.GetRateAndErr(lastSelectionName)
-                    rawEvents = self.GetUnscaledRate(lastSelectionName)
-                    lastSelectionsChecked.append(lastSelectionName)
-                    # print("INFO: GetNearestPositiveSelectionYieldsFromDicts: for sample {}, with initial selection={}, check selectionName={}: rate = {} +/- {}; rawEvents={}".format(sampleName, selection, lastSelectionName, rate, err, rawEvents))
-            index += 1
-        if len(lastSelectionsChecked) <= 0:
-            raise RuntimeError("Could not find nonzero selection for sample={}; rates look like {} and errors look like {}; checked selections={}".format(
-                self.sampleName, self.rates, self.rateErrs, lastSelectionsChecked))
-        print("INFO: GetNearestPositiveSelectionYields: for sample {}, with zero nominal rate for selection={}, found lastSelectionName={} with rate = {} +/- {} [{} evts]".format(self.sampleName, selection, lastSelectionName, rate, err, rawEvents))
-        # print "INFO: GetNearestPositiveSelectionYieldsFromDicts: found last selectionName={} with {} unscaled events".format(selectionName, unscaledRate)
-        return lastSelectionName, rate, err, rawEvents
-
 
 def FindAllSelectionsPassingThresholds(sampleInfo, selectionsToCheck, minRawEvents):
     systDict = sampleInfo.systematics
@@ -848,64 +803,6 @@ def GetLatexHeaderFromColumnNames(columnNames):
     return headerLine
 
 
-# def GetNearestPositiveSelectionYields(sampleName, selection, d_backgroundRates, d_signalRates, d_background_rateErrs, d_signal_rateErrs, d_background_unscaledRates, d_signal_unscaledRates):
-#     # print("DEBUG: GetNearestPositiveSelectionYields({}, {})".format(sampleName, selection))
-#     if sampleName in list(d_background_rates[year].keys()):
-#         return GetNearestPositiveSelectionYieldsFromDicts(sampleName,
-#                 d_background_rates[year][sampleName], d_background_rateErrs[year][sampleName], d_background_unscaledRates[year][sampleName], selection)
-#     elif sampleName in list(d_signal_rates[year].keys()):
-#         return GetNearestPositiveSelectionYieldsFromDicts(sampleName,
-#                 d_signal_rates[year][sampleName], d_signal_rateErrs[year][sampleName], d_signal_unscaledRates[year][sampleName], selection)
-#     else:
-#         raise RuntimeError("Could not find sampleName={} in background keys={} or signal keys={}".format(
-#             sampleName, list(d_background_rates[year].keys()), list(d_signal_rates[year].keys())))
-
-
-#FIXME REMOVE, probably
-# def GetTotalSignalRateAndErr(years, sampleName, selection):
-#     return GetTotalRateAndErr(years, sampleName, selection, d_signalSampleInfos)
-# 
-# 
-# def GetTotalBackgroundRateAndErr(years, sampleName, selection):
-#     return GetTotalRateAndErr(years, sampleName, selection, d_backgroundSampleInfos)
-# 
-# 
-# def GetTotalRateAndErr(years, sampleName, selection, sampleInfos):
-#     sumRate = 0
-#     sumRateErr = 0
-#     for year in years:
-#         rate, rateErr = sampleInfos[year][sampleName].GetRateAndErr(selection)
-#         sumRate += rate
-#         sumRateErr += rateErr
-#     return sumRate, sumRateErr
-# 
-# 
-# def GetTotalSignalFailRateAndErr(years, sampleName, selection):
-#     return GetTotalFailRateAndErr(years, sampleName, selection, d_signalSampleInfos)
-# 
-# 
-# def GetTotalBackgroundFailRateAndErr(years, sampleName, selection):
-#     return GetTotalFailRateAndErr(years, sampleName, selection, d_backgroundSampleInfos)
-# 
-# 
-# def GetTotalFailRateAndErr(years, sampleName, selection, sampleInfos):
-#     sumFailRate = 0
-#     sumFailRateErr = 0
-#     for year in years:
-#         rate, rateErr = sampleInfos[year][sampleName].GetFailRateAndErr(selection)
-#         sumFailRate += rate
-#         sumFailRateErr += rateErr
-#     return sumFailRate, sumFailRateErr
-# 
-# 
-# def GetTotalNearestPositiveSelectionYield(years, sampleInfos, background_name, selectionName):
-#     lastSelMassesByYear = {}
-#     for year in years:
-#         lastSel, rate, err, rawEvents = sampleInfos[year][background_name].GetNearestPositiveSelectionYield(selectionName, 1)  # 1 min raw event required
-#         lastSelMass = lastSel.replace("LQ", "")
-#         lastSelMassesByYear[year] = int(lastSelMass)
-
-
 def SumSampleInfoOverYears(sampleInfos, years):
     yearsDone = []
     for year in years:
@@ -962,7 +859,7 @@ def CreateAndWriteHistograms(year):
             for ibkg, background_name in enumerate(background_names):
                 thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
                 if thisBkgEvts <= 0:
-                    print("INFO: Got thisBkgEvts={} for background_name={}, selectionName={}".format(thisBkgEvts, background_name, selectionName))
+                    print("INFO: CreateAndWriteHistograms() - Got thisBkgEvts={} for background_name={}, selectionName={}".format(thisBkgEvts, background_name, selectionName))
                     lastSel, rate, err, rawEvents = d_backgroundSampleInfos[background_name].GetNearestPositiveSelectionYield(selectionName)
                     # take upper Poisson 68% CL limit of 1.8410216450092634 and scale it by the factor obtained from the nearest nonzero selection
                     thisBkgEvtsErr = 1.8410216450092634 * rate/rawEvents
@@ -1562,8 +1459,6 @@ def WriteDatacard(card_file_path, year):
 blinded = True
 doSystematics = True
 doQCD = True
-signalNameTemplate = "LQToDEle_M-{}_pair"
-# signalNameTemplate = "LQToBEle_M-{}_pair"
 combineSingleTopAndDiboson = True
 # doRPV = False
 # forceGmNNormBkgStatUncert = False
@@ -1644,7 +1539,7 @@ else:
         "Diboson_Shape": "Diboson shape",
         "ST_Shape": "SingleTop shape"
         })
-systTitleDict.update({"QCD_Norm": "QCD bkg. normalization"})
+systTitleDict.update({"QCD_Norm": "Multijet bkg. normalization"})
 otherBackgrounds = ["OTHERBKG_dibosonNLO_singleTop"] if combineSingleTopAndDiboson else ["DIBOSON_nlo", "SingleTop"]
 
 zjetsSampleName = GetSampleNameFromSubstring("ZJet", background_names)
@@ -1670,7 +1565,7 @@ additionalBkgSystsDict = {}
 
 # QCDNorm is 0.40 [40% norm uncertainty for eejj = uncertaintyPerElectron*2]
 # lumi uncertainty from https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2#Combination_and_correlations
-dyNormDeltaXOverX = 0.1
+dyNormDeltaXOverX = 0.2
 ttBarNormDeltaXOverX = 0.1
 qcdNormDeltaXOverX = 0.4
 lumiDeltaXOverX = {}
@@ -1720,9 +1615,17 @@ if len(sys.argv) < 4:
 qcdAnaName = sys.argv[1]
 dataMCAnaName = sys.argv[2]
 requestedYear = sys.argv[3]
-# TODO: add support for specifying signal type via command line argument
-# if len(sys.argv > 4):
-#     signalNameTemplate = sys.argv[4]
+if len(sys.argv > 4):
+    signalName = sys.argv[4]
+    if "LQToDEle" in signalName:
+        signalNameTemplate = "LQToDEle_M-{}_pair"
+    elif "LQToBEle" in signalName:
+        signalNameTemplate = "LQToBEle_M-{}_pair"
+    else:
+        raise RuntimeError("Couldn't understand provided signal name '{}'. Must contain LQToDEle or LQToBEle.".format(signalName))
+else:
+    print("INFO: Defaulting to LQToDEle_pair signal")
+    signalNameTemplate = "LQToDEle_M-{}_pair"
 
 if requestedYear != "all":
     years = requestedYear.split(",")
@@ -1738,8 +1641,8 @@ for idx, year in enumerate(years):
     years[idx] = year
 
 
-if not signalNameTemplate.split("_")[0] in dataMCAnaName or not signalNameTemplate.split("_")[0] in qcdAnaName:
-    raise RuntimeError("signalNameTemplate specified is {}, while it does not appear to match the dataMC or qcd analysis names given.".format(signalNameTemplate))
+# if not signalNameTemplate.split("_")[0] in dataMCAnaName or not signalNameTemplate.split("_")[0] in qcdAnaName:
+#     raise RuntimeError("signalNameTemplate specified is {}, while it does not appear to match the dataMC or qcd analysis names given.".format(signalNameTemplate))
 
 d_systTitles = {}
 intLumi = 0
@@ -2624,7 +2527,8 @@ with open(tablesDir + "/eventYieldsAN.tex", "w") as table_file:
     for line in latexRowsAN:
         print(line)
         table_file.write(line+"\n")
-    table_file.write(r"\hline\n")
+    table_file.write(r"\hline")
+    table_file.write("\n")
     ending = r"\end{tabular}}"  # extra } to end resizebox
     print(ending)
     table_file.write(ending+"\n")
