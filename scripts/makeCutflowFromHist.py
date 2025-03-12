@@ -69,7 +69,7 @@ def SumSamples(filepath, qcdfilepath, year, sampleNames):
     return histTotal
 
 
-def MakeTables(sampleName, hist, txtFile, ltxFile):
+def MakeTables(sampleName, hist, txtFile, ltxFile, mass=None):
     verbose = False
     hist2 = hist.Clone()
     hist2.Reset()
@@ -107,6 +107,12 @@ def MakeTables(sampleName, hist, txtFile, ltxFile):
     cutNamesSeen = []
     for xbin in range(1, hist2.GetNbinsX()):
         cutName = hist.GetXaxis().GetBinLabel(xbin+1)
+        # for signal samples, skip over final selection cuts which don't apply to this mass point
+        if mass is not None:
+            if "BDTOutput_LQ" in cutName and not str(mass) in cutName:
+                continue
+            elif "MeejjLQ" in cutName and not str(mass) in cutName:
+                continue
         nPass = hist.GetBinContent(xbin+1)
         relEff = hist2.GetBinContent(xbin) * 100.0
         absEff = nPass / totalEvents * 100.0
@@ -145,7 +151,7 @@ allBkgSample = "ALLBKG_powhegTTBar_ZJetPtIncStitch_NLODiboson"
 
 dataMCFilePath = sys.argv[1].rstrip("/") + "/analysisClass_lq_eejj_{}_plots.root"
 year = sys.argv[2]
-if len(sys.argv > 3):
+if len(sys.argv) > 3:
     signalName = sys.argv[3]
     if "LQToDEle" in signalName:
         signalNameTemplate = "LQToDEle_M-{}_pair"
@@ -208,5 +214,5 @@ for idx, mass in enumerate(signalMasses):
     histSample = GetHistForSample(dataMCFilePath, sample)
     with open(txtFileName.format(sample), "w") as txtFile:
         with open(ltxFileName.format(sample), "w") as ltxFile:
-            MakeTables(sample, histSample, txtFile, ltxFile)
+            MakeTables(sample, histSample, txtFile, ltxFile, mass)
 print("Cutflows written into {}.".format(cutflowDir))
