@@ -3,16 +3,18 @@
 import math
 import copy
 import os
+import sys
 from tabulate import tabulate
 from ROOT import TFile, TH1
 
 
-def GetHistForSample(fileName, sampleName):
+def GetHistForSample(filePath, sampleName):
+    fileName = filePath.format(sampleName)
     histName = histNameBase.format(sampleName)
     tfile = TFile.Open(fileName)
     hist = tfile.Get(histName)
     if not hist or hist is None:
-        raise RuntimeError("Coudn't get hist {} from file {}".format(histName, filepath))
+        raise RuntimeError("Coudn't get hist {} from file {}".format(histName, fileName))
     hist = copy.deepcopy(hist)
     tfile.Close()
     return hist
@@ -33,7 +35,7 @@ def GetReweightingFactor(hist, sampleName):
         binLabel = hist.GetXaxis().GetBinLabel(xbin)
         binContent = hist.GetBinContent(xbin)
         if "reweighting" in binLabel.lower():
-            if binContent != 1.0:
+            if not math.isclose(binContent, 1):
                 reweight = binContent
                 if foundReweight:
                     raise RuntimeError("For hist {}, already found a reweighting factor from bin {} with label {} of value {}, but found another from bin {} with label {} of value {}. Cannot continue.".format(
@@ -134,52 +136,77 @@ def MakeTables(sampleName, hist, txtFile, ltxFile):
 ###################################################################################################
 reweight = True
 # includeQCD = True
-allYears = ["2016preVFP", "2016postVFP", "2017", "2018"]
 signalMasses = [500, 1000, 1500]
-signalNameTemplate = "LQToDEle_M-{}_pair"
 histNameBase = "histo1D__{}__EventsPassingCutsAllHist"
 cutflowDir = "cutflows"
-txtFileName = cutflowDir + "/cutflow_{}_{}.txt"
-ltxFileName = cutflowDir + "/cutflow_{}_{}.tex"
+txtFileName = cutflowDir + "/cutflow_{}.txt"
+ltxFileName = cutflowDir + "/cutflow_{}.tex"
+allBkgSample = "ALLBKG_powhegTTBar_ZJetPtIncStitch_NLODiboson"
 
-filepathBase = "/eos/cms/store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/{}/eejj_19feb2025_bdt_LQToDEle/output_cutTable_lq_eejj_BDT/analysisClass_lq_eejj_{}_plots.root"
-qcdFilepathBase = "/eos/cms/store/group/phys_exotica/leptonsPlusJets/LQ/scooper/ultralegacy/analysis/{}/qcd_eejj_19feb2025_bdt_LQToDEle/output_qcdSubtractedYield/qcdSubtracted_plots.root"
-bkgSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "OTHERBKG_dibosonNLO_singleTop"]
-# FIXME: how to include QCD
-# if includeQCD:
-#     bkgSamples.append("QCDFakes_DATA")
+dataMCFilePath = sys.argv[1].rstrip("/") + "/analysisClass_lq_eejj_{}_plots.root"
+year = sys.argv[2]
+if len(sys.argv > 3):
+    signalName = sys.argv[3]
+    if "LQToDEle" in signalName:
+        signalNameTemplate = "LQToDEle_M-{}_pair"
+    elif "LQToBEle" in signalName:
+        signalNameTemplate = "LQToBEle_M-{}_pair"
+    else:
+        raise RuntimeError("Couldn't understand provided signal name '{}'. Must contain LQToDEle or LQToBEle.".format(signalName))
+else:
+    print("INFO: Defaulting to LQToDEle_pair signal")
+    signalNameTemplate = "LQToDEle_M-{}_pair"
+
+# filepathBase = dataMCFilePath.rstrip("/") + "/analysisClass_lq_eejj_{}_plots.root"
+# bkgSamples = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "OTHERBKG_dibosonNLO_singleTop"]
+# # FIXME: how to include QCD
+# # if includeQCD:
+# #     bkgSamples.append("QCDFakes_DATA")
+# 
+# if not os.path.exists(cutflowDir):
+#     os.makedirs(cutflowDir)
+# 
+# totalBkgHist = None
+# totalSigHists = [None]*len(signalMasses)
+# for year in allYears:
+#     bkgHist = SumSamples(filepathBase, qcdFilepathBase, year, bkgSamples)
+#     with open(txtFileName.format("allBkg", year), "w") as txtFile:
+#         with open(ltxFileName.format("allBkg", year), "w") as ltxFile:
+#             MakeTables("All background", bkgHist, txtFile, ltxFile)
+#     if totalBkgHist is None:
+#         totalBkgHist = bkgHist
+#     else:
+#         totalBkgHist.Add(bkgHist)
+#     for idx, mass in enumerate(signalMasses):
+#         sample = signalNameTemplate.format(mass)
+#         histSample = GetHistForSample(filepathBase.format(year, sample), sample)
+#         with open(txtFileName.format(sample, year), "w") as txtFile:
+#             with open(ltxFileName.format(sample, year), "w") as ltxFile:
+#                 MakeTables(sample, histSample, txtFile, ltxFile)
+#         if totalSigHists[idx] is None:
+#             totalSigHists[idx] = histSample
+#         else:
+#             totalSigHists[idx].Add(histSample)
+# with open(txtFileName.format("allBkg", "RunII"), "w") as txtFile:
+#     with open(ltxFileName.format("allBkg", "RunII"), "w") as ltxFile:
+#         MakeTables("All background", totalBkgHist, txtFile, ltxFile)
+# for idx, mass in enumerate(signalMasses):
+#     sample = signalNameTemplate.format(mass)
+#     with open(txtFileName.format(sample, "RunII"), "w") as txtFile:
+#         with open(ltxFileName.format(sample, "RunII"), "w") as ltxFile:
+#             MakeTables(sample, totalSigHists[idx], txtFile, ltxFile)
 
 if not os.path.exists(cutflowDir):
     os.makedirs(cutflowDir)
 
-totalBkgHist = None
-totalSigHists = [None]*len(signalMasses)
-for year in allYears:
-    bkgHist = SumSamples(filepathBase, qcdFilepathBase, year, bkgSamples)
-    with open(txtFileName.format("allBkg", year), "w") as txtFile:
-        with open(ltxFileName.format("allBkg", year), "w") as ltxFile:
-            MakeTables("All background", bkgHist, txtFile, ltxFile)
-    if totalBkgHist is None:
-        totalBkgHist = bkgHist
-    else:
-        totalBkgHist.Add(bkgHist)
-    for idx, mass in enumerate(signalMasses):
-        sample = signalNameTemplate.format(mass)
-        histSample = GetHistForSample(filepathBase.format(year, sample), sample)
-        with open(txtFileName.format(sample, year), "w") as txtFile:
-            with open(ltxFileName.format(sample, year), "w") as ltxFile:
-                MakeTables(sample, histSample, txtFile, ltxFile)
-        if totalSigHists[idx] is None:
-            totalSigHists[idx] = histSample
-        else:
-            totalSigHists[idx].Add(histSample)
-with open(txtFileName.format("allBkg", "RunII"), "w") as txtFile:
-    with open(ltxFileName.format("allBkg", "RunII"), "w") as ltxFile:
-        MakeTables("All background", totalBkgHist, txtFile, ltxFile)
+bkgHist = GetHistForSample(dataMCFilePath, allBkgSample)
+with open(txtFileName.format("allBkg"), "w") as txtFile:
+    with open(ltxFileName.format("allBkg"), "w") as ltxFile:
+        MakeTables("All background", bkgHist, txtFile, ltxFile)
 for idx, mass in enumerate(signalMasses):
     sample = signalNameTemplate.format(mass)
-    with open(txtFileName.format(sample, "RunII"), "w") as txtFile:
-        with open(ltxFileName.format(sample, "RunII"), "w") as ltxFile:
-            MakeTables(sample, totalSigHists[idx], txtFile, ltxFile)
-
+    histSample = GetHistForSample(dataMCFilePath, sample)
+    with open(txtFileName.format(sample), "w") as txtFile:
+        with open(ltxFileName.format(sample), "w") as ltxFile:
+            MakeTables(sample, histSample, txtFile, ltxFile)
 print("Cutflows written into {}.".format(cutflowDir))
