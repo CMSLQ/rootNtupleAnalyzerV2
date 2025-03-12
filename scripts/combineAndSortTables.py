@@ -3,6 +3,9 @@ import sys
 import pathlib
 import combineCommon
 
+# XXX FIXME Feb. 2025
+# WARNING: THIS SCRIPT SEEMS BROKEN!
+# For some reason, the output of this does not agree with the output of the per-sample dat files we make in the combinePlots step!
 
 def GetSampleName(datFile):
     with open(datFile, "r") as theFile:
