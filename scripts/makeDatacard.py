@@ -40,7 +40,8 @@ class SampleInfo:
         # self.systNominalErrs = {}
         # self.systUpDeltas = {}
         # self.systDownDeltas = {}
-        self.minRawEvents = 3  # min number of events necessary to evaluate systematics
+        # self.minRawEvents = 3  # min number of events necessary to evaluate systematics
+        self.minRawEvents = 20  # min number of events necessary to evaluate systematics
 
     def __add__(self, other):
         new = SampleInfo(self.sampleName, self.rates, self.rateErrs, self.unscaledRates, self.totalEvents, self.failRates, self.failRateErrs, self.unscaledFailRates, self.systematics)
@@ -1482,8 +1483,6 @@ mass_points = [
 # mass_points = [
 #     str(i) for i in range(1500, 2100, 100)
 # ]
-signal_names = [signalNameTemplate]
-
 # if doRPV:
 #     mass_points = [
 #         str(i) for i in range(200, 1250, 100)
@@ -1595,7 +1594,6 @@ n_background = len(background_names)
 # update July/Sep 2020: no more data-driven TBar, so only 1 extra syst for eejj
 n_channels = 1
 
-signalNameList = [GetFullSignalName(signalNameTemplate, massPoint)[1] for massPoint in mass_points]
 backgroundsToRenormSystAtPresel = [zjetsSampleName, ttbarSampleName]
 plots_filePath = "plots.root"
 plotsDir = "makeDatacard_plots"
@@ -1615,7 +1613,7 @@ if len(sys.argv) < 4:
 qcdAnaName = sys.argv[1]
 dataMCAnaName = sys.argv[2]
 requestedYear = sys.argv[3]
-if len(sys.argv > 4):
+if len(sys.argv) > 4:
     signalName = sys.argv[4]
     if "LQToDEle" in signalName:
         signalNameTemplate = "LQToDEle_M-{}_pair"
@@ -1643,6 +1641,9 @@ for idx, year in enumerate(years):
 
 # if not signalNameTemplate.split("_")[0] in dataMCAnaName or not signalNameTemplate.split("_")[0] in qcdAnaName:
 #     raise RuntimeError("signalNameTemplate specified is {}, while it does not appear to match the dataMC or qcd analysis names given.".format(signalNameTemplate))
+
+signal_names = [signalNameTemplate]
+signalNameList = [GetFullSignalName(signalNameTemplate, massPoint)[1] for massPoint in mass_points]
 
 d_systTitles = {}
 intLumi = 0
