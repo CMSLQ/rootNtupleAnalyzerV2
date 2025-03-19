@@ -16,13 +16,14 @@ import numpy as np
 import ctypes
 import time
 import tempfile
+import subprocess
 from optparse import OptionParser
 from tabulate import tabulate
 from combineCommon import ParseXSectionFile, lookupXSection
 
 import ROOT
 from ROOT import TMVA, TFile, TString, TCut, TChain, TFileCollection, gROOT, gDirectory, gInterpreter, TEntryList, TH1D, TProfile, RDataFrame, TCanvas, TLine, kRed, kBlue, kSpring, TGraph, TGraphErrors, TMultiGraph, gPad, RooStats, TColor, TPaveText, gStyle, gSystem
-ROOT.EnableImplicitMT(6)
+#ROOT.EnableImplicitMT(6)
 
 
 #drawnObjs = []
@@ -806,7 +807,7 @@ def OptimizeBDTCut(args):
                         print("INFO LQM{}: found empty sample after Meejj cut {} ({})".format(lqMassToUse, datasetName, year))
                         emptySamples[year].append(fileToWrite)
                     elif bkgIntegral < 0 and not "QCD" in sample:
-                        print("INFO LQM{}: found negative sample {} with bkgIntegral = {} ({})".format(lqMassToUse, datasetName, bkgIntegral, year))
+                        print("INFO LQM{}: found negative yield after Meejj cut = {} for dataset {} ({})".format(lqMassToUse, bkgIntegral, datasetName, year))
                         emptySamples[year].append(fileToWrite)
                     else:
                         df.Snapshot('tree',tempDir+'/{}_{}_{}.root'.format(fileToWrite,lqMassToUse,year))
@@ -864,6 +865,8 @@ def OptimizeBDTCut(args):
             intLumi = intLumiDict[year]
             tchainSig = LoadDatasets(signalDatasetsDict, neededBranches,"ZJet_amcatnlo_ptBinned", signal=True, loader=None, lqMass=lqMassToUse, years=[year])
             dfSig = RDataFrame(tchainSig)
+            dfSig = dfSig.Filter("Meejj > "+str(lqMassToUse))
+            dfSig = dfSig.Range(1,0,2) #Match the way events were selected for the testing set, see the "else" in PrepareCustomTestAndTrainTrees()
             dfSig = dfSig.Filter(mycuts.GetTitle())  # will work for expressions valid in C++
         # dfSig = dfSig.Define('BDTv', ROOT.computeBDT, ROOT.BDT.GetVariableNames())
         # dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), getattr(ROOT, "BDT{}".format(lqMassToUse)).GetVariableNames())
@@ -882,7 +885,7 @@ def OptimizeBDTCut(args):
             else:
                 dfSig = dfSig.Define('BDTv', getattr(ROOT, "computeBDT{}".format(lqMassToUse)), varNames)
             dfSig = dfSig.Define('BDT', 'BDTv[0]')
-            dfSig = dfSig.Define('eventWeight', eventWeightExpression)
+            dfSig = dfSig.Define('eventWeight', eventWeightExpression+"*2") #Use twice the weight since we only use half the sample
             histSigThisYear = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsig), "BDT", "eventWeight")
             histSigUnweightedThisYear = dfSig.Histo1D(ROOT.RDF.TH1DModel(hsigUnweighted), "BDT")
             #datasetName = os.path.basename(txtFile).replace(".txt", "")
@@ -991,9 +994,10 @@ def OptimizeBDTCut(args):
             #if "2016" in year:
             #    minNB = 0.5
             #else:
-            minNB = 1
+            #minNB = 1
             #minNB = 0
-            if not nB > minNB:
+            minNB = 0.5
+            if nB < minNB and not iBin==101: #iBin 101 is cut value == 0. This should mean that if we don't hit minNB by the time the BDT cut becomes negative, then the only FOM that gets evaluated at all is bin 101, meaning that it will be the maximum by definition.
                 skipFOMCalc = True
              
             if not skipFOMCalc: #use >0.5 for each of 2016pre and post, so that we have 1 total for 2016
@@ -1037,11 +1041,14 @@ def OptimizeBDTCut(args):
         else:
         '''
         # sort by FOM
+        print(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
         sortedDict = OrderedDict(sorted(fomValueToCutInfoDict.items(), key=lambda t: float(t[1][0]), reverse=True))
         # now the max FOM value should be the first entry
         maxVal = next(iter(sortedDict.items()))
         cutValInfoToUse = [maxVal[0]]
         cutValInfoToUse.extend(maxVal[1])
+        #if cutValInfoToUse[2] < 0:
+        #    cutValInfoToUse[2] = 0
         #print("For lqMass={}, max FOM: ibin={} with FOM={}, cutVal={}, nS={}, eff={}, nB={}".format(lqMassToUse, maxVal[0], *maxVal[1]))
         # testVals=list(fomValueToCutInfoDict.items())
         # testVal=testVals[9949]
@@ -1059,7 +1066,12 @@ def OptimizeBDTCut(args):
         #    valList.append("no")
         #sharedOptValsDict[lqMassToUse] = valList
     #    print(sharedOptValsDict)
-        sharedOptHistsDict[lqMassToUse] = [histSig, bkgTotal, histSigUnweighted, bkgTotalUnweighted, bkgTotalNegWeightsOnly]
+        #sharedOptHistsDict[lqMassToUse] = [histSig, bkgTotal, histSigUnweighted, bkgTotalUnweighted, bkgTotalNegWeightsOnly]
+        histList = [histSig, bkgTotal, histSigUnweighted, bkgTotalUnweighted, bkgTotalNegWeightsOnly]
+        for year in years+["fullRunII"]:
+            for sample, hist in bkgHists[year].items():
+                histList.append(hist)
+        sharedOptHistsDict[lqMassToUse] = histList
         sharedFOMInfoDict[lqMassToUse]["FOM"] = fomList
         sharedFOMInfoDict[lqMassToUse]["nS"] = nSList
         sharedFOMInfoDict[lqMassToUse]["eff"] = effList
@@ -1129,7 +1141,10 @@ def OptimizeBDTCut(args):
                 #nBErr = ctypes.c_double()
                 #nB = hist.IntegralAndError(cutBin, hist.GetNbinsX(), nBErr)
                 #nBErr = nBErr.value
+                bkgIntegral = 0 #yield after Meejj cut, before BDT cut
                 for dataset in backgroundDatasetsDict[sample]:
+                    #if "WZTo3LNu" in dataset:
+                    #    continue
                     name = dataset.split("/")[-1]
                     name = name.replace(".txt","")
                     if sample=='QCDFakes_DYJ':
@@ -1143,35 +1158,52 @@ def OptimizeBDTCut(args):
                         dfTemp = RDataFrame(ttree)
                         bdtCut = dfTemp.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
                         rawEvents = dfTemp.Filter("BDT > "+str(cutVal)).Count()
+                        bkgIntegral += dfTemp.Sum('fullWeight').GetValue()
                         if rawEvents.GetValue() <=0:
-                            print("INFO LQM{}: No events passing BDT cut for dataset {} ({})".format(lqMassToUse, name, year))
+                            print("INFO LQM{}: No raw events passing BDT cut for dataset {} ({})".format(lqMassToUse, name, year))
+                        if bdtCut.GetValue() <= 0 and not "QCD" in sample:
+                            print("INFO LQM{}: Negative or 0 weighted yield after BDT cut = {} for dataset {} ({})".format(lqMassToUse, bdtCut.GetValue(),  name, year))
+                            emptySamples[year].append(name)
                     if "DYJets" in filename:
                         dyPtBinYields[year][name] = {}
                         if name in emptySamples[year]:
                             dyPtBinYields[year][name]['BDTCut'] = 0
                             dyPtBinYields[year][name]['rawEvents'] = 0
                             dyPtBinYields[year][name]['full'] = 0
-                            continue
-                        fullYield = dfTemp.Sum('fullWeight')
-                        dyPtBinYields[year][name]['BDTCut'] = bdtCut.GetValue()
-                        dyPtBinYields[year][name]['rawEvents'] = rawEvents.GetValue()
-                        dyPtBinYields[year][name]['full'] = fullYield.GetValue()
-                        tfile.Close()
-                    if name in emptySamples[year]:
-                        continue
-                    ch.Add(filename)
+                        else:
+                            fullYield = dfTemp.Sum('fullWeight')
+                            dyPtBinYields[year][name]['BDTCut'] = bdtCut.GetValue()
+                            dyPtBinYields[year][name]['rawEvents'] = rawEvents.GetValue()
+                            dyPtBinYields[year][name]['full'] = fullYield.GetValue()
+                            tfile.Close()
+                    if not name in emptySamples[year]:
+                        ch.Add(filename)
                 #tfile = TFile.Open(filename)
                 #ttree = tfile.Get('tree')
                 #print("Got tree from file "+filename)
+                if ch.GetEntries() <= 0:
+                    print("INFO LQM{}: no events pass BDT cut for composite sample {} ({})".format(lqMassToUse, sample, year))
+                    valsForTable.append("")
+                    valsForTable.append("")
+                    valsForTable.append(sample)
+                    valsForTable.append(f"0.000000+/-0.000000")
+                    valsForTable.append(f"0.000000+/-0.000000")
+                    valsForTable.append(f"{bkgIntegral:4.6f}")
+                    table.append(valsForTable)
+                    if not "QCD" in sample: #QCD is handled separately
+                        fullRunIIValues[sample][3] += bkgIntegral #Might have events passing Meejj cut that need to end up in full total
+                        nBFullYield += bkgIntegral
+
+                    continue
                 df = RDataFrame(ch)
                 nB = df.Filter("BDT > "+str(cutVal)).Sum('fullWeight')
                 df = df.Define("weightSquared","fullWeight*fullWeight")
                 nBErr = df.Filter("BDT > "+str(cutVal)).Sum('weightSquared')
-                bkgIntegral = df.Sum('fullWeight')
+                #bkgIntegral = df.Sum('fullWeight')
                 nBEvents = df.Filter("BDT > "+str(cutVal)).Count()
                 nB = nB.GetValue()
                 nBErr = math.sqrt(nBErr.GetValue())
-                bkgIntegral = bkgIntegral.GetValue()
+                #bkgIntegral = bkgIntegral.GetValue()
                 nBEvents = nBEvents.GetValue()
                 nBEventsErr = math.sqrt(nBEvents)
                 sample = sample.replace("_{}".format(year),"")
@@ -1358,15 +1390,20 @@ def OptimizeBDTCut(args):
                 print("   Yield after BDT cut      = {}".format(dyPtBinYields[year][name]["BDTCut"]))
                 print("   Raw events after BDT cut = {}".format(dyPtBinYields[year][name]["rawEvents"]))
                 print("   Yield after Meejj cut    = {}".format(dyPtBinYields[year][name]['full']))
-        if os.path.isdir(tempDir):# and not "DY" in tempDir:
-            shutil.rmtree(tempDir)
     except Exception as e:
         print("ERROR: exception in OptimizeBDTCut for lqMass={}".format(lqMassToUse))
         traceback.print_exc()
+        print(e)
         raise e
     endTime = time.time()
     totTime = endTime - startTime
     print("total time = ", totTime)
+    try:
+        if os.path.isdir(tempDir):
+            shutil.rmtree(tempDir)
+    except Exception as e:
+        traceback.print_exc()
+        print("ERROR: ",e)
     return True
 
 
@@ -1968,7 +2005,7 @@ def GetBackgroundDatasets(inputListBkgBase):
                 inputListBkgBase+"ZZTo2L2Nu_TuneCP5_13TeV_powheg_pythia8.txt",
                 # inputListBkgBase+"WZTo1L3Nu_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 #inputListBkgBase+"WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
-                inputListBkgBase+"WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8.txt",
                 # inputListBkgBase+"WZTo1L1Nu2Q_4f_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 inputListBkgBase+"WZTo2Q2L_mllmin4p0_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
                 ],
@@ -2272,12 +2309,12 @@ if __name__ == "__main__":
     years = ["2016preVFP", "2016postVFP", "2017", "2018"]
     gROOT.SetBatch()
     dateStr = "9oct2023"
-    skim = "2Aug"
-    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/"
-    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_1FR/"
-    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/16SepSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
+    skim = "7Feb"
+    inputListBkgBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/"+skim+"Skim/tmvaInputs/{}/"
+    inputListQCD1FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7FebSkim/tmvaInputs/{}/QCDFakes_1FR/"
+    inputListQCD2FRBase = os.getenv("LQANA")+"/config/myDatasets/BDT/{}/7FebSkim/tmvaInputs/{}/QCDFakes_DATA_2FR/"
     ZJetTrainingSample = "ZJet_HTLO"
-    use_BEle_samples = False
+    use_BEle_samples = True
     if use_BEle_samples:
         inputListBkgBase = inputListBkgBase.replace("tmvaInputs","tmvaInputsLQToBEle")
         inputListQCD1FRBase = inputListQCD1FRBase.replace("tmvaInputs","tmvaInputsLQToBEle")
@@ -2289,7 +2326,7 @@ if __name__ == "__main__":
 #    xsectionFiles["2016preVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/" + xsectionTxt
 #    xsectionFiles["2016postVFP"] = "/afs/cern.ch/work/s/scooper/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/" + xsectionTxt
     xsectionTxt = "config/xsection_withSF_allDY_{}_{}.txt"
-    xsectionDate = "16sep2024"
+    xsectionDate = "11nov"
     for year in years:
         xsectionFiles[year] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
     #xsectionFiles["2016postVFP"] = os.getenv("LQANA")+"/"+xsectionTxt.format(xsectionDate,year)
@@ -2305,12 +2342,16 @@ if __name__ == "__main__":
     normalizeVars = False
     drawTrainingTrees = False
     # normTo = "Meejj"
-    #lqMassesToUse = [1600]
+    #lqMassesToUse = [2700,2800,2900,3000]
     lqMassesToUse = list(range(300, 3100, 100))
+    #lqMassesToUse = [1500,1600,1700,1800]
+    #lqMassesToUse = [2500]
+    signalNameTemplateD = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+    signalNameTemplateB = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
     if use_BEle_samples:
-        signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
+        signalNameTemplate = signalNameTemplateB
     else:
-        signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
+        signalNameTemplate = signalNameTemplateD
     weightFile = os.path.abspath(os.getcwd())+"/dataset/weights/TMVAClassification_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(300)+"_APV_BDTG.weights.xml"
     # weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplate.format(1500)+"_APV_BDTG.weights.xml"
@@ -2413,7 +2454,7 @@ if __name__ == "__main__":
             for mass in lqMassesToUse:
                 if not parametrized:
                     signalDatasetName = signalNameTemplate.format(mass)
-                    weightFile = "dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
+                    weightFile = "dataset/weights/TMVAClassification_"+signalNameTemplateD.format(mass)+"_BDTG.weights.xml"
                     #weightFile = os.getenv("LQDATAEOS")+"/BDT_amcatnlo/2016postVFP/febSkims/negWeightComparison/include/dataset/weights/TMVAClassification_"+signalDatasetName+"_BDTG.weights.xml"
                 dictOptFOMInfo[mass] = manager.dict()
                 try:

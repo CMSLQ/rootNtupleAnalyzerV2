@@ -304,9 +304,9 @@ def GetBackgroundDatasetsDict(inputListBkgBase):
             "SingleTop" : [
                 inputListBkgBase+"ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8.txt",
                 inputListBkgBase+"ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"ST_t-channel_top_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"ST_t-channel_antitop_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
-                inputListBkgBase+"ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8.txt",
+                #inputListBkgBase+"ST_t-channel_top_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"ST_t-channel_antitop_5f_InclusiveDecays_TuneCP5_13TeV-powheg-pythia8.txt",
+                #inputListBkgBase+"ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8.txt",
                 ],
             # "WJet_amcatnlo_jetBinned" : [
             #     inputListBkgBase+"WJetsToLNu_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8.txt",
@@ -418,8 +418,8 @@ def GetQCDDatasetList(year):
     return qcdFakes
 
 
-mycut = TCut("M_e1e2 > 220 && sT_eejj > 400 && Pt_e1e2 > 70 && Ele1_Pt > 50 && Ele2_Pt > 50 && Jet1_Pt > 50 && Jet2_Pt > 50 && PassTrigger==1")
-
+#mycut = TCut("M_e1e2 > 220 && sT_eejj > 400 && Pt_e1e2 > 70 && Ele1_Pt > 50 && Ele2_Pt > 50 && Jet1_Pt > 50 && Jet2_Pt > 50 && PassTrigger==1")
+mycut = TCut("M_e1e2 > 50 && sT_eejj > 300 && Pt_e1e2 > 70 && Ele1_Pt > 50 && Ele2_Pt > 50 && Jet1_Pt > 50 && Jet2_Pt > 50 && PassTrigger==1")
 
 branchesToSave = [
         "run",
@@ -486,12 +486,13 @@ ROOT.DisableImplicitMT()
 parallelize = True
 date = "9oct2023"
 includeQCD = True
+doQCDOnly = False
 year = sys.argv[1]
-inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/16sep/trainingTreeInputs/preselOnly"
-inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/16sep/trainingTreeInputs/singleFR/"
-inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/16sep/trainingTreeInputs/doubleFR/"
+inputListBkgBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7feb/trainingTreeInputs/preselOnly"
+inputListQCD1FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7feb/trainingTreeInputs/singleFR/"
+inputListQCD2FRBase = "$LQANA/config/myDatasets/BDT/"+str(year)+"/7feb/trainingTreeInputs/doubleFR/"
 inputListSignalBase = inputListBkgBase
-outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/16SepSkims"
+outputTFileDir = os.getenv("LQDATAEOS")+"/BDTTrainingTrees/LQToBEle/"+str(year)+"/7FebSkims"
 #signalNameTemplate = "LQToDEle_M-{}_pair_bMassZero_TuneCP2_13TeV-madgraph-pythia8"
 signalNameTemplate = "LQToBEle_M-{}_pair_TuneCP2_13TeV-madgraph-pythia8"
 if __name__ == "__main__":
@@ -506,21 +507,24 @@ if __name__ == "__main__":
     sys.stdout.flush()
     console = Console()
     allSignalDatasetsDict = {}
-    backgroundDatasetsDict = GetBackgroundDatasetsDict(inputListBkgBase)
-    if year == "2016preVFP":
-        for dataset in backgroundDatasetsDict.keys():
+    if not doQCDOnly:
+        backgroundDatasetsDict = GetBackgroundDatasetsDict(inputListBkgBase)
+        if year == "2016preVFP":
+            for dataset in backgroundDatasetsDict.keys():
             #if "QCDFakes_DATA" in dataset:
             #    continue
-            backgroundDatasetsDict[dataset] = [txtFile.replace(".txt", "_APV.txt") for txtFile in backgroundDatasetsDict[dataset]]
+                backgroundDatasetsDict[dataset] = [txtFile.replace(".txt", "_APV.txt") for txtFile in backgroundDatasetsDict[dataset]]
         #backgroundDatasetsDict.update(qcdFakes2016pre)
-        signalNameTemplate+="_APV"
-    #elif year == "2016postVFP":
-    #    backgroundDatasetsDict.update(qcdFakes2016post)
+            signalNameTemplate+="_APV"
+        #elif year == "2016postVFP":
+        #    backgroundDatasetsDict.update(qcdFakes2016post)
+    else:
+        backgroundDatasetsDict = {}
     if includeQCD:
         backgroundDatasetsDict.update(GetQCDDatasetList(year))
     massList = list(range(300, 3100, 100))
     massList.extend([3500, 4000])
-    #massList = [1200]
+    #massList = [300,500,700,900]
     for mass in massList:
         signalName = signalNameTemplate.format(mass)
         if not inputListSignalBase.endswith("/"):
@@ -542,18 +546,19 @@ if __name__ == "__main__":
             for idx, txtFile in enumerate(allSignalDatasetsDict[signalSample]):
                 mass = int(signalSample[signalSample.find("M")+2:signalSample.find("_", signalSample.find("M"))])
                 #tfilepath = ProcessDataset(txtFile, mass, branchesToSave)
-                try:
-                    pool.apply_async(ProcessDataset, [[txtFile, mass, branchesToSave, year, "", False]], callback=log_result, error_callback=handle_error)
-                    #pool.apply_async(ProcessDataset, [[txtFile, mass, branchesToSave, console]], callback=lambda x: progress.advance(task_id))
-                    jobCount += 1
-                except KeyboardInterrupt:
-                    print("\n\nCtrl-C detected: Bailing.")
-                    pool.terminate()
-                    exit(-1)
-                except Exception as e:
-                    print("ERROR: caught exception in job for LQ mass: {}; exiting".format(mass))
-                    traceback.print_exc()
-                    exit(-2)
+                if not doQCDOnly:
+                    try:
+                        pool.apply_async(ProcessDataset, [[txtFile, mass, branchesToSave, year, "", False]], callback=log_result, error_callback=handle_error)
+                        #pool.apply_async(ProcessDataset, [[txtFile, mass, branchesToSave, console]], callback=lambda x: progress.advance(task_id))
+                        jobCount += 1
+                    except KeyboardInterrupt:
+                        print("\n\nCtrl-C detected: Bailing.")
+                        pool.terminate()
+                        exit(-1)
+                    except Exception as e:
+                        print("ERROR: caught exception in job for LQ mass: {}; exiting".format(mass))
+                        traceback.print_exc()
+                        exit(-2)
                 for bkgSample in backgroundDatasetsDict.keys():
                     for bkgTxtFile in backgroundDatasetsDict[bkgSample]:
                         try:
