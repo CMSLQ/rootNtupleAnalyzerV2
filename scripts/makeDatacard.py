@@ -827,6 +827,20 @@ def CheckHistBins(hist):
     return hist
 
 
+def CreateAndWriteBackgroundVsMLQHist(rootFiles, sample, bkgEvtsDict, bkgErrsDict):
+    newHist = r.TH1D("yieldVsMLQ_{}".format(sample), "yieldVsMLQ for {}".format(sample), len(mass_points_int)-1, min(mass_points_int), max(mass_points_int))
+    for selectionName in bkgEvtsDict.keys():
+        mass_point = int(selectionName.replace("LQ", ""))
+        content = bkgEvtsDict[selectionName]
+        err = bkgErrsDict[selectionName]
+        newHist.SetBinContent(newHist.FindBin(mass_point), content)
+        newHist.SetBinError(newHist.FindBin(mass_point), err)
+    # newHist = CheckHistBins(newHist)
+    for f in rootFiles:
+        f.cd()
+        newHist.Write()
+
+
 def CreateAndWriteHist(rootFiles, mass, sample, content, err, name="yieldFinalSelection", titleStart="Yield at LQ"):
     newHist = r.TH1D("{}_{}_{}".format(name, mass, sample), "{} {} final selection for {}".format(titleStart, mass, sample), 1, 0, 1)
     newHist.SetBinContent(1, content)
@@ -846,6 +860,8 @@ def CreateAndWriteHistograms(year):
         os.makedirs(datacardHistoDir)
     allOutputRootFile = r.TFile.Open(outputRootFilename, "recreate")
     outputRootFilename = datacardHistoDir + "/" + outputRootFilename
+    bkgEvtsDict = {}
+    bkgErrsDict = {}
     for i_signal_name, signal_name in enumerate(signal_names):
         outputRootFilename = outputRootFilename.replace(".root", "_{}.root".format(signal_name))
         for iSel, selectionName in enumerate(selectionNames):
@@ -868,11 +884,18 @@ def CreateAndWriteHistograms(year):
                 CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgEvts, thisBkgEvtsErr)
                 thisBkgFailEvts, thisBkgFailEvtsErr = d_backgroundSampleInfos[background_name].GetFailRateAndErr(selectionName)
                 CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
+                if background_name not in bkgEvtsDict.keys():
+                    bkgEvtsDict[background_name] = {}
+                    bkgErrsDict[background_name] = {}
+                bkgEvtsDict[background_name][selectionName] = thisBkgEvts
+                bkgErrsDict[background_name][selectionName] = thisBkgEvtsErr
             dataRate, dataRateErr = d_dataSampleInfos['DATA'].GetRateAndErr(selectionName)
             dataFailRate, dataFailRateErr = d_dataSampleInfos['DATA'].GetFailRateAndErr(selectionName)
             CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, "DATA", dataRate, dataRateErr)
             CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, "DATA", dataFailRate, dataFailRateErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
             outputRootFile.Close()
+    for background_name in background_names:
+        CreateAndWriteBackgroundVsMLQHist([allOutputRootFile], background_name, bkgEvtsDict[background_name], bkgErrsDict[background_name])
     allOutputRootFile.Close()
 
 
@@ -1461,7 +1484,7 @@ def WriteDatacard(card_file_path, year):
 blinded = True
 doSystematics = True
 doQCD = True
-combineSingleTopAndDiboson = True
+combineSingleTopAndDiboson = False
 # doRPV = False
 # forceGmNNormBkgStatUncert = False
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
@@ -1477,9 +1500,10 @@ qcdFile = eosBaseDir + "ultralegacy/analysis/{}/{}/output_qcdSubtractedYield/qcd
 eosDir = eosBaseDir + "ultralegacy/analysis/{}/{}/output_cutTable_lq_eejj_BDT/"
 
 # LQ case
-mass_points = [
-    str(i) for i in range(300, 3100, 100)
+mass_points_int = [
+    i for i in range(300, 3100, 100)
 ]  # go from 300-3000 in 100 GeV steps
+mass_points = [str(i) for i in mass_points_int]
 ## mass_points.extend(["3500", "4000"])
 # mass_points = [
 #     str(i) for i in range(1500, 2100, 100)
