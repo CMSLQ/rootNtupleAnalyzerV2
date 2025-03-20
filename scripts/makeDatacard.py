@@ -12,6 +12,7 @@ from pathlib import Path
 from decimal import Decimal
 from termcolor import colored
 from bisect import bisect
+from collections import OrderedDict
 import numpy as np
 import ROOT as r
 import matplotlib.pyplot as plt
@@ -1508,37 +1509,33 @@ background_names = [
 if combineSingleTopAndDiboson:
     background_names.append("OTHERBKG_dibosonNLO_singleTop")
 else:
-    backgrond_names.extend(["DIBOSON_nlo", "SingleTop"])
+    background_names.extend(["DIBOSON_nlo", "SingleTop"])
 background_fromMC_names = [bkg for bkg in background_names if "data" not in bkg.lower()]
 background_QCDfromData = [bkg for bkg in background_names if "data" in bkg.lower() and "qcd" in bkg.lower()]
-systTitleDict = {
-        "EleTrigSF": "Trigger",
-        "Pileup": "Pileup",
-        "Prefire": "L1EcalPrefiring",
-        "LHEPdfWeight": "PDF",
-        "LumiCorrelated": "Lumi correlated",
-        "JER": "Jet energy resolution",
-        "JES": "Jet energy scale",
-        "EleRecoSF": "Electron reconstruction",
-        "EleIDSF": "Electron identification",
-        "EES": "Electron energy scale",
-        "EER": "Electron energy resolution",
-        "UnclusteredEne": "Unclustered energy (MET)",
-        "TT_Norm": "TTbar normalization",
-        "DY_Norm": "DYJ normalization",
-        "DY_Shape": "DYJ shape",
-        "TT_Shape": "TTbar shape"
-}
+systTitleDict = OrderedDict([
+        ("EleRecoSF", "Electron reconstruction"),
+        ("EleIDSF", "Electron identification"),
+        ("EES", "Electron energy scale"),
+        ("EER", "Electron energy resolution"),
+        ("JER", "Jet energy resolution"),
+        ("JES", "Jet energy scale"),
+        ("UnclusteredEne", "Unclustered energy (MET)"),
+        ("EleTrigSF", "Trigger"),
+        ("Pileup", "Pileup"),
+        ("Prefire", "L1EcalPrefiring"),
+        ("LHEPdfWeight", "PDF"),
+        ("DY_Norm", "DYJ normalization"),
+        ("DY_Shape", "DYJ shape"),
+        ("TT_Norm", "TTbar normalization"),
+        ("TT_Shape", "TTbar shape")
+        ])
 if combineSingleTopAndDiboson:
-    systTitleDict.update({
-        "OtherBkg_Shape": "Other bkg. shape"
-        })
+    systTitleDict["OtherBkg_Shape"] = "Other bkg. shape"
 else:
-    systTitleDict.update({
-        "Diboson_Shape": "Diboson shape",
-        "ST_Shape": "SingleTop shape"
-        })
-systTitleDict.update({"QCD_Norm": "Multijet bkg. normalization"})
+     systTitleDict["Diboson_Shape"] = "Diboson shape"
+     systTitleDict["ST_Shape"] = "SingleTop shape"
+systTitleDict["QCD_Norm"] = "Multijet bkg. normalization"
+systTitleDict["LumiCorrelated"] = "Lumi correlated"
 otherBackgrounds = ["OTHERBKG_dibosonNLO_singleTop"] if combineSingleTopAndDiboson else ["DIBOSON_nlo", "SingleTop"]
 
 zjetsSampleName = GetSampleNameFromSubstring("ZJet", background_names)
@@ -1645,7 +1642,7 @@ for idx, year in enumerate(years):
 signal_names = [signalNameTemplate]
 signalNameList = [GetFullSignalName(signalNameTemplate, massPoint)[1] for massPoint in mass_points]
 
-d_systTitles = {}
+d_systTitles = OrderedDict()
 intLumi = 0
 validYear = False
 for year in years:
@@ -1694,7 +1691,7 @@ cc.intLumi = intLumi
 #     1050: 0.062,
 # }
 
-systematicsNamesBackground = {year:list(systTitlesDict.keys()) for year, systTitlesDict in d_systTitles.items()}
+systematicsNamesBackground = OrderedDict((year, list(systTitlesDict.keys())) for year, systTitlesDict in d_systTitles.items())
 allBkgSysts = {year: [syst for syst in systematicsNamesBg if "norm" not in syst.lower() and "shape" not in syst.lower()] for year, systematicsNamesBg in systematicsNamesBackground.items()}
 d_applicableSystematics = {year: {bkg: list(allBkgSysts[year]) for bkg in background_fromMC_names} for year in years}
 for year in years:
@@ -1880,7 +1877,7 @@ d_systTitles["all"] = {}
 for year in years:
     systematicsNamesBackground["all"].extend(systematicsNamesBackground[year])
     d_systTitles["all"].update(d_systTitles[year])
-systematicsNamesBackground["all"] = set(systematicsNamesBackground["all"])
+systematicsNamesBackground["all"] = list(dict.fromkeys((systematicsNamesBackground["all"])))
 
 print("INFO: Preparing shape histograms...", end=' ')
 CreateAndWriteHistograms(yearsRequestedStr)
