@@ -533,6 +533,64 @@ def GetFullSignalName(signal_name, mass_point):
     return fullSignalName, signalNameForFile
 
 
+def GetSingleTopYieldAndUncertainty(year, mass):
+    func = r.TF1("func", "expo(0)", 0, 5000)
+    constTerm = 3.90306
+    constTermErr = 1.25629
+    slopeTerm = -0.00491907
+    slopeTermErr = 0.00170827
+    # simple lumi scaling from full Run II fit
+    if year == "2016preVFP":
+        scaleFactor = 0.1416840016416827
+    elif year == "2016postVFP":
+        scaleFactor = 0.1221676839055999
+    elif year == "2017":
+        scaleFactor = 0.3014043829098545
+    elif year == "2018":
+        scaleFactor = 0.4347439315428627
+    elif year == "all":
+        scaleFactor = 1.0
+    else:
+        raise RuntimeError("Couldn't understand year={}, so couldn't scale the fit function.".format(year))
+    expConstant = math.log(scaleFactor*math.exp(constTerm))
+    func.SetParameters(expConstant, slopeTerm)
+    predictedYield = func.Eval(mass+50)  # 100 being the bin width, evaluate in the middle of the bin
+    uncertaintiesOnYield = []
+    for i in range(1, 9):
+        if i == 1:
+            toAddConst = constTermErr
+            toAddSlope = 0
+        elif i == 2:
+            toAddConst = -1*constTermErr
+            toAddSlope = 0
+        elif i == 3:
+            toAddConst = 0
+            toAddSlope = slopeTermErr
+        elif i == 4:
+            toAddConst = 0
+            toAddSlope = -1*slopeTermErr
+        else:
+            break
+        # elif i == 5:
+        #     toAddConst = constTermErr
+        #     toAddSlope = slopeTermErr
+        # elif i == 6:
+        #     toAddConst = constTermErr
+        #     toAddSlope = -1*slopeTermErr
+        # elif i == 7:
+        #     toAddConst = -1*constTermErr
+        #     toAddSlope = slopeTermErr
+        # elif i == 8:
+        #     toAddConst = -1*constTermErr
+        #     toAddSlope = -1*slopeTermErr
+        expConstant = math.log(scaleFactor*math.exp(constTerm+toAddConst))
+        newFunc = func.Clone("newFunc"+str(i))
+        newFunc.SetParameters(expConstant, slopeTerm+toAddSlope)
+        uncertaintiesOnYield.append(math.fabs(predictedYield-newFunc.Eval(mass+50)))
+    maxUncertainty = max(uncertaintiesOnYield)
+    return predictedYield, maxUncertainty
+
+
 def GetStatErrors(nevts, nUnweighted, theta=1.0):
     # use parameters as in datacard gamma distribution
     # see: https://cds.cern.ch/record/1379837/files/NOTE2011_005.pdf (eq. 18)
@@ -908,7 +966,7 @@ def GetPlotFilename(sampleName, dictSavedSamples, dictSamplesContainingSample):
     raise RuntimeError("Could not find sample '{}' included as a piece in any of the saved samples '{}'".format(sampleName, dictSavedSamples.keys()))
 
 
-def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesContainingSample, verbose=False):
+def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesContainingSample, year, verbose=False):
     isData = False if "mc" in bkgType.lower() or "signal" in bkgType.lower() else True
     sampleInfos = {}
     # start sample
@@ -967,8 +1025,14 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
                 elif selectionName == "LQ1200" and verbose:
                     print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
                     print("INFO: for sampleName={}, {} ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, selectionName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
-                ratesDict[selectionName] = sampleRate
-                rateErrsDict[selectionName] = sampleRateErr
+                if sampleName == singleTopSampleName and overrideSingleTopYields and sampleUnscaledRate < overrideThreshold:
+                    # print("SICINFO: override SingleTop yield for sampleName={}, selectionName={}, unscaledRate={}".format(sampleName, selectionName, sampleUnscaledRate))
+                    rate, rateErr = GetSingleTopYieldAndUncertainty(year, int(mass_point))
+                    ratesDict[selectionName] = rate
+                    rateErrsDict[selectionName] = rateErr
+                else:
+                    ratesDict[selectionName] = sampleRate
+                    rateErrsDict[selectionName] = sampleRateErr
                 unscaledRatesDict[selectionName] = sampleUnscaledRate
                 failRatesDict[selectionName] = sampleFailRate
                 failRateErrsDict[selectionName] = sampleFailRateErr
@@ -1485,6 +1549,8 @@ blinded = True
 doSystematics = True
 doQCD = True
 combineSingleTopAndDiboson = False
+overrideSingleTopYields = True
+overrideThreshold = 2  # if < 2 raw MC events, then override the nominal yield with the fit
 # doRPV = False
 # forceGmNNormBkgStatUncert = False
 # cc.finalSelectionName = "sT_eejj"  # "min_M_ej"
@@ -1865,19 +1931,19 @@ for idx, year in enumerate(years):
     dictSamplesContainingSample = dictSamplesContainingSampleByYear[year]
     dictSampleComponents = dictSampleComponentsByYear[year]
     qcdFilePath = qcdFilePaths[idx]
-    d_backgroundSampleInfos[year] = FillDicts(dataMC_filepath, list(dictDesiredBackgroundSamples.keys()), "MC", dictSavedSamples, dictSamplesContainingSample)
+    d_backgroundSampleInfos[year] = FillDicts(dataMC_filepath, list(dictDesiredBackgroundSamples.keys()), "MC", dictSavedSamples, dictSamplesContainingSample, year)
     if doQCD:
         print("INFO: Filling QCD[data] information for year {}...".format(year))
-        bgFromDataSampleInfos = FillDicts(qcdFilePath, background_QCDfromData, "DATA", dictSavedSamples, dictSamplesContainingSample)
+        bgFromDataSampleInfos = FillDicts(qcdFilePath, background_QCDfromData, "DATA", dictSavedSamples, dictSamplesContainingSample, year)
         d_backgroundSampleInfos[year].update(bgFromDataSampleInfos)
     # if doSystematics:
     #     for sampleName in additionalBkgSystsDict.keys():
     #         d_background_systs[year][sampleName].update(additionalBkgSystsDict[sampleName])
     # above would be similar for TTBarFromDATA
     print("INFO: Filling signal information for year {}...".format(year))
-    d_signalSampleInfos[year] = FillDicts(dataMC_filepath, signalNameList, "signal", dictSavedSamples, dictSamplesContainingSample)
+    d_signalSampleInfos[year] = FillDicts(dataMC_filepath, signalNameList, "signal", dictSavedSamples, dictSamplesContainingSample, year)
     print("INFO: Filling data information for year {}...".format(year))
-    d_dataSampleInfos[year] = FillDicts(dataMC_filepath, ["DATA"], "DATA", dictSavedSamples, dictSamplesContainingSample)
+    d_dataSampleInfos[year] = FillDicts(dataMC_filepath, ["DATA"], "DATA", dictSavedSamples, dictSamplesContainingSample, year)
     # print one of the systematics for checking
     # for syst in backgroundSystDict.keys():
     #    print 'Syst is:',syst
