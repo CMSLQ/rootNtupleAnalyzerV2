@@ -1061,6 +1061,12 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
         currentSampleInfo = SampleInfo(sampleName, ratesDict, rateErrsDict, unscaledRatesDict, unscaledTotalEvts, failRatesDict, failRateErrsDict, unscaledFailRatesDict, systematics)
         sampleInfos[sampleName] = currentSampleInfo
         scaledRootFile.Close()
+    if "mc" in bkgType.lower() and combineSingleTopAndDiboson and overrideSingleTopYields:
+        for selectionName in selectionNames:
+            sampleInfos[otherBkgSampleName].rates[selectionName] = sampleInfos[dibosonSampleName].rates[selectionName] + sampleInfos[singleTopSampleName].rates[selectionName]
+            sampleInfos[otherBkgSampleName].rateErrs[selectionName] = sampleInfos[dibosonSampleName].rateErrs[selectionName] + sampleInfos[singleTopSampleName].rateErrs[selectionName]
+            # don't do anything about the others, like the unscaled rates (raw MC events).
+            # the single top value will in any case be below the threshold specified where we take the fit value, so small
     return sampleInfos
 
 
@@ -1548,7 +1554,7 @@ def WriteDatacard(card_file_path, year):
 blinded = True
 doSystematics = True
 doQCD = True
-combineSingleTopAndDiboson = False
+combineSingleTopAndDiboson = True
 overrideSingleTopYields = True
 overrideThreshold = 2  # if < 2 raw MC events, then override the nominal yield with the fit
 # doRPV = False
@@ -1596,10 +1602,13 @@ background_names = [
     "ZJet_amcatnlo_ptBinned_IncStitch",
     # "TTBarFromDATA",
     "TTTo2L2Nu"] + (["QCDFakes_DATA"] if doQCD else [])
+singleTopSampleName = "SingleTop"
+dibosonSampleName = "DIBOSON_nlo"
+otherBkgSampleName = "OTHERBKG_dibosonNLO_singleTop"
 if combineSingleTopAndDiboson:
-    background_names.append("OTHERBKG_dibosonNLO_singleTop")
+    background_names.append(otherBkgSampleName)
 else:
-    background_names.extend(["DIBOSON_nlo", "SingleTop"])
+    background_names.extend([dibosonSampleName, singleTopSampleName])
 background_fromMC_names = [bkg for bkg in background_names if "data" not in bkg.lower()]
 background_QCDfromData = [bkg for bkg in background_names if "data" in bkg.lower() and "qcd" in bkg.lower()]
 systTitleDict = OrderedDict([
@@ -1626,16 +1635,14 @@ else:
      systTitleDict["ST_Shape"] = "SingleTop shape"
 systTitleDict["QCD_Norm"] = "Multijet bkg. normalization"
 systTitleDict["LumiCorrelated"] = "Lumi correlated"
-otherBackgrounds = ["OTHERBKG_dibosonNLO_singleTop"] if combineSingleTopAndDiboson else ["DIBOSON_nlo", "SingleTop"]
+otherBackgrounds = [otherBkgSampleName] if combineSingleTopAndDiboson else [dibosonSampleName, singleTopSampleName]
 
 zjetsSampleName = GetSampleNameFromSubstring("ZJet", background_names)
 ttbarSampleName = GetSampleNameFromSubstring("TTTo2L2Nu", background_names)
-dibosonSampleName = GetSampleNameFromSubstring("DIBOSON", background_names) if not combineSingleTopAndDiboson else "foo"
-singleTopSampleName = GetSampleNameFromSubstring("SingleTop", background_names) if not combineSingleTopAndDiboson else "bar"
 
 backgroundTitlesDict = {zjetsSampleName: "Z+jets", ttbarSampleName: "TTbar", "QCDFakes_DATA": "QCD(data)", "WJet_amcatnlo_ptBinned": "W+jets", "WJet_amcatnlo_jetBinned": "W+jets",
                         dibosonSampleName: "DIBOSON", "TRIBOSON": "TRIBOSON", "TTX": "TTX", singleTopSampleName: "SingleTop",
-                        "PhotonJets_Madgraph": "Gamma+jets", "OTHERBKG_dibosonNLO_singleTop": "Other bkg. (VV+jets + SingleTop)"}
+                        "PhotonJets_Madgraph": "Gamma+jets", otherBkgSampleName: "Other bkg. (VV+jets + SingleTop)"}
 backgroundTitles = [backgroundTitlesDict[bkg] for bkg in background_names]
 # SIC 6 Jul 2020 remove
 # if doEEJJ:
@@ -1781,9 +1788,11 @@ cc.intLumi = intLumi
 #     1050: 0.062,
 # }
 
+bkgsToAddList = [singleTopSampleName] if len(singleTopSampleName) else []
+bkgsToAddList.extend([dibosonSampleName] if len(dibosonSampleName) else [])
 systematicsNamesBackground = OrderedDict((year, list(systTitlesDict.keys())) for year, systTitlesDict in d_systTitles.items())
 allBkgSysts = {year: [syst for syst in systematicsNamesBg if "norm" not in syst.lower() and "shape" not in syst.lower()] for year, systematicsNamesBg in systematicsNamesBackground.items()}
-d_applicableSystematics = {year: {bkg: list(allBkgSysts[year]) for bkg in background_fromMC_names} for year in years}
+d_applicableSystematics = {year: {bkg: list(allBkgSysts[year]) for bkg in background_fromMC_names + bkgsToAddList} for year in years}
 for year in years:
     d_applicableSystematics[year].update({bkg: ["QCD_Norm"] for bkg in background_QCDfromData})
     d_applicableSystematics[year][zjetsSampleName].append("DY_Norm")
@@ -1791,7 +1800,7 @@ for year in years:
     d_applicableSystematics[year][ttbarSampleName].append("TT_Norm")
     d_applicableSystematics[year][ttbarSampleName].append("TT_Shape")
     if combineSingleTopAndDiboson:
-        d_applicableSystematics[year]["OTHERBKG_dibosonNLO_singleTop"].append("OtherBkg_Shape")
+        d_applicableSystematics[year][otherBkgSampleName].append("OtherBkg_Shape")
     else:
         d_applicableSystematics[year][dibosonSampleName].append("Diboson_Shape")
         d_applicableSystematics[year][singleTopSampleName].append("ST_Shape")
@@ -1854,7 +1863,7 @@ for year, dictSamples in dictSamplesByYear.items():
     dictSampleComponents = {}
     dictDesiredSamples = {}
     savedSamples = list(dictSavedSamples.keys())
-    for sample in background_fromMC_names:
+    for sample in background_fromMC_names + bkgsToAddList:
         dictDesiredSamples[sample] = dictSamples[sample]
         pieceList = dictSavedSamples[sample]["pieces"]
         if len(pieceList) < 2:
