@@ -769,17 +769,6 @@ def IsBackground(sampleName):
     return False
 
 
-def RoundToN(x, n):
-    # if n < 1:
-    #    raise ValueError("can't round to less than 1 sig digit!")
-    # # number of digits given by n
-    # return "%.*e" % (n-1, x)
-    if isinstance(x, float):
-        return round(x, n)
-    else:
-        return x
-
-
 def GetSampleNameFromSubstring(substring, background_names):
     sampleName = [sample for sample in background_names if substring in sample]
     if len(sampleName) != 1:
@@ -787,66 +776,101 @@ def GetSampleNameFromSubstring(substring, background_names):
     return sampleName[0]
 
 
+def RoundToN(x, n):
+    # if n < 1:
+    #    raise ValueError("can't round to less than 1 sig digit!")
+    # # number of digits given by n
+    # return "%.*e" % (n-1, x)
+    if isinstance(x, float):
+        rounded = round(x, n)
+        # return "{0:.{1}f}".format(rounded, n)
+        return rounded
+    else:
+        return str(x)
+
+
+def GetNDecimalDigits(num):
+    if isinstance(num, str):
+        return 3  # default value which will trigger default sig figs
+    d = Decimal(num)
+    positiveExponent = abs(d.as_tuple().exponent)
+    return positiveExponent
+
+
+def FormatToNDigits(num, n):
+    if isinstance(num, str) or isinstance(num, int):
+        return str(num)
+    rounded = RoundToN(num, n)
+    return "{0:.{1}f}".format(rounded, n)
+
+
 def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, latex=False):
     if evts == "-":
         return evts
     # rounding
-    evtsR = RoundToN(evts, 2)
     errStatUpR = RoundToN(errStatUp, 2)
-    errStatDownR = RoundToN(errStatDown, 2)
-    # add additional decimal place if it's zero after rounding
-    if evtsR == 0.0:
-        evtsR = RoundToN(evts, 3)
-    if errStatUpR == 0.0:
-        errStatUpR = RoundToN(errStatUp, 3)
-    if errStatDownR == 0.0:
-        errStatDownR = RoundToN(errStatDown, 3)
-    # try again
-    if evtsR == 0.0:
-        evtsR = RoundToN(evts, 4)
-    if errStatUpR == 0.0:
-        errStatUpR = RoundToN(errStatUp, 4)
-    if errStatDownR == 0.0:
-        errStatDownR = RoundToN(errStatDown, 4)
+    if GetNDecimalDigits(errStatUpR) > 1:
+        errStatDownR = FormatToNDigits(errStatDown, 2)
+        evtsR = FormatToNDigits(evts, 2)
+        errStatUpR = FormatToNDigits(errStatUp, 2)
+    else:
+        errStatDownR = FormatToNDigits(errStatDown, 1)
+        evtsR = FormatToNDigits(evts, 1)
+        errStatUpR = FormatToNDigits(errStatUp, 1)
+    # # add additional decimal place if it's zero after rounding
+    # if evtsR == 0.0:
+    #     evtsR = RoundToN(evts, 3)
+    # if errStatUpR == 0.0:
+    #     errStatUpR = RoundToN(errStatUp, 3)
+    # if errStatDownR == 0.0:
+    #     errStatDownR = RoundToN(errStatDown, 3)
+    # # try again
+    # if evtsR == 0.0:
+    #     evtsR = RoundToN(evts, 4)
+    # if errStatUpR == 0.0:
+    #     errStatUpR = RoundToN(errStatUp, 4)
+    # if errStatDownR == 0.0:
+    #     errStatDownR = RoundToN(errStatDown, 4)
     # handle cases where we don't specify stat or syst
     if errStatUp == "-":
-        return str(evtsR)
+        return evtsR
     elif errSyst == 0:
         if errStatUp == errStatDown:
             if not latex:
-                return str(evtsR) + " +/- " + str(errStatUpR)
+                return evtsR + " +/- " + errStatUpR
             else:
-                return str(evtsR) + " \\pm " + str(errStatUpR)
+                return evtsR + " \\pm " + errStatUpR
         else:
             if not latex:
-                return str(evtsR) + " + " + str(errStatUpR) + " - " + str(errStatDownR)
+                return evtsR + " + " + errStatUpR + " - " + errStatDownR
             else:
                 return (
-                    str(evtsR)
+                    evtsR
                     + "^{+"
-                    + str(errStatUpR)
+                    + errStatUpR
                     + "}_{-"
-                    + str(errStatDownR)
+                    + errStatDownR
                     + "}"
                 )
     else:
-        errSystR = RoundToN(errSyst, 2)
+        # errSystR = RoundToN(errSyst, 2)
+        errSystR = FormatToNDigits(errSyst, 2)
         if errStatUp == errStatDown:
             if not latex:
-                return str(evtsR) + " +/- " + str(errStatUpR) + " +/- " + str(errSystR)
+                return evtsR + " +/- " + errStatUpR + " +/- " + errSystR
             else:
                 return (
-                    str(evtsR) + " \\pm " + str(errStatUpR) + " \\pm " + str(errSystR)
+                    evtsR + " \\pm " + errStatUpR + " \\pm " + errSystR
                 )
         else:
             return (
-                str(evtsR)
+                evtsR
                 + "^{+"
-                + str(errStatUpR)
+                + errStatUpR
                 + "}_{-"
-                + str(errStatDownR)
+                + errStatDownR
                 + "} \\pm "
-                + str(errSystR)
+                + errSystR
             )
 
 
@@ -2636,7 +2660,6 @@ with open(tablesDir + "/eventYieldsPaper.tex", "w") as table_file:
     print()
     print("Latex table: Paper")
     print()
-    table_file.write("Latex table: Paper\n")
     # latex table -- Paper
     for line in latexRowsPaper:
         print (line)
