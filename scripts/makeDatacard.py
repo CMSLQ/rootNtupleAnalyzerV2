@@ -776,7 +776,7 @@ def GetSampleNameFromSubstring(substring, background_names):
     return sampleName[0]
 
 
-def RoundToN(x, n):
+def RoundToN(x, n, returnFloat=False):
     # if n < 1:
     #    raise ValueError("can't round to less than 1 sig digit!")
     # # number of digits given by n
@@ -784,7 +784,10 @@ def RoundToN(x, n):
     if isinstance(x, float):
         rounded = round(x, n)
         # return "{0:.{1}f}".format(rounded, n)
-        return rounded
+        if returnFloat:
+            return rounded
+        # return str(rounded)
+        return "{0:.{1}f}".format(rounded, n)
     else:
         return str(x)
 
@@ -800,11 +803,11 @@ def GetNDecimalDigits(num):
 def FormatToNDigits(num, n):
     if isinstance(num, str) or isinstance(num, int):
         return str(num)
-    rounded = RoundToN(num, n)
+    rounded = RoundToN(num, n, returnFloat=True)
     return "{0:.{1}f}".format(rounded, n)
 
 
-def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, latex=False):
+def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, addDecimalsUntilNonzero=False, latex=False):
     if evts == "-":
         return evts
     # rounding
@@ -817,29 +820,26 @@ def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, latex=Fals
         errStatDownR = FormatToNDigits(errStatDown, 1)
         evtsR = FormatToNDigits(evts, 1)
         errStatUpR = FormatToNDigits(errStatUp, 1)
-    # # add additional decimal place if it's zero after rounding
-    # if evtsR == 0.0:
-    #     evtsR = RoundToN(evts, 3)
-    # if errStatUpR == 0.0:
-    #     errStatUpR = RoundToN(errStatUp, 3)
-    # if errStatDownR == 0.0:
-    #     errStatDownR = RoundToN(errStatDown, 3)
-    # # try again
-    # if evtsR == 0.0:
-    #     evtsR = RoundToN(evts, 4)
-    # if errStatUpR == 0.0:
-    #     errStatUpR = RoundToN(errStatUp, 4)
-    # if errStatDownR == 0.0:
-    #     errStatDownR = RoundToN(errStatDown, 4)
+    # add additional decimal place if it's zero after rounding
+    if addDecimalsUntilNonzero:
+        print("DEBUG: adding decimals until nonzero for evts={}; evtsR={}; errStatUp={}, errStatDown={}".format(evts, evtsR, errStatUp, errStatDown))
+        nDigits = 2
+        while float(evtsR) == 0.0 and nDigits < 5:
+            nDigits += 1
+            evtsR = RoundToN(evts, nDigits)
+            print("\tDEBUG: rounded to n={}, evtsR={}".format(nDigits, evtsR))
+        errStatUpR = RoundToN(errStatUp, nDigits)
+        errStatDownR = RoundToN(errStatDown, nDigits)
+        print("\tDEBUG: for evts={}; ended up with evtsR={}; errStatUpR={}, errStatDownR={}".format(evts, evtsR, errStatUpR, errStatDownR))
     # handle cases where we don't specify stat or syst
     if errStatUp == "-":
         return evtsR
     elif errSyst == 0:
         if errStatUp == errStatDown:
             if not latex:
-                return evtsR + " +/- " + errStatUpR
+                return evtsR + " +/- " + errStatUpR if float(errStatUpR) != 0 else evtsR
             else:
-                return evtsR + " \\pm " + errStatUpR
+                return evtsR + " \\pm " + errStatUpR if float(errStatUpR) != 0 else evtsR
         else:
             if not latex:
                 return evtsR + " + " + errStatUpR + " - " + errStatDownR
@@ -853,7 +853,6 @@ def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, latex=Fals
                     + "}"
                 )
     else:
-        # errSystR = RoundToN(errSyst, 2)
         errSystR = FormatToNDigits(errSyst, 2)
         if errStatUp == errStatDown:
             if not latex:
@@ -2540,7 +2539,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
         row = [
             selectionName.replace("LQ", ""),
             GetTableEntryStr(
-                thisSigEvts, thisSigEvtsErrUp, thisSigEvtsErrDown
+                thisSigEvts, thisSigEvtsErrUp, thisSigEvtsErrDown, addDecimalsUntilNonzero=True
             ),  # assumes we always have > 0 signal events
         ]
         for background_name in background_names:
@@ -2565,7 +2564,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
         latexRow = [
             selectionName.replace("LQ", ""),
             GetTableEntryStr(
-                thisSigEvts, thisSigEvtsErrUp, thisSigEvtsErrDown, latex=True
+                thisSigEvts, thisSigEvtsErrUp, thisSigEvtsErrDown, addDecimalsUntilNonzero=True, latex=True
             ),  # assumes we always have > 0 signal events
         ]
         latexRowPaper = list(latexRow)
@@ -2592,7 +2591,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
                 totalBackgroundErrStatUp,
                 totalBackgroundErrStatDown,
                 totalBackgroundErrSyst,
-                True,
+                latex=True,
                 )
         dataEntry = GetTableEntryStr(thisDataEvents, latex=True)
         latexRow.append(totalBkgEntry)
