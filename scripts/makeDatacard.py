@@ -793,9 +793,7 @@ def RoundToN(x, n, returnFloat=False):
 
 
 def GetNDecimalDigits(num):
-    if isinstance(num, str):
-        return 3  # default value which will trigger default sig figs
-    d = Decimal(num)
+    d = Decimal(str(num))
     positiveExponent = abs(d.as_tuple().exponent)
     return positiveExponent
 
@@ -807,30 +805,69 @@ def FormatToNDigits(num, n):
     return "{0:.{1}f}".format(rounded, n)
 
 
+def RoundToNSigFigs(num, n=1):
+    if isinstance(num, str):
+        return num, -1
+    nDecDigits = GetNDecimalDigits(num)
+    d = Decimal(str(num))
+    nDigits = len(d.normalize().as_tuple().digits)
+    digitsBeforeDecimal = nDigits - nDecDigits
+    d = round(d, n-digitsBeforeDecimal)
+    # dStr = str(np.format_float_positional(float(d), trim='-'))
+    dStr = str(int(d))
+    if d < 1:
+        dStr = "{0:.{1}f}".format(float(d), n-digitsBeforeDecimal)
+    # print("DEBUG: RoundToNSigFigs for num={} --> {}; n-digitsBeforeDecimal = {}-{} = {}".format(num, dStr, n, digitsBeforeDecimal, n-digitsBeforeDecimal))
+    return dStr, n-digitsBeforeDecimal
+
+
 def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, addDecimalsUntilNonzero=False, latex=False):
     if evts == "-":
         return evts
-    # rounding
-    errStatUpR = RoundToN(errStatUp, 2)
-    if GetNDecimalDigits(errStatUpR) > 1:
-        errStatDownR = FormatToNDigits(errStatDown, 2)
-        evtsR = FormatToNDigits(evts, 2)
-        errStatUpR = FormatToNDigits(errStatUp, 2)
-    else:
-        errStatDownR = FormatToNDigits(errStatDown, 1)
-        evtsR = FormatToNDigits(evts, 1)
-        errStatUpR = FormatToNDigits(errStatUp, 1)
+    # print("DEBUG: RoundToNSigFigs for errStatUp={}".format(errStatUp))
+    errStatUpR, digitsAwayFromDecimal = RoundToNSigFigs(errStatUp)
+    # print("DEBUG: AFTER RoundToNSigFigs for errStatUp={}: got errStatUpR={}, digitsAwayFromDecimal={}".format(errStatUp, errStatUpR, digitsAwayFromDecimal))
+    errStatDownR = str(float(round(Decimal(errStatDown), digitsAwayFromDecimal))) if not isinstance(errStatDown, str) else errStatDown
+    # print("DEBUG: Now for errStatDown={}: got errStatDownR={}, digitsAwayFromDecimal={}".format(errStatDown, errStatDownR, digitsAwayFromDecimal))
+    evtsR = str(float(round(Decimal(evts), digitsAwayFromDecimal)))
+    if float(evtsR) > 1 and evtsR.endswith(".0") and len(evtsR) > len(errStatUpR):
+        evtsR = evtsR[:-2]
+    elif errStatUpR != "-" and len(evtsR) != len(errStatUpR):
+        # print("DEBUG: reformat evtsR to {} digits: evtsR={} --> {}".format(GetNDecimalDigits(errStatUpR), evtsR, "{0:.{1}f}".format(float(evtsR), GetNDecimalDigits(errStatUpR))))
+        evtsR = "{0:.{1}f}".format(float(evtsR), GetNDecimalDigits(errStatUpR))
+    # print("DEBUG: Now for evts={}: got evtsR={}, digitsAwayFromDecimal={}".format(evts, evtsR, digitsAwayFromDecimal))
+    # # rounding
+    # errStatUpR = RoundToN(errStatUp, 2)
+    # if GetNDecimalDigits(errStatUpR) > 1:
+    #     errStatDownR = FormatToNDigits(errStatDown, 2)
+    #     evtsR = FormatToNDigits(evts, 2)
+    #     errStatUpR = FormatToNDigits(errStatUp, 2)
+    # else:
+    #     errStatDownR = FormatToNDigits(errStatDown, 1)
+    #     evtsR = FormatToNDigits(evts, 1)
+    #     errStatUpR = FormatToNDigits(errStatUp, 1)
+
+    # suppress
+    suppressed = False
+    if errStatUpR != "-" and float(errStatUpR) < 0.01:
+        errStatUpR = "0.0"
+        suppressed = True
+    if errStatDownR != "-" and float(errStatDownR) < 0.01:
+        errStatDownR = "0.0"
+        suppressed = True
+    if suppressed:
+        evtsR, _ = RoundToNSigFigs(evts)
     # add additional decimal place if it's zero after rounding
-    if addDecimalsUntilNonzero:
-        print("DEBUG: adding decimals until nonzero for evts={}; evtsR={}; errStatUp={}, errStatDown={}".format(evts, evtsR, errStatUp, errStatDown))
+    if addDecimalsUntilNonzero and float(evtsR) == 0.0:
+        # print("DEBUG: adding decimals until nonzero for evts={}; evtsR={}; errStatUp={}, errStatDown={}".format(evts, evtsR, errStatUp, errStatDown))
         nDigits = 2
         while float(evtsR) == 0.0 and nDigits < 5:
             nDigits += 1
             evtsR = RoundToN(evts, nDigits)
-            print("\tDEBUG: rounded to n={}, evtsR={}".format(nDigits, evtsR))
-        errStatUpR = RoundToN(errStatUp, nDigits)
-        errStatDownR = RoundToN(errStatDown, nDigits)
-        print("\tDEBUG: for evts={}; ended up with evtsR={}; errStatUpR={}, errStatDownR={}".format(evts, evtsR, errStatUpR, errStatDownR))
+            # print("\tDEBUG: rounded to n={}, evtsR={}".format(nDigits, evtsR))
+        # errStatUpR = RoundToN(errStatUp, nDigits)
+        # errStatDownR = RoundToN(errStatDown, nDigits)
+        # print("\tDEBUG: for evts={}; ended up with evtsR={}; errStatUpR={}, errStatDownR={}".format(evts, evtsR, errStatUpR, errStatDownR))
     # handle cases where we don't specify stat or syst
     if errStatUp == "-":
         return evtsR
@@ -853,7 +890,16 @@ def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, addDecimal
                     + "}"
                 )
     else:
-        errSystR = FormatToNDigits(errSyst, 2)
+        # errSystR = FormatToNDigits(errSyst, 2)
+        errSystR = str(float(round(Decimal(errSyst), digitsAwayFromDecimal))) if not isinstance(errSyst, str) else errSyst
+        # suppress or remove trailing zero
+        if errSystR != "-" and float(errSystR) < 0.01:
+            errSystR = "0.0"
+        elif float(errSystR) > 1 and errSystR.endswith(".0") and len(errSystR) > len(evtsR):
+            errSystR = errSystR[:-2]
+        elif errStatUpR != "-" and len(errSystR) != len(errStatUpR):
+            # print("DEBUG: reformat errSystR to {} digits: errSystR={} --> {}".format(GetNDecimalDigits(errStatUpR), errSystR, "{0:.{1}f}".format(float(errSystR), GetNDecimalDigits(errStatUpR))))
+            errSystR = "{0:.{1}f}".format(float(errSystR), GetNDecimalDigits(errStatUpR))
         if errStatUp == errStatDown:
             if not latex:
                 return evtsR + " +/- " + errStatUpR + " +/- " + errSystR
