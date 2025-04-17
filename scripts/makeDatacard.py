@@ -815,9 +815,19 @@ def RoundToNSigFigs(num, n=1):
     d = round(d, n-digitsBeforeDecimal)
     # dStr = str(np.format_float_positional(float(d), trim='-'))
     dStr = str(int(d))
-    if d < 1:
+    if d < 10:
         dStr = "{0:.{1}f}".format(float(d), n-digitsBeforeDecimal)
     # print("DEBUG: RoundToNSigFigs for num={} --> {}; n-digitsBeforeDecimal = {}-{} = {}".format(num, dStr, n, digitsBeforeDecimal, n-digitsBeforeDecimal))
+    # but now, digits before decimal could have changed, e.g., 0.99 --> 1.0
+    if "." in dStr:
+        d = Decimal(dStr)
+        nDecDigitsUpdated = GetNDecimalDigits(d)
+        dUpdated = Decimal(dStr)
+        nDigitsUpdated = len(dUpdated.as_tuple().digits) if "." in dStr else len(d.normalize().as_tuple().digits)
+        digitsBeforeDecimalUpdated = nDigitsUpdated - nDecDigitsUpdated
+        if digitsBeforeDecimalUpdated > digitsBeforeDecimal:
+            dStr = str(int(d))
+        # print("DEBUG: RoundToNSigFigs for num={} --> {}; [updated] n-digitsBeforeDecimal = {}-{} = {}".format(num, dStr, n, digitsBeforeDecimal, n-digitsBeforeDecimal))
     return dStr, n-digitsBeforeDecimal
 
 
@@ -856,7 +866,9 @@ def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, addDecimal
         errStatDownR = "0.0"
         suppressed = True
     if suppressed:
-        evtsR, _ = RoundToNSigFigs(evts)
+        evtsR, _ = RoundToNSigFigs(evts, n=2)
+        if float(evtsR) < 0.01:
+            evtsR, _ = RoundToNSigFigs(evts, n=1)
     # add additional decimal place if it's zero after rounding
     if addDecimalsUntilNonzero and float(evtsR) == 0.0:
         # print("DEBUG: adding decimals until nonzero for evts={}; evtsR={}; errStatUp={}, errStatDown={}".format(evts, evtsR, errStatUp, errStatDown))
