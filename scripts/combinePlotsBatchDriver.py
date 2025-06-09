@@ -165,7 +165,7 @@ def WriteCondorSubFile(nJobs, condorFilename):
             condorFile.write('MY.WantOS = "el9"\n')
             condorFile.write('transfer_output_files = ""\n')
         # make sure the job finishes with exit code 0
-        # condorFile.write('on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)\n')
+        condorFile.write('on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)\n')
         condorFile.write('max_retries = 3\n')
         condorFile.write('should_transfer_files = YES\n')
         lqAnaBase = os.getenv("LQANA")
@@ -307,7 +307,7 @@ parser.add_option(
 parser.add_option(
     "--queue",
     dest="queue",
-    default="longlunch",
+    default="workday",
     help="name of the lxbatch queue",
     metavar="QUEUE"
 )
