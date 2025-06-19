@@ -180,7 +180,7 @@ class SampleInfo:
         # verbose = True
         entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts[year])
         if verbose:
-            print("For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
+            print("INFO GetSystematicEffectAbs(): For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
                 self.sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection))
         if entry == "-":
             # this means the systematic doesn't apply
@@ -335,12 +335,13 @@ class SampleInfo:
     
     def CalculateUpDownSystematic(self, systName, selection, verbose=False):
         symmetric = False
-        # nominal = systDict["nominal"][selection]
-        # print("CalculateUpDownSystematic({}, {}) for sample: {}; nominal yield={}".format(systName, selection, sampleName, nominal))
+        systDict = self.systematics
+        nominal = systDict["nominal"][selection]
+        # print("CalculateUpDownSystematic({}, {}) for sample: {}; nominal yield={}".format(systName, selection, self.sampleName, nominal))
         nominal, selection, rawEvents = self.GetSystNominalYield(systName, selection)
         # print("CalculateUpDownSystematic(): nominal={}, selection={} after GetNominalYield({})".format(nominal, selection, systName))
-        # verbose = True
-        systDict = self.systematics
+        # if "OTHERBKG" in self.sampleName:
+        #     verbose = True
         try:
             systYieldUp = systDict[systName+"Up"][selection]["yield"]
             systYieldDown = systDict[systName+"Down"][selection]["yield"]
@@ -390,18 +391,6 @@ class SampleInfo:
         minRawEvents = self.minRawEvents
         requestedSelection = selection
         systDict = self.systematics
-        # try:
-        #     nominal = systDict["nominal"][selection]["yield"]
-        # except KeyError:
-        #     raise RuntimeError("Could not find nominal key for systName={} sampleName={} selection={}; keys={}".format(
-        #         systName, sampleName, selection, list(systDict.keys()))
-        #         )
-        # try:
-        #     # rawEvents = unscaledRatesDict[selection]
-        # except KeyError:
-        #     raise RuntimeError("Could not find nominal key for sampleName={} selection={}; keys={}".format(
-        #         sampleName, selection, list(systDict.keys()))
-        #          )
         nominal = systDict["nominal"][selection]["yield"]
         rawEvents = self.GetUnscaledRate(selection)
         # if self.sampleName in dictSampleComponents.keys():
@@ -430,6 +419,10 @@ class SampleInfo:
         #         systName, requestedSelection, self.sampleName, selection, rawEvents, nominal, err))
         # elif not IsComponentBackground(self.sampleName):
         #     nominal, selection, rawEvents = self.FindNearestSelectionPassingThresholds(selection, nominal, rawEvents, minRawEvents)
+
+        # if "OTHERBKG" in self.sampleName:
+        #     print("GetSystNominalYield({}, {}, {}), before finding nearest valid selection -- selection: {}, raw events: {}, rate: {} +/- {}, systNominal={}".format(
+        #         systName, requestedSelection, self.sampleName, selection, rawEvents, self.GetRateAndErr(selection)[0], self.GetRateAndErr(selection)[1], nominal))
         if not IsComponentBackground(self.sampleName):
             nominal, selection, rawEvents = self.FindNearestSelectionPassingThresholds(selection, nominal, rawEvents, minRawEvents)
 
@@ -439,10 +432,11 @@ class SampleInfo:
         #else:
         #    unscaledRate = d_signal_unscaledRates[sampleName][selection]
         #    err = d_signal_rateErrs[sampleName][selection]
-        #    if verbose:
-        #        print("GetSystNominalYield({}, {}, {}), lastSelection: {}, raw events: {}, rate: {} +/- {}".format(
-        #            systName, requestedSelection, sampleName, selection, unscaledRate, nominal, err))
-        return nominal, selection, rawEvents
+        systNominal = systDict["nominal"][selection]["yield"]
+        # if "OTHERBKG" in self.sampleName:
+        #     print("GetSystNominalYield({}, {}, {}), lastSelection: {}, raw events: {}, rate: {} +/- {}; systNominal={}".format(
+        #         systName, requestedSelection, self.sampleName, selection, rawEvents, nominal, self.GetRateAndErr(selection)[1], systNominal))
+        return systNominal, selection, rawEvents
 
     def FindNearestSelectionPassingThresholds(self, selection, nominal, rawEvents, minRawEvents):
         if nominal <= 0 or rawEvents < minRawEvents:
@@ -451,6 +445,7 @@ class SampleInfo:
             nominal = rate
             selection = lastNonzeroSelection
             rawEvents = events
+        # print("SICDEBUG: FindNearestSelectionPassingThresholds(): return nominal={}, selection={}, rawEvents={}".format(nominal, selection, rawEvents))
         return nominal, selection, rawEvents
 
     def HasPreselectionSystYield(self, systName, selection, up=None, verbose=False):
@@ -588,6 +583,7 @@ def GetSingleTopYieldAndUncertainty(year, mass):
         newFunc.SetParameters(expConstant, slopeTerm+toAddSlope)
         uncertaintiesOnYield.append(math.fabs(predictedYield-newFunc.Eval(mass+50)))
     maxUncertainty = max(uncertaintiesOnYield)
+    maxUncertainty = min(maxUncertainty, predictedYield)  # cap uncertainty at 100%
     return predictedYield, maxUncertainty
 
 
@@ -1107,18 +1103,17 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
                     print("INFO: for sampleName={}, {} ------>rate={} rateErr={} unscaledRate={} unscaledTotalEvts={}".format(sampleName, selectionName, sampleRate, sampleRateErr, sampleUnscaledRate, unscaledTotalEvts))
                     print("INFO: for sampleName={}, {} ------>failRate={} failRateErr={} unscaledFailRate={}".format(sampleName, selectionName, sampleFailRate, sampleFailRateErr, sampleUnscaledFailRate))
                 if sampleName == singleTopSampleName and overrideSingleTopYields and sampleUnscaledRate < overrideThreshold:
-                    # print("SICINFO: override SingleTop yield for sampleName={}, selectionName={}, unscaledRate={}".format(sampleName, selectionName, sampleUnscaledRate))
-                    rate, rateErr = GetSingleTopYieldAndUncertainty(year, int(mass_point))
-                    ratesDict[selectionName] = rate
-                    rateErrsDict[selectionName] = rateErr
-                else:
-                    ratesDict[selectionName] = sampleRate
-                    rateErrsDict[selectionName] = sampleRateErr
+                    # print("SICDEBUG: override SingleTop yield for sampleName={}, selectionName={}, unscaledRate={}: {} +/- {}".format(sampleName, selectionName, sampleUnscaledRate, sampleRate, sampleRateErr), end='')
+                    sampleRate, sampleRateErr = GetSingleTopYieldAndUncertainty(year, int(mass_point))
+                    # print(" --> {} +/- {}".format(sampleRate, sampleRateErr))
+                ratesDict[selectionName] = sampleRate
+                rateErrsDict[selectionName] = sampleRateErr
                 unscaledRatesDict[selectionName] = sampleUnscaledRate
                 failRatesDict[selectionName] = sampleFailRate
                 failRateErrsDict[selectionName] = sampleFailRateErr
                 unscaledFailRatesDict[selectionName] = sampleFailUnscaledRate
                 systematicsNominalDict[selectionName] = {"yield": sampleRate, "preselYield": None}
+                # print("SICDEBUG: systematics nominalDict for sampleName={}, selectionName={} --> {} ".format(sampleName, selectionName, systematicsNominalDict[selectionName]["yield"]))
                 if ratesDict[selectionName] < 0:
                     print("WARN: for sample {}, selection {}: found negative rate: {}; set to zero. Had {} unscaled events.".format(sampleName, selectionName, sampleRate, sampleUnscaledRate))
                     ratesDict[selectionName] = 0.0
@@ -1144,8 +1139,14 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
         scaledRootFile.Close()
     if "mc" in bkgType.lower() and combineSingleTopAndDiboson and overrideSingleTopYields:
         for selectionName in selectionNames:
+            # print("SICDEBUG: override SingleTop yield for sampleName={}, selectionName={}: was {} +/- {}, now {} +/- {}".format(otherBkgSampleName, selectionName, sampleInfos[otherBkgSampleName].rates[selectionName], sampleInfos[otherBkgSampleName].rateErrs[selectionName],
+            #                                                                                                                     sampleInfos[dibosonSampleName].rates[selectionName] + sampleInfos[singleTopSampleName].rates[selectionName],
+            #                                                                                                                     math.sqrt(pow(sampleInfos[dibosonSampleName].rateErrs[selectionName], 2) + pow(sampleInfos[singleTopSampleName].rateErrs[selectionName], 2))))
+            # print("SICDEBUG: override SingleTop syst nominal yield for sampleName={}, selectionName={}: was {}, now {}".format(otherBkgSampleName, selectionName, sampleInfos[otherBkgSampleName].systematics["nominal"][selectionName]["yield"],
+            #                                                                                                                    sampleInfos[dibosonSampleName].systematics["nominal"][selectionName]["yield"] + sampleInfos[singleTopSampleName].rates[selectionName]))
             sampleInfos[otherBkgSampleName].rates[selectionName] = sampleInfos[dibosonSampleName].rates[selectionName] + sampleInfos[singleTopSampleName].rates[selectionName]
-            sampleInfos[otherBkgSampleName].rateErrs[selectionName] = sampleInfos[dibosonSampleName].rateErrs[selectionName] + sampleInfos[singleTopSampleName].rateErrs[selectionName]
+            sampleInfos[otherBkgSampleName].rateErrs[selectionName] = math.sqrt(pow(sampleInfos[dibosonSampleName].rateErrs[selectionName], 2) + pow(sampleInfos[singleTopSampleName].rateErrs[selectionName], 2))
+            # sampleInfos[otherBkgSampleName].systematics["nominal"][selectionName]["yield"] = sampleInfos[dibosonSampleName].systematics["nominal"][selectionName]["yield"] + sampleInfos[singleTopSampleName].rates[selectionName]
             # don't do anything about the others, like the unscaled rates (raw MC events).
             # the single top value will in any case be below the threshold specified where we take the fit value, so small
     return sampleInfos
@@ -2077,9 +2078,9 @@ if doSystematics:
     # tables
     columnNames = ["Systematic", "Signal (%)", "Background (%)"]
     for selectionName in selectionNames:
+        print("INFO: total syst table for selection {}".format(selectionName))
         table = []
         for syst in systematicsNamesBackground["all"]:
-            print("INFO: total syst table for selection {}".format(selectionName))
             selectionNameSyst = selectionName
             if selectionName != "preselection" and selectionName != "trainingSelection":
                 massPoint = selectionName.replace("LQ", "")
