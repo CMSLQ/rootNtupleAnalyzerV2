@@ -21,6 +21,8 @@ from termcolor import colored
 from pathlib import Path
 
 import combineCommon
+from combinePlotsBatch import SeparateArgs, FillDictFromOptionByYear
+
 
 gROOT.SetBatch(True)
 
@@ -85,12 +87,15 @@ def RemoveFile(filename):
 def CreateAndSubmitJobs(sampleDict):
     condorSubfileDir = "combinePlotsCondor"
     Path(condorSubfileDir).mkdir(parents=True, exist_ok=True)
-    samplesToCombine = [sample for sample, keys in sampleDict.items() if keys["save"]]
     shFilename = condorSubfileDir + "/condor.sh"
-    WriteCondorShFile(samplesToCombine, shFilename)
+    samplesSet = set()
+    for year, sampleList in sampleDict.items():
+        samplesToCombine = [sample for sample, keys in sampleList.items() if keys["save"]]
+        samplesSet.update(samplesToCombine)
+    WriteCondorShFile(samplesSet, shFilename)
     print("INFO: wrote sh file to {}".format(shFilename))
     subFilename = shFilename.replace(".sh", ".sub")
-    WriteCondorSubFile(len(samplesToCombine), subFilename)
+    WriteCondorSubFile(len(samplesSet), subFilename)
     print("INFO: wrote sub file to {}".format(subFilename))
     SubmitCondorJob(str(Path(subFilename).name), condorSubfileDir)
 
@@ -121,14 +126,23 @@ def WriteCondorShFile(sampleList, filename):
             outputfile.write('fi\n')
 
 
+def GetNameRelativeToSecondParent(path):
+    return str(Path(path).parent.parent.name) + "/" + GetNameRelativeToParent(path)
+
+
+def GetNameRelativeToParent(path):
+    return str(Path(path).parent.name) + "/" + str(Path(path).name)
+
+
 def CreateExecArgs():
-   args = ['-i ' + str(Path(options.inputList).name)]
+   args = ['-i ' + ",".join([GetNameRelativeToParent(inputList) for idx, inputList in enumerate(SeparateArgs(options.inputList))])]
    args += ['-c ' + options.analysisCode]
-   args += ['-d ' + options.inputDir]
+   args += ['-d ' + ",".join([str(Path(sampleList).resolve()) for idx, sampleList in enumerate(SeparateArgs(options.inputDir))])]
    args += ['-l ' + options.intLumi]
-   args += ['-x ' + str(Path(options.xsection).name)]
+   args += ['-y ' + options.years]
+   args += ['-x ' + ",".join([GetNameRelativeToSecondParent(xsection) for idx, xsection in enumerate(SeparateArgs(options.xsection))])]
    args += ['-o ' + options.outputDir]
-   args += ['-s ' + str(Path(options.sampleListForMerging).name)]
+   args += ['-s ' + ",".join([str(Path(sampleList).name) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])]
    return args
 
 
@@ -170,7 +184,9 @@ def WriteCondorSubFile(nJobs, condorFilename):
         condorFile.write('should_transfer_files = YES\n')
         lqAnaBase = os.getenv("LQANA")
         inputFilesToTransfer = [lqAnaBase + "/scripts/combinePlotsBatch.py", lqAnaBase + "/scripts/combineCommon.py"]
-        inputFilesToTransfer.extend([str(Path(options.inputList).resolve()), str(Path(options.sampleListForMerging).resolve()), str(Path(options.xsection).resolve())])
+        inputFilesToTransfer.extend([str(Path(xsection).resolve().parent.parent) for idx, xsection in enumerate(SeparateArgs(options.xsection))])
+        inputFilesToTransfer.extend([str(Path(inputList).resolve().parent) for idx, inputList in enumerate(SeparateArgs(options.inputList))])
+        inputFilesToTransfer.extend([str(Path(sampleList).resolve()) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])
         filesToTransfer = ",".join(inputFilesToTransfer)
         # filesToTransfer += ","
         # filesToTransfer += options.filesToTransfer
@@ -322,18 +338,34 @@ parser.add_option(
     default=False,
 )
 
+parser.add_option(
+    "-y",
+    "--years",
+    dest="years",
+    help="analysis years",
+    metavar="YEARS",
+)
+
 (options, args) = parser.parse_args()
 
 if len(sys.argv) < 14:
     raise RuntimeError(usage)
 
-# ---Check if sampleListForMerging file exists
-if os.path.isfile(options.sampleListForMerging) is False:
-    raise RuntimeError("File " + options.sampleListForMerging + " not found")
+mergingFiles = SeparateArgs(options.sampleListForMerging)
+# ---Check if sampleListForMerging files exist
+for mergingFile in mergingFiles:
+    if os.path.isfile(mergingFile) is False:
+        raise RuntimeError("File " + options.sampleListForMerging + " not found")
 
-# ---Check if xsection file exists
-if os.path.isfile(options.xsection) is False:
-    raise RuntimeError("File " + options.xsection + " not found")
+xsectionFiles = SeparateArgs(options.xsection)
+# ---Check if xsection files exist
+for xsectionFile in xsectionFiles:
+    if os.path.isfile(xsectionFile) is False:
+        raise RuntimeError("File " + options.xsection + " not found")
+xsectionFileDict = FillDictFromOptionByYear(options.xsection, options.years)
+xsectionDict = {}
+for year, xsFile in xsectionFileDict.items():
+    xsectionDict[year] = combineCommon.ParseXSectionFile(xsFile)
 
 useInclusionList = False
 histoNamesToUse = []
@@ -357,16 +389,12 @@ if doPDFReweight2016LQSignals:
 if not os.path.exists(options.outputDir):
     os.makedirs(options.outputDir)
 
-xsectionDict = combineCommon.ParseXSectionFile(options.xsection)
-# print 'Dataset      XSec'
-# for key,value in xsectionDict.iteritems():
-#  print key,'  ',value
-
-dictSamples = combineCommon.GetSamplesToCombineDict(options.sampleListForMerging)
-dictSamplesPiecesAdded = {}
-for key in dictSamples.keys():
-    dictSamplesPiecesAdded[key] = []
-
+sampleLists = FillDictFromOptionByYear(options.sampleListForMerging, options.years)
+dictSamples = {}
+for year in SeparateArgs(options.years):
+    sampleList = sampleLists[year]
+    dictSamples[year] = combineCommon.GetSamplesToCombineDict(sampleList)
+    
 # --- Declare efficiency tables
 dictFinalTables = {}
 # --- Declare histograms
@@ -388,23 +416,30 @@ if options.ttbarBkg or options.qcdClosure:
 #     samplesToSave.extend([qcdDataSampleName, nonQCDBkgSampleName])
 
 # check to make sure we have xsections for all samples
-for lin in open(options.inputList):
-    lin = lin.strip("\n")
-    if lin.startswith("#"):
-        continue
-    dataset_fromInputList = lin.split("/")[-1].split(".")[0]
-    dataset_fromInputList = dataset_fromInputList.replace("_tree", "")
-    xsection_val = combineCommon.lookupXSection(
-        combineCommon.SanitizeDatasetNameFromInputList(
-            dataset_fromInputList.replace("_tree", "")
+inputLists = FillDictFromOptionByYear(options.inputList, options.years)
+inputDirs = FillDictFromOptionByYear(options.inputDir, options.years)
+dictDatasetsFileNames = {}
+for year in SeparateArgs(options.years):
+    inputList = inputLists[year]
+    inputDir = inputDirs[year]
+    for lin in open(inputList):
+        lin = lin.strip("\n")
+        if lin.startswith("#"):
+            continue
+        dataset_fromInputList = lin.split("/")[-1].split(".")[0]
+        dataset_fromInputList = dataset_fromInputList.replace("_tree", "")
+        xsection_val = combineCommon.lookupXSection(
+            combineCommon.SanitizeDatasetNameFromInputList(
+                dataset_fromInputList.replace("_tree", "")
+            ),
+            xsectionDict[year]
         )
-    )
-foundAllFiles, dictDatasetsFileNames = combineCommon.FindInputFiles(options.inputList, options.analysisCode, options.inputDir)
-if not foundAllFiles:
-    raise RuntimeError("Some files not found.")
-else:
-    print("\bDone.  All root/dat files are present.")
-    print()
+    foundAllFiles, dictDatasetsFileNames[year] = combineCommon.FindInputFiles(inputList, options.analysisCode, inputDir)
+    if not foundAllFiles:
+        raise RuntimeError("Some files not found for year {}.".format(year))
+    else:
+        print("\bDone.  All root/dat files are present for year {}.".format(year))
+print()
 
 
 CreateAndSubmitJobs(dictSamples)
