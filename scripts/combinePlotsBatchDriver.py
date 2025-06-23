@@ -323,7 +323,7 @@ parser.add_option(
 parser.add_option(
     "--queue",
     dest="queue",
-    default="workday",
+    default="tomorrow",
     help="name of the lxbatch queue",
     metavar="QUEUE"
 )
