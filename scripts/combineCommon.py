@@ -242,6 +242,7 @@ def FindSampleName(dataset, dictSamples):
 
 
 def ParseXSectionFile(xsectionFile):
+    xsectionDict.clear()
     for line in open(os.path.expandvars(xsectionFile)):
 
         # ignore comments
@@ -268,25 +269,28 @@ def ParseXSectionFile(xsectionFile):
         # outputFile = SanitizeDatasetNameFromFullDataset(dataset)
         # xsectionDict[outputFile] = xsection_val
         # print outputFile + " " + xsection_val
+    return copy.deepcopy(xsectionDict)
 
 
-def lookupXSection(datasetNameFromInputList):
+def lookupXSection(datasetNameFromInputList, xsDict=None):
     verbose = False
+    if xsDict is None:
+        xsDict = xsectionDict
     datasetNameFromInputList = SanitizeDatasetNameFromInputList(datasetNameFromInputList)
-    if len(xsectionDict) <= 0:
-        raise RuntimeError("xsectionDict is empty. Cannot lookupXSection for "+datasetNameFromInputList)
-    # for key in sorted(xsectionDict.keys()):
-    #     print('sample=',key,'xsection=',xsectionDict[key])
-    if datasetNameFromInputList in xsectionDict.keys():
-        return xsectionDict[datasetNameFromInputList]
+    if len(xsDict) <= 0:
+        raise RuntimeError("xsDict is empty. Cannot lookupXSection for "+datasetNameFromInputList)
+    # for key in sorted(xsDict.keys()):
+    #     print('sample=',key,'xsection=',xsDict[key])
+    if datasetNameFromInputList in xsDict.keys():
+        return xsDict[datasetNameFromInputList]
     else:
-        # for key in sorted(xsectionDict.keys()):
-        #     print('sample=',key,'xsection=',xsectionDict[key], flush=True)
+        # for key in sorted(xsDict.keys()):
+        #     print('sample=',key,'xsection=',xsDict[key], flush=True)
         if "Run20" in datasetNameFromInputList:
-            for key in sorted(xsectionDict.keys()):
+            for key in sorted(xsDict.keys()):
                 if datasetNameFromInputList in key:
-                    return xsectionDict[key]
-        raise RuntimeError("xsectionDict has no entry for key: {}".format(datasetNameFromInputList))
+                    return xsDict[key]
+        raise RuntimeError("xsDict has no entry for key: {}".format(datasetNameFromInputList))
 
 
 def ParseDatFile(datFilename):
@@ -1354,7 +1358,7 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
         elif not isQCD:
             print("WARN: Did not find systematics hist for the piece {}, though it's not data.".format(piece))
     idx = 0
-    scaledHistos = []
+    # scaledHistos = []
     for pieceHisto in pieceHistoList:
         pieceHistoName = pieceHisto.GetName()
         pieceHisto.SetName(GetShortHistoName(pieceHistoName))
@@ -1372,16 +1376,17 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
                 unscaledEvtsPassingCuts.SetNameTitle(pieceHisto.GetName()+"_unscaled", pieceHisto.GetTitle()+"_unscaled")
                 #print("INFO: UpdateHistoDict(): sample={}, piece={}, create new EventsPassingCuts hist from {} that doesn't have scaling/reweighting by int. lumi. idx is now {}".format(sample, piece, pieceHisto.GetName(), idx), flush=True)
                 sampleHistoDict, unscaledEvtsPassingCuts = updateSample(sampleHistoDict, unscaledEvtsPassingCuts, idx, piece, sample, 1.0, correlateLHESystematics, isData, systNameToBranchTitleDict)
-                scaledHistos.append(unscaledEvtsPassingCuts)
+                # scaledHistos.append(unscaledEvtsPassingCuts)
                 idx += 1
         #print("INFO: updateSample for sample={}, correlateLHESystematics={}".format(sample, correlateLHESystematics), flush=True)
         #print("INFO: [1] UpdateHistoDict(): sample={}, piece={}, pieceHisto={}, idx={}".format(sample, piece, pieceHisto.GetName(), idx), flush=True)
         sampleHistoDict, pieceHisto = updateSample(sampleHistoDict, pieceHisto, idx, piece, sample, plotWeight, correlateLHESystematics, isData, systNameToBranchTitleDict)
-        scaledHistos.append(pieceHisto)
+        # scaledHistos.append(pieceHisto)
         # if idx < 2:
         #     print "\tINFO: UpdateHistoDict for sample {}: added pieceHisto {} with entries {} to sampleHistoDict[idx], which has name {} and entries {}".format(
         #             sample, pieceHisto.GetName(), pieceHisto.GetEntries(), sampleHistoDict[idx].GetName(), sampleHistoDict[idx].GetEntries())
         idx += 1
+        pieceHisto = None # try to clear
     # check TMap consistency
     #sampleTMap = next((x for x in pieceHistoList if x.ClassName() == "TMap" and "systematicNameToBranchesMap" in x.GetName()), None)
     comboTMap = next((x for x in list(sampleHistoDict.values()) if x.ClassName() == "TMap" and "systematicNameToBranchesMap" in x.GetName()), None)
@@ -1394,7 +1399,7 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
         binLabels = list(comboSystHist.GetYaxis().GetLabels())
         binLabels = [label for label in binLabels if "pdf" not in label.GetString().Data().lower() and "scale" not in label.GetString().Data().lower()]
         CheckSystematicsTMapConsistency(comboTMap, sampleTMap, binLabels)
-    return sampleHistoDict, scaledHistos  # copy.deepcopy(pieceHistoList)
+    return sampleHistoDict #, scaledHistos  # copy.deepcopy(pieceHistoList)
 
 
 def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, correlateLHESystematics, isData, systNameToBranchTitleDict):
@@ -1602,9 +1607,10 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
             if htemp.GetNbinsX() != dictFinalHistoAtSample[h].GetNbinsX() or htemp.GetNbinsY() != dictFinalHistoAtSample[h].GetNbinsY():
                 print("ERROR: piece {} has bin labels: {}".format(piece, list(htemp.GetYaxis().GetLabels())), flush=True)
                 print("ERROR: sample {} has bin labels: {}".format(sample, list(dictFinalHistoAtSample[h].GetYaxis().GetLabels())), flush=True)
-                raise RuntimeError("htemp {} from piece {} to be added has {} x bins and {} y bins, which is inconsistent with the existing hist from sample {}, which has {} x bins and {} y bins; different y bins={}".format(
+                raise RuntimeError("htemp {} from piece {} to be added has {} x bins and {} y bins, which is inconsistent with the existing hist from sample {}, which has {} x bins and {} y bins; different y bins={}; different x bins={}".format(
                     htemp.GetName(), piece, htemp.GetNbinsX(), htemp.GetNbinsY(),
-                    sample, dictFinalHistoAtSample[h].GetNbinsX(), dictFinalHistoAtSample[h].GetNbinsY(), str(list(set(htemp.GetYaxis().GetLabels()).symmetric_difference(set(dictFinalHistoAtSample[h].GetYaxis().GetLabels()))))))
+                    sample, dictFinalHistoAtSample[h].GetNbinsX(), dictFinalHistoAtSample[h].GetNbinsY(), str(list(set(htemp.GetYaxis().GetLabels()).symmetric_difference(set(dictFinalHistoAtSample[h].GetYaxis().GetLabels())))),
+                    str(list(set(htemp.GetXaxis().GetLabels()).symmetric_difference(set(dictFinalHistoAtSample[h].GetXaxis().GetLabels()))))))
             if list(htemp.GetYaxis().GetLabels()) != list(dictFinalHistoAtSample[h].GetYaxis().GetLabels()):
                 print("ERROR: piece {} has bin labels: {}".format(piece, list(htemp.GetYaxis().GetLabels())), flush=True)
                 print("ERROR: sample {} has bin labels: {}".format(sample, list(dictFinalHistoAtSample[h].GetYaxis().GetLabels())), flush=True)
@@ -1751,8 +1757,7 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                 if hasMC:
                     if len([x for x in [label.GetString().Data() for label in histo.GetYaxis().GetLabels()] if re.match(r"LHEScaleWeight_\d+", x)]) > 0:
                         scaleSystDeltas, yBins, maxYBinIdxs, preselYields = CalculateShapeSystematic(histo, sample, systNameToBranchTitleDict)
-                        # if histName.endswith("systematics"):
-                        #     print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, scaleSystDeltas: calculate from scale weight variations; deltas[38]={} ".format(sample, corrLHESysts, scaleSystDeltas[38]))
+                        # print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, hist={}, scaleSystDeltas: calculate from scale weight variations; prselYields={} ".format(sample, corrLHESysts, histo.GetName(), preselYields))
             else:
                 scaleSystDeltas = [histo.GetBinError(xBin, histo.GetYaxis().FindFixBin("LHEScaleWeight_maxComb")) for xBin in range(0, histo.GetNbinsX()+2)]
                 # print("DEBUG: WriteHistos() for sample {}, corrLHESysts={}, take scaleSystDeltas from errors of maxComb of input hist; deltas[1]={} ".format(sample, corrLHESysts, scaleSystDeltas[1]))
@@ -1802,8 +1807,10 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                     histo.SetBinError(xBin, scaleDownCombBin, scaleSystDeltas[xBin])
                     if corrLHESysts and hasMC:
                         histo.SetBinContent(xBin, scalePreselYieldBin, preselYields[xBin])
+                        # print("SICDEBUG: sample={}, corrLHESysts={}, hasMC={}, so set preselection scale weight yields to those obtained previously".format(sample, corrLHESysts, hasMC))
                     else:
                         histo.SetBinContent(xBin, scalePreselYieldBin, -1.)  # so this is obviously wrong. but in the cases we care about, for those background normalized at preselection, DYJ and TTBar, these happen to be correlated.
+                        # print("SICDEBUG: sample={}, corrLHESysts={}, hasMC={}, so set preselection scale weight yields to -1".format(sample, corrLHESysts, hasMC))
                     # if xBin == 38 and histName.endswith("systematics"):
                     # binLabel = histo.GetXaxis().GetBinLabel(xBin)
                     # if histName.endswith("systematics") and xBin > 0 and xBin <= histo.GetNbinsX() and "bdt" in binLabel.lower():
@@ -1841,7 +1848,7 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
             raise RuntimeError("Error writing into the output file '{}': wrote {} bytes to file when writing object '{}'.".format(
                 outputTfile.GetName(), nbytes, histName))
     if verbose:
-        print("[{}] Done writing.".format(sample), flush=True)
+        print("[{}] Done writing to {}.".format(sample, outputTfile.GetName()), flush=True)
     sys.stdout.flush()
 
 

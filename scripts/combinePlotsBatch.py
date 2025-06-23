@@ -202,6 +202,7 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
     for currentPiece in piecesToAdd:
         thisPieceTable = {}
         thisPieceHistos = {}
+        pieceInYears = []
         for year in SeparateArgs(options.years):
             sumWeights = 0
             lhePdfWeightSumw = 0
@@ -212,9 +213,10 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
             # print("For sample {}, datasetsFileNamesCleaned={}".format(sample, datasetsFileNamesCleaned))
             if currentPiece in datasetsFileNamesCleaned.keys():
                 matchingPiece = currentPiece
+                pieceInYears.append(year)
             else:
                 # raise RuntimeError("ERROR: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={}".format(sample, currentPiece, datasetsFileNamesCleaned))
-                print("INFO: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={} for year={}; continuing to next year".format(sample, currentPiece, datasetsFileNamesCleaned, year))
+                print("INFO: skipping year={} for sample {} as we could not find currentPiece={} in datasetsFileNamesCleaned={}".format(year, sample, currentPiece, datasetsFileNamesCleaned))
                 continue
             singleFilePiece = False
             if len(datasetsFileNamesCleaned[currentPiece]) == 1:
@@ -355,7 +357,7 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
             objectNamesToKeep = ["eventspassingcuts", "eventspassingcuts_unscaled", "systematicnametobranchesmap", "systematics"]
             # histsToKeep = {pieceHistoList.index(v):v for v in pieceHistoList if any(objectName == v.GetName().lower() for objectName in objectNamesToKeep)}
             histsToKeep = {idx:hist for idx, hist in histoDictThisSample.items() if hist.GetName().lower() in objectNamesToKeep}
-            sampleName = combineCommon.FindSampleName(matchingPiece, dictSamples[year])
+            sampleName = combineCommon.FindSampleName(matchingPiece, dictSamples[pieceInYears[0]])  # just try to lookup sample name from mapping in first year in which it was found
             for hist in histsToKeep.values():
                 RenameHist(hist, sampleName)
             combineCommon.WriteHistos(outputTfile, histsToKeep, matchingPiece, corrLHESysts, isMC, True)
