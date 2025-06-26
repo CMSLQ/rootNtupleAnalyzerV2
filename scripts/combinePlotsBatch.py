@@ -85,6 +85,12 @@ def RemoveFile(filename):
         result = subprocess.check_call(["eos", "rm", filename], env=my_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def FilesMustExist(filearg):
+    for f in SeparateArgs(filearg):
+        if not os.path.isfile(f):
+            raise RuntimeError("File " + f + " not found")
+
+
 def RenameLHECombBins(histo):
     binsToRename = ["LHEPdf_UpComb", "LHEPdf_DownComb", "LHEScale_UpComb", "LHEScale_DownComb"]
     renamedBins = ["LHEPdfCombUp", "LHEPdfCombDown", "LHEScaleCombUp", "LHEScaleCombDown"]
@@ -173,7 +179,14 @@ def SeparateArgs(arg):
     return split
 
 
-def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables):
+def OverrideTableFinalSelections(table, sample, histoFile):
+    for mass in finalSelMasses:
+        # read yield/uncertainty from histoFile
+        selection = finalSelectionVarName.format(mass)
+        OverrideTableSelectionYieldAndUncertainty(table, selection, value, uncertainty)
+
+def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,
+                       shapeHistos, systSelections, preselectionRatios, postPreRatios):
     doHists = not options.tablesOnly
     if doHists:
         outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
@@ -304,8 +317,9 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
                     # combineCommon.ZeroNegativeTableYields(data)
                     # thisPieceTable = combineCommon.UpdateTable(data, thisPieceTable)
                     print("INFO: dataThisFile for sample={} now has NoCuts(weighted)={}".format(sample, float(dataThisFile[0]["Npass"])), flush=True)
-                # else:
-                #     thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
+                sample, numPieces = FindSampleNameFromPiece(currentPiece, dictSamples[year])
+                if sample in samplesToOverrideFromYieldHistos and shapeHistos is not None:
+                    OverrideTableSelectionYieldAndUncertainty(dataThisFile, sample, shapeHistos[year])
                 thisYearTable = combineCommon.UpdateTable(dataThisFile, thisYearTable)
                 # dataThisFile = combineCommon.CreateWeightedTable(dataThisFile, weight, xsection_X_intLumi)
 
@@ -624,8 +638,41 @@ if __name__ == "__main__":
         metavar="SAMPLE",
     )
     
+    parser.add_option(
+        "--shapeHisto",
+        dest="shapeHisto",
+        default=None,
+        help="shapeHisto path (from makeDatacard output)",
+        metavar="SHAPEHISTO",
+    )
+    
+    parser.add_option(
+        "--systSelection",
+        dest="systSelection",
+        default=None,
+        help="systSelection json path (from makeDatacard output)",
+        metavar="SYSTSELECTION",
+    )
+    
+    parser.add_option(
+        "--preselectionRatio",
+        dest="preselectionRatio",
+        default=None,
+        help="preselection ratio json path (from makeDatacard output)",
+        metavar="PRESELECTIONRATIO",
+    )
+    
+    parser.add_option(
+        "--postPreRatio",
+        dest="postPreRatio",
+        default=None,
+        help="postfit/prefit ratios root path (from combine output)",
+        metavar="POSTPRERATIO",
+    )
+
     # TODO perhaps make this an option
     inputListFilename = "inputListAllCurrent.txt"
+    finalSelectionVarName = "BDTOutput_LQ"
     
     (options, args) = parser.parse_args()
     
@@ -634,16 +681,18 @@ if __name__ == "__main__":
         print("ERROR: one or more required options not given.")
         raise RuntimeError(usage)
     
-    # ---Check if sampleListForMerging files exist
-    for sampleList in SeparateArgs(options.sampleListForMerging):
-        if not os.path.isfile(sampleList):
-            raise RuntimeError("File " + sampleList + " not found")
-    
-    # ---Check if xsection file exists
-    for xsection in SeparateArgs(options.xsection):
-        if os.path.isfile(xsection) is False:
-            raise RuntimeError("File " + xsection + " not found")
-    
+    # ---Check if necessary files exist
+    FilesMustExist(options.sampleListForMerging)
+    FilesMustExist(options.xsection)
+    if options.shapeHisto is not None:
+        FilesMustExist(options.shapeHisto)
+    if options.systSelection is not None:
+        FilesMustExist(options.systSelection)
+    if options.preselectionRatio is not None:
+        FilesMustExist(options.preselectionRatio)
+    if options.postPreRatios is not None:
+        FilesMustExist(options.postPreRatio)
+
     useInclusionList = False
     histoNamesToUse = []
     if os.path.isfile(options.histInclusionList) is True:
@@ -711,6 +760,10 @@ if __name__ == "__main__":
     inputDirs = FillDictFromOptionByYear(options.inputDir, options.years)
     inputLists = FillDictFromOptionByYear(options.inputList, options.years)
     intLumis = FillDictFromOption(options.intLumi, options.years)
+    shapeHistos = FillDictFromOption(options.shapeHisto, options.years) if options.shapeHisto is not None else None
+    systSelections = FillDictFromOption(options.systSelections, options.years) if options.systSelections is not None else None
+    preselectionRatios = FillDictFromOption(options.preselectionRatio, options.years) if options.preselectionRatio is not None else None
+    postPreRatios = FillDictFromOption(options.postPreRatio, options.years) if options.postPreRatio is not None else None
     # check to make sure we have xsections for all samples
     dictDatasetsFileNames = {}
     # FIXME to look at only files we need in this job
@@ -765,7 +818,9 @@ if __name__ == "__main__":
     sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
     sampleDatFileNameTemplate = tfilePrefix + "_{}_tables.dat"
     
-    outputFile, outputDatFile = MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate, sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
+    outputFile, outputDatFile = MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
+                                                   sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,
+                                                   shapeHistos, systSelections, preselectionRatios, postPreRatios)
     
     # --- Write tables
     # haveDatFile = True

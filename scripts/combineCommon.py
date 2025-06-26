@@ -241,6 +241,18 @@ def FindSampleName(dataset, dictSamples):
     return candidateSamples[0]
 
 
+def FindSampleNameFromPiece(piece, dictSample):
+    candidateSamples = []
+    for sample in dictSamples.keys():
+        samplePieces = dictSamples[sample]["pieces"]
+        if piece in samplePieces:
+            candidateSamples.append(sample, len(samplePieces))
+    if len(candidateSamples) != 1:
+        raise RuntimeError("Expected one but found {} candidate samples for dataset {}: {}. Can't proceed.".format(len(candidateSamples), dataset, candidateSamples))
+    # print("DEBUG FindSampleName() - found the dataset {} in sample {}".format(dataset, candidateSamples[0]))
+    return candidateSamples[0]
+
+
 def ParseXSectionFile(xsectionFile):
     xsectionDict.clear()
     for line in open(os.path.expandvars(xsectionFile)):
@@ -1020,6 +1032,41 @@ def ZeroNegativeTableYields(inputTable):
             inputTable[int(j)]["errNpass"] = errNPassOrig
         else:
             inputTable[int(j)]["errNpassSqr"] = errNpassSqrOrig
+
+
+def OverrideTableSelectionYieldAndUncertainty(inputTable, selection, value, uncertainty):
+    if not inputTable:
+        raise RuntimeError("No valid inputTable found!")
+    else:
+        for j, line in enumerate(inputTable):
+            nOrig = float(inputTable[int(j)]["N"])
+            errNorig = float(inputTable[int(j)]["errN"])
+            nPassOrig = float(inputTable[int(j)]["Npass"])
+            errNPassOrig = float(inputTable[j]["errNpass"])
+            nNew = nOrig
+            errNnew = errNorig
+            nPassNew = nPassOrig
+            errNPassNew = errNPassOrig
+            if selection in inputTable[j]["variableName"]:
+                nPassNew = value
+                errNpassNew = uncertainty
+
+            inputTable[int(j)] = {
+                "variableName": inputTable[j]["variableName"],
+                "min1": inputTable[j]["min1"],
+                "max1": inputTable[j]["max1"],
+                "min2": inputTable[j]["min2"],
+                "max2": inputTable[j]["max2"],
+                "N": nNew,
+                "errN": errNnew,
+                "Npass": nPassNew,
+                "errNpass": errNpassNew,
+                "EffRel": float(0),
+                "errEffRel": float(0),
+                "EffAbs": float(0),
+                "errEffAbs": float(0),
+            }
+    return
 
 
 def GetSampleHistosFromTFile(tfileName, sample, keepHistName=True):
