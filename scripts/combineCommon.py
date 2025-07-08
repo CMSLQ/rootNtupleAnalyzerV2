@@ -241,15 +241,16 @@ def FindSampleName(dataset, dictSamples):
     return candidateSamples[0]
 
 
-def FindSampleNameFromPiece(piece, dictSample):
+def FindSampleNameFromPiece(piece, dictSamples):
     candidateSamples = []
     for sample in dictSamples.keys():
         samplePieces = dictSamples[sample]["pieces"]
-        if piece in samplePieces:
-            candidateSamples.append(sample, len(samplePieces))
+        sanitizedDatasets = [SanitizeDatasetNameFromFullDataset(piece) for piece in samplePieces if "/" in piece]
+        # print("DEBUG FindSampleNameFromPiece() - check if piece {} is in sample {} which has sanitizedDatasets={} from samplePieces={}".format(piece, sample, sanitizedDatasets, samplePieces))
+        if piece in sanitizedDatasets:
+            candidateSamples.append([sample, len(sanitizedDatasets)])
     if len(candidateSamples) != 1:
-        raise RuntimeError("Expected one but found {} candidate samples for dataset {}: {}. Can't proceed.".format(len(candidateSamples), dataset, candidateSamples))
-    # print("DEBUG FindSampleName() - found the dataset {} in sample {}".format(dataset, candidateSamples[0]))
+        raise RuntimeError("Expected one but found {} candidate samples for piece {}: {}. Can't proceed.".format(len(candidateSamples), piece, candidateSamples))
     return candidateSamples[0]
 
 
@@ -1710,6 +1711,88 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
     return dictFinalHistoAtSample, htemp
 
 
+def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, fitType):
+    fitDiagFilename = fitDiagFilePath + "/fitDiagnostics.m{}.root".format(mass)
+    fitDiagFile = r.TFile.Open(fitDiagFilename)
+    if fitType == "prefit":
+        suffix = "prefit"
+    elif fitType == "postfit":
+        suffix = "fit_" + postFitType
+    if "17" in year:
+        year = "year2017"
+    if "18" in year:
+        year = "year2018"
+    elif "16preVFP" in year:
+        year = "preVFP2016"
+    elif "16postVFP" in year:
+        year = "postVFP2016"
+    histName = "shapes_{}/{}/{}".format(suffix, year, sample)
+    hist = fitDiagFile.Get(histName)
+    norm = hist.GetBinContent(1)
+    unc = hist.GetBinError(1)
+    fitDiagFile.Close()
+    return norm, unc
+
+
+def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, doPrefit):
+    if not isMC:
+        return histoDict
+    
+    normsByMass = {}
+    totUncsByMass = {}
+    for mass in masses:
+        norm, totUncertainty = GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, "prefit" if doPrefit else "postfit")
+        # print("DEBUG: got norm {} and uncertainty {} from fitDiagPath={}, year={}, mass={}, sample={}, prefit={}".format(norm,
+        #                                                                                                                  totUncertainty,
+        #                                                                                                                  fitDiagFilePath,
+        #                                                                                                                  year, mass, sample, doPrefit))
+        normsByMass[mass] = norm
+        totUncsByMass[mass] = totUncertainty
+
+    scaledHists = {}
+    for idx, histo in histoDict.items():
+        hist = copy.deepcopy(histo)
+        myMass = None
+        for mass in masses:
+            if "LQ{}".format(mass) in hist.GetName():
+                print("DEBUG: FOUND mass {} in histName={}".format(mass, hist.GetName()))
+                myMass = mass
+        if myMass is None:
+            scaledHists[idx] = hist
+            continue  # not a final selection plot
+
+        norm = normsByMass[myMass]
+        totUncertainty = totUncsByMass[myMass]
+        print("DEBUG: Using norm={}, totUncertainty={} to rescale '{}' (normOrig={}, myMass={})".format(norm, totUncertainty, hist.GetName(), norm, myMass))
+
+        # if "TProfile" in hist.__repr__():
+        if "TH1" in hist.__repr__():
+            integral = hist.Integral()
+            for xBin in range(0, hist.GetNbinsX()+2):
+                hist.SetBinContent(xBin, norm/integral if integral != 0 else 0)
+                hist.SetBinError(xBin, totUncertainty/hist.GetBinError(xBin) if hist.GetBinError(xBin) != 0 else 0)  # sum[bine^2] = unc^2 --> bine = bine/sqrt(nbins)
+        if "TH2" in hist.__repr__():
+            if "WithSystematics" not in hist.GetName():
+                # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
+                continue
+            print("DEBUG: hist '{}' has {} yBins before adding one".format(hist.GetName(), hist.GetNbinsY()))
+            hist = AddHistoBins(hist, "y", ["TotalSystematic"])
+            print("DEBUG: hist '{}' has {} yBins AFTER adding one".format(hist.GetName(), hist.GetNbinsY()))
+            uncR2 = totUncertainty/math.sqrt(2)
+            for yBin in [1, hist.GetYaxis().FindBin("TotalSystematic")]:
+                integralErr = ctypes.c_double()
+                integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, yBin, yBin, integralErr)
+                for xBin in range(0, hist.GetNbinsX()+2):
+                    if hist.GetBinContent(xBin, yBin) != 0:
+                        # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin content {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinContent(xBin, yBin),
+                        #                                                                                norm/hist.GetBinContent(xBin, yBin) if hist.GetBinContent(xBin, yBin) != 0 else 0))
+                        hist.SetBinContent(xBin, yBin, norm/integral * hist.GetBinContent(xBin, yBin))
+                    if hist.GetBinError(xBin, yBin) != 0:
+                        hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
+        scaledHists[idx] = hist
+    return scaledHists
+
+
 def ScaleHisto(histo, plotWeight):
     histoNameStrsToSkip = ["optimizerentries", "noweight", "unscaled", "unweighted"]
     # if "optimizerentries" in histoName.lower() or "noweight" in histoName.lower() or "unscaled" in histoName.lower() or "unweighted" in histoName.lower():
@@ -2175,6 +2258,8 @@ def AddHistoBins(hist, axis, labelsToAdd):
             numNewBins = hist.GetNbinsY()+len(labelsToAdd)
             yBinLabels = hist.GetYaxis().GetLabels()
             newBinLabels = [label.GetString().Data() for label in yBinLabels]
+            if len(newBinLabels) < 1:
+                newBinLabels = ['' for yBin in range(1, hist.GetNbinsY()+1)]
             newBinLabels.extend(labelsToAdd)
             newHist.SetBins(
                     hist.GetNbinsX(),
@@ -2185,7 +2270,11 @@ def AddHistoBins(hist, axis, labelsToAdd):
                     hist.GetYaxis().GetBinUpEdge(numNewBins)
                     )
             for ibin in range(1, numNewBins+1):
-                newHist.GetYaxis().SetBinLabel(ibin, newBinLabels[ibin-1])
+                try:
+                    newHist.GetYaxis().SetBinLabel(ibin, newBinLabels[ibin-1])
+                except IndexError as e:
+                    print("ERROR Couldn't set bin {} as newBinLabels has length={}".format(ibin, len(newBinLabels)))
+                    raise e
             hist.GetXaxis().Copy(newHist.GetXaxis())
             if IsHistEmpty(hist):
                 return newHist
