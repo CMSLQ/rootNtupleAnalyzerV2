@@ -213,7 +213,7 @@ def GetXSection(matchingPiece, xsections):
 
 
 def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNamesToUse, xsectionFound, useInclusionList, doHists,
-                         singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD):
+                         singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD, xsection_val):
     sumWeights = 0
     lhePdfWeightSumw = 0
     Ntot = 0
@@ -230,10 +230,6 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
                 sampleHistos = combineCommon.GetSampleHistosFromTFile(rootFilename, sample, xsectionFound)
         else:
             sampleHistos = GetHistosFromInclusionList(rootFilename, sample, ["SumOfWeights", "LHEPdfSumw"], xsectionFound)
-
-        # XXX FIXME DEBUG -- remove later
-        # sampleHistos = [hist for hist in sampleHistos if any(nameToKeep in hist.GetName() for nameToKeep in ["_LQ", "SumOfWeights", "systematicNameToBranchesMap", "systematics"])]
-        # XXX FIXME DEBUG END
 
         # ---Read .dat table
         data = combineCommon.ParseDatFile(inputDatFile)
@@ -306,8 +302,7 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
     return thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot
 
 
-def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,
-                       fitDiagFilepath=None):
+def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables):
     doHists = not options.tablesOnly
     if doHists:
         outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
@@ -319,6 +314,8 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
     piecesToAdd = set()
     corrLHESysts = None
     for year in SeparateArgs(options.years):
+        if sample not in dictSamples[year].keys():
+            continue
         sampleInfo = dictSamples[year][sample]
         pieceList = sampleInfo["pieces"]
         piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
@@ -363,7 +360,8 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
 
             print("For sample {}, datasetsFileNamesCleaned[{}]={}".format(sample, currentPiece, datasetsFileNamesCleaned[currentPiece]))
             thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot = LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNamesToUse, xsectionFound, useInclusionList, doHists,
-                                                                 singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD)
+                                                                 singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD,
+                                                                 xsection_val)
 
             # combine this year with the rest of the pieces per year
             print("\t[{}] zeroing negative table yields for currentPiece={} for year={}".format(sample, currentPiece, year), flush=True)
@@ -444,8 +442,7 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
     return tfileNameTemplate.format(sample), outputDatFile
 
 
-def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,
-                       fitDiagFilepath=None):
+def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,fitDiagFilepath):
     if sample not in samplesToOverrideFromYieldHistos:
         return MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
     doHists = not options.tablesOnly
@@ -460,10 +457,14 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
 
     piecesToAdd = set()
     corrLHESysts = None
+    yearsToUse = []
     for year in SeparateArgs(options.years):
+        if sample not in dictSamples[year].keys():
+            continue
         sampleInfo = dictSamples[year][sample]
         pieceList = sampleInfo["pieces"]
         piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
+        yearsToUse.append(year)
         # print("For sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(sample, piecesToAdd, dictDatasetsFileNames))
         corrLHESystsThisSample = sampleInfo["correlateLHESystematics"]
         if corrLHESysts is None:
@@ -474,7 +475,7 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
                     sample, year, corrLHESystsThisSample, corrLHESysts))
 
     # ---Loop over datasets in the inputlist
-    for year in SeparateArgs(options.years):
+    for year in yearsToUse:
         thisYearTable = {}
         thisYearHistos = {}
         piecesAdded = []
@@ -503,7 +504,8 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
 
             print("For sample {}, datasetsFileNamesCleaned[{}]={}".format(sample, currentPiece, datasetsFileNamesCleaned[currentPiece]))
             thisPieceTable, thisPieceHistos, sumWeights, lhePdfWeightSumw, Ntot = LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNamesToUse, xsectionFound, useInclusionList, doHists,
-                                                                 singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD)
+                                                                 singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD,
+                                                                 xsection_val)
 
             # combine this year with the rest of the pieces per year
             print("\t[{}] zeroing negative table yields for currentPiece={} for year={}".format(sample, currentPiece, year), flush=True)

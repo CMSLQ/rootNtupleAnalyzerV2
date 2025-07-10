@@ -143,6 +143,12 @@ def CreateExecArgs():
    args += ['-x ' + ",".join([GetNameRelativeToSecondParent(xsection) for idx, xsection in enumerate(SeparateArgs(options.xsection))])]
    args += ['-o ' + options.outputDir]
    args += ['-s ' + ",".join([str(Path(sampleList).name) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])]
+   if options.fitDiagFilepath:
+       args += ['--fitDiagFilepath ' + str(Path(options.fitDiagFilepath).name)]
+       if options.preFit:
+           args += ['--preFit']
+       elif options.postFit:
+           args += ['--postFit']
    return args
 
 
@@ -187,6 +193,7 @@ def WriteCondorSubFile(nJobs, condorFilename):
         inputFilesToTransfer.extend([str(Path(xsection).resolve().parent.parent) for idx, xsection in enumerate(SeparateArgs(options.xsection))])
         inputFilesToTransfer.extend([str(Path(inputList).resolve().parent) for idx, inputList in enumerate(SeparateArgs(options.inputList))])
         inputFilesToTransfer.extend([str(Path(sampleList).resolve()) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])
+        inputFilesToTransfer.extend([str(Path(options.fitDiagFilepath).resolve())])
         filesToTransfer = ",".join(inputFilesToTransfer)
         # filesToTransfer += ","
         # filesToTransfer += options.filesToTransfer
@@ -282,6 +289,16 @@ parser.add_option(
 )
 
 parser.add_option(
+    "-t",
+    "--tablesOnly",
+    action="store_true",
+    dest="tablesOnly",
+    default=False,
+    help="only combine tables, do not do plots",
+    metavar="TABLESONLY",
+)
+
+parser.add_option(
     "-b",
     "--ttbarBkg",
     action="store_true",
@@ -329,7 +346,6 @@ parser.add_option(
 )
 
 parser.add_option(
-    "-t",
     "--dryRun",
     dest="dryRun",
     help="don't submit jobs to condor, just write the submission files (dry run)",
@@ -346,9 +362,38 @@ parser.add_option(
     metavar="YEARS",
 )
 
+parser.add_option(
+    "--fitDiagFilepath",
+    dest="fitDiagFilepath",
+    default=None,
+    help="FitDiagnostics root files path (from combine output)",
+    metavar="FITDIAGFILEPATH",
+)
+
+parser.add_option(
+    "--postFit",
+    dest="postFit",
+    default=False,
+    action="store_true",
+    help="do postfit final selection plots",
+    metavar="POSTFIT",
+)
+
+parser.add_option(
+    "--preFit",
+    dest="preFit",
+    default=False,
+    action="store_true",
+    help="do prefit final selection plots",
+    metavar="PREFIT",
+)
+
+
 (options, args) = parser.parse_args()
 
-if len(sys.argv) < 14:
+requiredOpts = [options.inputList, options.analysisCode, options.inputDir, options.intLumi, options.xsection, options.outputDir, options.sampleListForMerging, options.years]
+if any(opt is None for opt in requiredOpts):
+    print("ERROR: one or more required options not given.")
     raise RuntimeError(usage)
 
 mergingFiles = SeparateArgs(options.sampleListForMerging)
@@ -375,6 +420,14 @@ if os.path.isfile(options.histInclusionList) is True:
     with open(options.histInclusionList) as f:
         histoNamesToUse = [line.rstrip() for line in f]
 #print("including histos: ",histoNamesToUse)
+
+if options.postFit and options.preFit:
+    raise RuntimeError("Can't specify both preFit and postFit options.")
+if options.postFit or options.preFit:
+    if options.fitDiagFilepath is None:
+        raise RuntimeError("With options preFit or postFit, must provide path to FitDiagnostics root files with prefit or postfit results.")
+    if options.tablesOnly:
+        raise RuntimeError("With options preFit or postFit, doesn't make sense to do tables only as tables are not affected (at least at the present time).")
 
 print("Launched like:")
 print("python ", end=' ')

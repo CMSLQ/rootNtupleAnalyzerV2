@@ -1728,8 +1728,13 @@ def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mas
         year = "postVFP2016"
     histName = "shapes_{}/{}/{}".format(suffix, year, sample)
     hist = fitDiagFile.Get(histName)
-    norm = hist.GetBinContent(1)
-    unc = hist.GetBinError(1)
+    try:
+        norm = hist.GetBinContent(1)
+        unc = hist.GetBinError(1)
+    except AttributeError as e:
+        # in this case, there is no fit result, likely because the background is zero at this selection
+        norm = None
+        unc = None
     fitDiagFile.Close()
     return norm, unc
 
@@ -1755,7 +1760,7 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
         myMass = None
         for mass in masses:
             if "LQ{}".format(mass) in hist.GetName():
-                print("DEBUG: FOUND mass {} in histName={}".format(mass, hist.GetName()))
+                # print("DEBUG: FOUND mass {} in histName={}".format(mass, hist.GetName()))
                 myMass = mass
         if myMass is None:
             scaledHists[idx] = hist
@@ -1763,32 +1768,38 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
 
         norm = normsByMass[myMass]
         totUncertainty = totUncsByMass[myMass]
-        print("DEBUG: Using norm={}, totUncertainty={} to rescale '{}' (normOrig={}, myMass={})".format(norm, totUncertainty, hist.GetName(), norm, myMass))
+        # print("DEBUG: Using norm={}, totUncertainty={} to rescale '{}' (normOrig={}, myMass={})".format(norm, totUncertainty, hist.GetName(), norm, myMass))
 
-        # if "TProfile" in hist.__repr__():
-        if "TH1" in hist.__repr__():
-            integral = hist.Integral()
-            for xBin in range(0, hist.GetNbinsX()+2):
-                hist.SetBinContent(xBin, norm/integral if integral != 0 else 0)
-                hist.SetBinError(xBin, totUncertainty/hist.GetBinError(xBin) if hist.GetBinError(xBin) != 0 else 0)  # sum[bine^2] = unc^2 --> bine = bine/sqrt(nbins)
-        if "TH2" in hist.__repr__():
-            if "WithSystematics" not in hist.GetName():
-                # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
-                continue
-            print("DEBUG: hist '{}' has {} yBins before adding one".format(hist.GetName(), hist.GetNbinsY()))
-            hist = AddHistoBins(hist, "y", ["TotalSystematic"])
-            print("DEBUG: hist '{}' has {} yBins AFTER adding one".format(hist.GetName(), hist.GetNbinsY()))
-            uncR2 = totUncertainty/math.sqrt(2)
-            for yBin in [1, hist.GetYaxis().FindBin("TotalSystematic")]:
-                integralErr = ctypes.c_double()
-                integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, yBin, yBin, integralErr)
+        if norm is not None:
+            # make sure there is a valid fit result
+            # if "TProfile" in hist.__repr__():
+            if "TH1" in hist.__repr__():
+                integral = hist.Integral()
                 for xBin in range(0, hist.GetNbinsX()+2):
-                    if hist.GetBinContent(xBin, yBin) != 0:
-                        # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin content {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinContent(xBin, yBin),
-                        #                                                                                norm/hist.GetBinContent(xBin, yBin) if hist.GetBinContent(xBin, yBin) != 0 else 0))
-                        hist.SetBinContent(xBin, yBin, norm/integral * hist.GetBinContent(xBin, yBin))
-                    if hist.GetBinError(xBin, yBin) != 0:
-                        hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
+                    hist.SetBinContent(xBin, norm/integral if integral != 0 else 0)
+                    hist.SetBinError(xBin, totUncertainty/hist.GetBinError(xBin) if hist.GetBinError(xBin) != 0 else 0)  # sum[bine^2] = unc^2 --> bine = bine/sqrt(nbins)
+            elif "TH2" in hist.__repr__():
+                if "WithSystematics" not in hist.GetName():
+                    # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
+                    continue
+                # print("DEBUG: hist '{}' has {} yBins before adding one".format(hist.GetName(), hist.GetNbinsY()))
+                hist = AddHistoBins(hist, "y", ["TotalSystematic"])
+                # print("DEBUG: hist '{}' has {} yBins AFTER adding one".format(hist.GetName(), hist.GetNbinsY()))
+                uncR2 = totUncertainty/math.sqrt(2)
+                for yBin in [1, hist.GetYaxis().FindBin("TotalSystematic")]:
+                    integralErr = ctypes.c_double()
+                    integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, yBin, yBin, integralErr)
+                    for xBin in range(0, hist.GetNbinsX()+2):
+                        if hist.GetBinContent(xBin, yBin) != 0:
+                            # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin content {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinContent(xBin, yBin),
+                            #                                                                                norm/hist.GetBinContent(xBin, yBin) if hist.GetBinContent(xBin, yBin) != 0 else 0))
+                            hist.SetBinContent(xBin, yBin, norm/integral * hist.GetBinContent(xBin, yBin))
+                        if hist.GetBinError(xBin, yBin) != 0:
+                            hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
+        elif "TH2" in hist.__repr__():
+            if "WithSystematics" not in hist.GetName():
+                continue
+            hist = AddHistoBins(hist, "y", ["TotalSystematic"])
         scaledHists[idx] = hist
     return scaledHists
 
