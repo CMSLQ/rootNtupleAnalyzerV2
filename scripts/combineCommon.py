@@ -1782,20 +1782,39 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                 if "WithSystematics" not in hist.GetName():
                     # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
                     continue
-                # print("DEBUG: hist '{}' has {} yBins before adding one".format(hist.GetName(), hist.GetNbinsY()))
                 hist = AddHistoBins(hist, "y", ["TotalSystematic"])
-                # print("DEBUG: hist '{}' has {} yBins AFTER adding one".format(hist.GetName(), hist.GetNbinsY()))
+                # # DEBUG
+                # yBin = hist.GetYaxis().FindFixBin("TotalSystematic")
+                # for xBin in range(0, hist.GetNbinsX()+2):
+                #     if hist.GetBinContent(xBin, yBin) != 0 or hist.GetBinError(xBin, yBin) != 0:
+                #         print("DEBUG: Found nonzero bin content or error in xBin, yBin = {}, {}: {} +/- {}".format(xBin, yBin, hist.GetBinContent(xBin, yBin),
+                #                                                                                                    hist.GetBinError(xBin, yBin)))
+
                 uncR2 = totUncertainty/math.sqrt(2)
-                for yBin in [1, hist.GetYaxis().FindBin("TotalSystematic")]:
+                for yBin in [1, hist.GetYaxis().FindFixBin("TotalSystematic")]:
                     integralErr = ctypes.c_double()
-                    integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, yBin, yBin, integralErr)
+                    integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)
                     for xBin in range(0, hist.GetNbinsX()+2):
-                        if hist.GetBinContent(xBin, yBin) != 0:
+                        if hist.GetBinContent(xBin, 1) != 0:
                             # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin content {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinContent(xBin, yBin),
-                            #                                                                                norm/hist.GetBinContent(xBin, yBin) if hist.GetBinContent(xBin, yBin) != 0 else 0))
-                            hist.SetBinContent(xBin, yBin, norm/integral * hist.GetBinContent(xBin, yBin))
-                        if hist.GetBinError(xBin, yBin) != 0:
-                            hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
+                            #                                                                                norm/integral * hist.GetBinContent(xBin, yBin)))
+                            hist.SetBinContent(xBin, yBin, norm/integral * hist.GetBinContent(xBin, 1))
+                        if hist.GetBinError(xBin, 1) != 0:
+                            # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinError(xBin, yBin),
+                            #                                                                                uncR2/integralErr.value * hist.GetBinError(xBin, yBin)))
+                            hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, 1))
+
+                # # DEBUG
+                # yBin = hist.GetYaxis().FindFixBin("TotalSystematic")
+                # for xBin in range(0, hist.GetNbinsX()+2):
+                #     if hist.GetBinContent(xBin, yBin) != 0 or hist.GetBinError(xBin, yBin) != 0:
+                #         print("DEBUG: after scaling, Found nonzero bin content or error in xBin, yBin = {}, {}: {} +/- {}".format(xBin, yBin, hist.GetBinContent(xBin, yBin),
+                #                                                                                                    hist.GetBinError(xBin, yBin)))
+                # integralErr = ctypes.c_double()
+                # integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)
+                # print("DEBUG: hist '{}' has integral for bin 1 = {} +/- {}".format(hist.GetName(), integral, integralErr.value))
+                # integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, yBin, yBin, integralErr)
+                # print("DEBUG: hist '{}' has integral for bin {} = {} +/- {}".format(hist.GetName(), yBin, integral, integralErr.value))
         elif "TH2" in hist.__repr__():
             if "WithSystematics" not in hist.GetName():
                 continue
@@ -1968,7 +1987,8 @@ def WriteHistos(outputTfile, sampleHistoDict, sample, corrLHESysts, hasMC=True, 
                     #     #FIXME: how many events here?
             # redo the bin errors for the other systematics, so that we can use their bin errors in case of any uncorrelated systs
             if not IsHistEmpty(histo):
-                otherSystBins = [histo.GetYaxis().FindFixBin(label.GetString().Data()) for label in histo.GetYaxis().GetLabels() if "LHEScale" not in label.GetString().Data() and "LHEPdf" not in label.GetString().Data() and "nominal" not in label.GetString().Data().lower()]
+                otherSystBins = [histo.GetYaxis().FindFixBin(label.GetString().Data()) for label in histo.GetYaxis().GetLabels() if "LHEScale" not in label.GetString().Data()
+                                 and "LHEPdf" not in label.GetString().Data() and "nominal" not in label.GetString().Data().lower() and "TotalSystematic" not in label.GetString().Data()]
                 for xBin in range(0, histo.GetNbinsX()+2):
                     nominal = histo.GetBinContent(xBin, 1)  # y-bin 1 always being nominal
                     for yBin in otherSystBins:

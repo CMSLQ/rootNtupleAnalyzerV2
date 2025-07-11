@@ -14,6 +14,7 @@ import shlex
 import shutil
 import copy
 import time
+import ctypes
 from graphlib import TopologicalSorter
 from collections import OrderedDict
 import pprint
@@ -230,6 +231,10 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
                 sampleHistos = combineCommon.GetSampleHistosFromTFile(rootFilename, sample, xsectionFound)
         else:
             sampleHistos = GetHistosFromInclusionList(rootFilename, sample, ["SumOfWeights", "LHEPdfSumw"], xsectionFound)
+
+        # XXX  DEBUG
+        # sampleHistos = [hist for hist in sampleHistos if any(nameToKeep in hist.GetName() for nameToKeep in ["BDTOutput_LQ1200", "SumOfWeights", "systematicNameToBranchesMap", "systematics"])]
+        # XXX  DEBUG END
 
         # ---Read .dat table
         data = combineCommon.ParseDatFile(inputDatFile)
@@ -537,10 +542,10 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
         # validation of combining pieces
         Validate(piecesAdded, piecesToAdd, sample)
 
-        thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit)
-
         sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
         if doHists:
+            print("\t[{}] renormalize histograms to prefit/postfit yields/uncs for year={}".format(sample, year), flush=True)
+            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit)
             plotWeight = 1.0  # we already scaled each sample above
             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
