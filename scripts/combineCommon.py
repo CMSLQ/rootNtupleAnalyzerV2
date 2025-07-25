@@ -1739,7 +1739,7 @@ def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mas
     return norm, unc
 
 
-def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, doPrefit):
+def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, doPrefit, systNames, verbose=True):
     if not isMC:
         return histoDict
     
@@ -1768,7 +1768,8 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
 
         norm = normsByMass[myMass]
         totUncertainty = totUncsByMass[myMass]
-        # print("DEBUG: Using norm={}, totUncertainty={} to rescale '{}' (normOrig={}, myMass={})".format(norm, totUncertainty, hist.GetName(), norm, myMass))
+        if verbose:
+            print("INFO: Using norm={}, totUncertainty={} [/sqrt(2)={}] to rescale '{}' (myMass={})".format(norm, totUncertainty, totUncertainty/math.sqrt(2), hist.GetName(), myMass))
 
         if norm is not None:
             # make sure there is a valid fit result
@@ -1789,20 +1790,43 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                 #     if hist.GetBinContent(xBin, yBin) != 0 or hist.GetBinError(xBin, yBin) != 0:
                 #         print("DEBUG: Found nonzero bin content or error in xBin, yBin = {}, {}: {} +/- {}".format(xBin, yBin, hist.GetBinContent(xBin, yBin),
                 #                                                                                                    hist.GetBinError(xBin, yBin)))
+                systHist, systGraph = GetSystematicGraphAndHist(hist, systNames)
+                systIntegralErr = ctypes.c_double()
+                systIntegral = systHist.IntegralAndError(0, systHist.GetNbinsX()+2, systIntegralErr)
+                if verbose:
+                    print("INFO: systIntegral = {} +/- {}".format(systIntegral, systIntegralErr))
 
                 uncR2 = totUncertainty/math.sqrt(2)
+                integralErr = ctypes.c_double()
+                integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)
+                if verbose:
+                    print("INFO: hist integral = {} +/- {}".format(integral, integralErr))
+                origBinContent = [hist.GetBinContent(xBin, 1) for xBin in range(0, hist.GetNbinsX()+2)]
                 for yBin in [1, hist.GetYaxis().FindFixBin("TotalSystematic")]:
-                    integralErr = ctypes.c_double()
-                    integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)
                     for xBin in range(0, hist.GetNbinsX()+2):
                         if hist.GetBinContent(xBin, 1) != 0:
-                            # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin content {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinContent(xBin, yBin),
-                            #                                                                                norm/integral * hist.GetBinContent(xBin, yBin)))
-                            hist.SetBinContent(xBin, yBin, norm/integral * hist.GetBinContent(xBin, 1))
-                        if hist.GetBinError(xBin, 1) != 0:
-                            # print("DEBUG: hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinError(xBin, yBin),
-                            #                                                                                uncR2/integralErr.value * hist.GetBinError(xBin, yBin)))
-                            hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, 1))
+                            if verbose:
+                                print("INFO: hist '{}', xBin={}, yBin={}, scale bin content {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinContent(xBin, yBin),
+                                                                                                            norm/integral * origBinContent[xBin]))
+                            hist.SetBinContent(xBin, yBin, norm/integral * origBinContent[xBin])
+                        if yBin == 1:
+                            if hist.GetBinError(xBin, 1) != 0:
+                                if verbose:
+                                    INFOprint(": hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinError(xBin, yBin),
+                                                                                                                uncR2/integralErr.value * hist.GetBinError(xBin, yBin)))
+                                hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
+                        elif yBin == hist.GetYaxis().FindFixBin("TotalSystematic"):
+                            if systHist.GetBinError(xBin, 1) != 0:
+                                if verbose:
+                                    print("INFO: hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, systHist.GetBinError(xBin),
+                                                                                                                uncR2/systIntegralErr.value * systHist.GetBinError(xBin)))
+                                hist.SetBinError(xBin, yBin, uncR2/systIntegralErr.value * systHist.GetBinError(xBin))
+
+                if verbose:
+                    integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)
+                    print("INFO: hist integral ybin1 = {} +/- {}".format(integral, integralErr))
+                    integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 143, 143, integralErr)
+                    print("INFO: hist integral ybin143 = {} +/- {}".format(integral, integralErr))
 
                 # # DEBUG
                 # yBin = hist.GetYaxis().FindFixBin("TotalSystematic")
@@ -1821,6 +1845,118 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
             hist = AddHistoBins(hist, "y", ["TotalSystematic"])
         scaledHists[idx] = hist
     return scaledHists
+
+
+def GetSystematicEffect(bkgTotalHist, systName, correlated=True):
+    upErrs = []
+    downErrs = []
+    downBin = -1
+    upBin = -1
+    systBins = [i for i in range(1, bkgTotalHist.GetNbinsY()+1) if systName in bkgTotalHist.GetYaxis().GetBinLabel(i) and 
+                ("Up" in  bkgTotalHist.GetYaxis().GetBinLabel(i) or "Down" in  bkgTotalHist.GetYaxis().GetBinLabel(i) or "TotalSystematic" in bkgTotalHist.GetYaxis().GetBinLabel(i))]
+    if systName == "LHEPdf":
+        binsToRemove = []
+        for i in systBins:
+            if "WeightMC" in bkgTotalHist.GetYaxis().GetBinLabel(i):
+                binsToRemove.append(i)
+        for i in binsToRemove:
+            systBins.remove(i)
+    if len(systBins) < 1:
+        raise RuntimeError("Could not find any bins that match for systematic named {}".format(systName))
+    if len(systBins) != 2:
+        if not (systName == "TotalSystematic" and len(systBins) == 1):
+            raise RuntimeError("Did not find two bins that match for systematic named {}; found {} bins with labels {} instead.".format(systName, len(systBins), [bkgTotalHist.GetYaxis().GetBinLabel(i) for i in systBins]))
+    for iBin in systBins:
+        upBin = iBin
+        downBin = iBin
+        binLabel = bkgTotalHist.GetYaxis().GetBinLabel(iBin)
+        if "Up" in binLabel:
+            upBin = iBin
+        elif "Down" in binLabel:
+            downBin = iBin
+        elif "TotalSystematic" in binLabel:
+            upBin = iBin
+            downBin = iBin
+            break
+        else:
+            raise RuntimeError("Could not understand syst variation for name {} in bin labeled {}".format(systName, binLabel))
+    maxErr = -1
+    maxErrNominal = -1
+    maxErrXbin = -1
+    for xBin in range(0, bkgTotalHist.GetNbinsX()+2):
+        nomYield = bkgTotalHist.GetBinContent(xBin, 1)
+        if correlated:
+            upYield = bkgTotalHist.GetBinContent(xBin, upBin)
+            downYield = bkgTotalHist.GetBinContent(xBin, downBin)
+            #maxYield = upYield if abs(upYield) >= abs(downYield) else downYield
+            upErrs.append(upYield-nomYield)
+            downErrs.append(downYield-nomYield)
+        else:
+            # in this case, if we consider the bin error, then we have the delta, not the x' (where delta = x' - x)
+            upDelta = bkgTotalHist.GetBinError(xBin, upBin)
+            downDelta = bkgTotalHist.GetBinError(xBin, downBin)
+            #maxDelta = upDelta if abs(upDelta) >= abs(downDelta) else downDelta
+            upErrs.append(upDelta)
+            downErrs.append(downDelta)
+    #    if abs(upErrs[-1]) > maxErr:
+    #        maxErr = upErrs[-1]
+    #        maxErrXbin = xBin
+    #        maxErrNominal = nomYield
+    #    if abs(downErrs[-1]) > maxErr:
+    #        maxErr = downErrs[-1]
+    #        maxErrXbin = xBin
+    #        maxErrNominal = nomYield
+    #if maxErrNominal > 0:
+    #    print("INFO: for syst name {}, maxErr = {} for xbin = {}, maxErr/nominal = {}".format(systName, maxErr, maxErrXbin, maxErr/maxErrNominal))
+    return np.array(upErrs, dtype=float), np.array(downErrs, dtype=float)
+
+
+def GetSystematicGraphAndHist(bkgTotalHist, systNames, verbose=False):
+    upErrsComb = np.zeros(bkgTotalHist.GetNbinsX()+2)
+    downErrsComb = np.zeros(bkgTotalHist.GetNbinsX()+2)
+    systUpErrs = {}
+    systDownErrs = {}
+    upErrsPercentBySyst = {}
+    downErrsPercentBySyst = {}
+    # add all the specified systs in quadrature
+    for systName in systNames:
+        print("DEBUG: calculate syst for systName={}".format(systName))
+        if "lhepdf" in systName.lower():
+            upErrs, downErrs = GetSystematicEffect(bkgTotalHist, "LHEPdf", False)
+        elif "lhescale" in systName.lower():
+            upErrs, downErrs = GetSystematicEffect(bkgTotalHist, "LHEScale", False)
+        elif "totalsystematic" == systName.lower():
+            upErrs, downErrs = GetSystematicEffect(bkgTotalHist, "TotalSystematic", False)
+        else:
+            upErrs, downErrs = GetSystematicEffect(bkgTotalHist, systName)
+        upErrsComb = np.add(upErrsComb, upErrs**2)
+        downErrsComb = np.add(downErrsComb, downErrs**2)
+        systUpErrs[systName] = upErrs
+        systDownErrs[systName] = downErrs
+    print("DEBUG: sqrt sum-quad of upErrsComb={}".format(math.sqrt(np.sum(upErrsComb))))
+    print("DEBUG: sqrt sum-quad of downErrsComb={}".format(math.sqrt(np.sum(downErrsComb))))
+    upErrsComb = np.sqrt(upErrsComb)
+    downErrsComb = np.sqrt(downErrsComb)
+    print("DEBUG: upErrsComb={}".format(upErrsComb))
+    print("DEBUG: downErrsComb={}".format(downErrsComb))
+    nominals = []
+    xBins = []
+    xBinsLow = []
+    xBinsHigh = []
+    systHist = r.TH1D(bkgTotalHist.GetName()+"_systHist", bkgTotalHist.GetName()+"systHist", bkgTotalHist.GetNbinsX(), bkgTotalHist.GetXaxis().GetXmin(), bkgTotalHist.GetXaxis().GetXmax())
+    for xBin in range(0, bkgTotalHist.GetNbinsX()+2):
+        nomYield = bkgTotalHist.GetBinContent(xBin, 1)
+        nominals.append(nomYield)
+        xBins.append(bkgTotalHist.GetXaxis().GetBinCenter(xBin))
+        xBinsLow.append(bkgTotalHist.GetXaxis().GetBinLowEdge(xBin))
+        xBinsHigh.append(bkgTotalHist.GetXaxis().GetBinUpEdge(xBin))
+        upErr = upErrsComb[xBin]
+        downErr = downErrsComb[xBin]
+        maxErr = upErr if abs(upErr) >= abs(downErr) else downErr
+        systHist.SetBinError(xBin, maxErr)
+        systHist.SetBinContent(xBin, nomYield)
+    systGraph = r.TGraphAsymmErrors(len(nominals), np.array(xBins), np.array(nominals), np.array(xBinsLow), np.array(xBinsHigh), downErrsComb, upErrsComb)
+    return systHist, systGraph
 
 
 def ScaleHisto(histo, plotWeight):

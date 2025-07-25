@@ -544,8 +544,8 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
 
         sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
         if doHists:
-            print("\t[{}] renormalize histograms to prefit/postfit yields/uncs for year={}".format(sample, year), flush=True)
-            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit)
+            print("\t[{}] renormalize histograms to {} yields/uncs for year={} using postFitType={} and systNames={}".format(sample, "prefit" if doPrefit else "postfit", postFitType if doPostFit else "(prefit)", year, systNames), flush=True)
+            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit, systNames)
             plotWeight = 1.0  # we already scaled each sample above
             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
@@ -858,6 +858,7 @@ if __name__ == "__main__":
     samplesToOverrideFromYieldHistos = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "OTHERBKG_dibosonNLO_singleTop"]
     postFitType = "b"
     # postFitType = "sb"
+    systNames = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "LHEPdf", "LHEScale"]
     
     (options, args) = parser.parse_args()
     
