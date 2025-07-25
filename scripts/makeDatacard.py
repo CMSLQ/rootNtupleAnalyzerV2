@@ -351,6 +351,8 @@ class SampleInfo:
         # print("CalculateUpDownSystematic(): nominal={}, selection={} after GetNominalYield({})".format(nominal, selection, systName))
         # if "OTHERBKG" in self.sampleName:
         #     verbose = True
+        # if "zjet" in self.sampleName.lower():
+        #     verbose = True
         try:
             systYieldUp = systDict[systName+"Up"][selection]["yield"]
             systYieldDown = systDict[systName+"Down"][selection]["yield"]
@@ -370,12 +372,12 @@ class SampleInfo:
         if kUp <= 0:
             if verbose:
                 print(logString)
-                print("CalculateUpDownSystematic(): kUp <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kUp, str(1 + math.fabs(downDelta)/nominal), downDelta/nominal, downDelta/nominal))
+                print("CalculateUpDownSystematic(): kUp <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kUp, str(1 + math.fabs(deltaNomDown)), deltaNomDown, deltaNomDown))
             return str(1 + math.fabs(deltaNomDown)), deltaNomDown, deltaNomDown, True, nominal, selection
         elif kDown <= 0:
             if verbose:
                 print(logString)
-                print("CalculateUpDownSystematic(): kDown <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kDown, str(1 + math.fabs(upDelta)/nominal), upDelta/nominal, upDelta/nominal))
+                print("CalculateUpDownSystematic(): kDown <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kDown, str(1 + math.fabs(deltaNomUp)), deltaNomUp, deltaNomUp))
             return str(1 + math.fabs(deltaNomUp)), deltaNomUp, deltaNomUp, True, nominal, selection
         if deltaNomUp == deltaNomDown:
             entry = 1 + math.fabs(upDelta)/nominal
