@@ -184,6 +184,7 @@ def WriteCondorSubFile(nJobs, condorFilename):
             # require EL9
             condorFile.write('MY.WantOS = "el9"\n')
             condorFile.write('transfer_output_files = ""\n')
+            condorFile.write('RequestCpus = 4\n')
         # make sure the job finishes with exit code 0
         condorFile.write('on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)\n')
         condorFile.write('max_retries = 3\n')
