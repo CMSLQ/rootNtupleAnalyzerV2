@@ -177,9 +177,9 @@ class SampleInfo:
         return lastSelectionName, rate, err, rawEvents
 
     # return abs val of syst; also checks for deltaOverNom==1 and does renorm if needed
-    def GetSystematicEffectAbs(self, year, systName, selection, applicableSysts, verbose=False):
+    def GetSystematicEffectAbs(self, year, systName, selection, applicableSysts, verbose=False, symmetrize=True):
         # verbose = True
-        entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts[year])
+        entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts[year], symmetrize)
         if verbose:
             print("INFO GetSystematicEffectAbs(): For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
                 self.sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection))
@@ -200,7 +200,7 @@ class SampleInfo:
                     print("\tINFO: renormalizing syst={} for background={}".format(systName, self.sampleName))
                     print("\t original entry={}, deltaOverNomUp={}, deltaOverNomDown={}".format(entry, deltaOverNomUp, deltaOverNomDown))
                 preselNomYield, preselNomSelection, preselRawEvents = self.GetSystNominalYield(systName, "preselection")
-                preselEntry, preselDOverNUp, preselDOverNDown, preselSymm, preselSystNominal, preselSystSelection = self.GetSystematicEffect(year, systName, "preselection", applicableSysts[year])
+                preselEntry, preselDOverNUp, preselDOverNDown, preselSymm, preselSystNominal, preselSystSelection = self.GetSystematicEffect(year, systName, "preselection", applicableSysts[year], False)
                 if preselSystSelection != preselNomSelection:
                     raise RuntimeError("Something strange happened: the selection used for the preselection systematic '{}' was not the same as the presel syst nominal yield selection '{}'.".format(
                         preselSystSelection, preselNomSelection))
@@ -244,7 +244,13 @@ class SampleInfo:
                                 systYieldDownRenorm, systYieldDown, preselNomYield, preselSystYieldDown))
                     kUp = systYieldUpRenorm/nomYield
                     kDown = systYieldDownRenorm/nomYield
-                    entry = str(kDown/kUp)
+                    if not symmetrize:
+                        entry = str(kDown/kUp)
+                    else:
+                        deltaOverNomAvg = (math.fabs(deltaOverNomDown) + math.fabs(deltaOverNomUp)) / 2
+                        deltaOverNomUp /= 2
+                        deltaOverNomDown /= 2
+                        entry = str(1 + deltaOverNomAvg)
                     if verbose:
                         print("\t new kUp={} = {} / {} = systYieldDownRenorm/nomYield, new kDown={} = {} / {}".format(
                                 kUp, systYieldUpRenorm, nomYield, kDown, systYieldDownRenorm, nomYield))
@@ -267,7 +273,7 @@ class SampleInfo:
         #         self.sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection, preselRatioSystUp, preselRatioSystDown))
         return entry, math.fabs(deltaOverNomUp), math.fabs(deltaOverNomDown), nomYield, systNomSelection, [preselRatioSystUp, preselRatioSystDown]
 
-    def GetSystematicEffect(self, year, systName, selection, applicableSystematics):
+    def GetSystematicEffect(self, year, systName, selection, applicableSystematics, symmetrize):
         # print("GetSystematicEffect(systName={}, selection={}. d_applicableSystematics={})".format(systName, selection, d_applicableSystematics))
         verbose = False
         systDict = self.systematics
@@ -280,11 +286,11 @@ class SampleInfo:
         if not DoesSystematicApply(systName, self.sampleName, applicableSystematics):
             return "-", 0, 0, True, nominal, selection
         if "shape" in systName.lower():
-            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic("LHEScaleComb", selection, verbose)
+            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic("LHEScaleComb", selection, verbose, symmetrize)
         elif systName == "LHEPdfWeight":
             # print("INFO GetSystematicEffect(): for sample={}, selection={}, systName={}, fullSystDict[{}][LHEPdfCombUp] = {}".format(sampleName, selection, systName, sampleName, fullSystDict[sampleName]["LHEPdfCombUp"][selection]))
             # print("INFO GetSystematicEffect(): for sample={}, selection={}, systName={}, fullSystDict[{}][LHEPdfCombDown] = {}".format(sampleName, selection, systName, sampleName, fullSystDict[sampleName]["LHEPdfCombDown"][selection]))
-            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic("LHEPdfComb", selection, verbose)
+            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic("LHEPdfComb", selection, verbose, symmetrize)
             # if verbose:
             #     components = dictSamples[sampleName]["pieces"]
             #     for sampleName in components:
@@ -299,11 +305,11 @@ class SampleInfo:
             newSelection = selection
         elif "norm" in systName.lower():
             if "tt" in systName.lower() or "dy" in systName.lower() or "qcd" in systName.lower():
-                entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)
+                entry, deltaNomUp, deltaNomDown, symmetric = self.CalculateFlatSystematic(systName, selection)  # always symmetric
                 newNominal = nominal if nominal > 0 else 1  # XXX SICF FIXME WHY?!?!
                 newSelection = selection
         else:
-            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic(systName, selection)
+            entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic(systName, selection, False, symmetrize)
         return entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection
 
     def GetTotalSystDeltaOverNominal(self, year, selectionName, systematicsNames, applicableSysts, verbose=False):
@@ -342,7 +348,7 @@ class SampleInfo:
     #     #         systName, selection, sampleName, nominal, systYield, delta, delta/nominal)
     #     return str(1 + math.fabs(delta)/nominal), delta/nominal, delta/nominal, True
     
-    def CalculateUpDownSystematic(self, systName, selection, verbose=False):
+    def CalculateUpDownSystematic(self, systName, selection, verbose=False, symmetrize=False):
         symmetric = False
         systDict = self.systematics
         nominal = systDict["nominal"][selection]
@@ -369,7 +375,13 @@ class SampleInfo:
         deltaNomDown = downDelta/nominal if nominal != 0 else 0
         if nominal == 0 and not IsComponentBackground(self.sampleName):
             raise RuntimeError("CalculateUpDownSystematic(): for sample={}, ZeroDivisionError for a quantity, as nominal={}. kDown/kUp = {}/{}, upDelta/nominal={}/{}, downDelta/nominal={}/{}.".format(self.sampleName, nominal, kDown, kUp, upDelta, nominal, downDelta, nominal)+ " "+logString)
-        if kUp <= 0:
+        if deltaNomUp == deltaNomDown or symmetrize:
+            deltaOverNomAvg = (math.fabs(deltaNomDown) + math.fabs(deltaNomUp)) / 2
+            entry = 1 + deltaOverNomAvg
+            deltaNomUp /= 2
+            deltaNomDown /= 2
+            symmetric = True
+        elif kUp <= 0:
             if verbose:
                 print(logString)
                 print("CalculateUpDownSystematic(): kUp <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kUp, str(1 + math.fabs(deltaNomDown)), deltaNomDown, deltaNomDown))
@@ -379,9 +391,6 @@ class SampleInfo:
                 print(logString)
                 print("CalculateUpDownSystematic(): kDown <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kDown, str(1 + math.fabs(deltaNomUp)), deltaNomUp, deltaNomUp))
             return str(1 + math.fabs(deltaNomUp)), deltaNomUp, deltaNomUp, True, nominal, selection
-        if deltaNomUp == deltaNomDown:
-            entry = 1 + math.fabs(upDelta)/nominal
-            symmetric = True
         if verbose:
             print(logString)
             print("CalculateUpDownSystematic(): kDown/kUp = {}/{}; return '{}', {}, {}, {}".format(kDown, kUp, str(entry), deltaNomUp, deltaNomDown, symmetric))
@@ -828,31 +837,35 @@ def RoundToNSigFigs(num, n=1):
     # but now, digits before decimal could have changed, e.g., 0.99 --> 1.0
     if "." in dStr:
         d = Decimal(dStr)
-        nDecDigitsUpdated = GetNDecimalDigits(d)
+        nDecDigitsUpdated = GetNDecimalDigits(float(d))
+        if dStr[-1] == "0":
+            nDecDigitsUpdated += 1 # handle case with trailing zero
         dUpdated = Decimal(dStr)
-        nDigitsUpdated = len(dUpdated.as_tuple().digits) if "." in dStr else len(d.normalize().as_tuple().digits)
+        # nDigitsUpdated = len(dUpdated.as_tuple().digits) if "." in dStr else len(d.normalize().as_tuple().digits)
+        nDigitsUpdated = len(dUpdated.normalize().as_tuple().digits)
+        # print("DEBUG: RoundToNSigFigs for num={} updated: d={}, nDecDigitsUpdated={}, dUpdated={}, nDigitsUpdated={}".format(num, d, nDecDigitsUpdated, dUpdated, nDigitsUpdated))
         digitsBeforeDecimalUpdated = nDigitsUpdated - nDecDigitsUpdated
         if digitsBeforeDecimalUpdated > digitsBeforeDecimal:
             dStr = str(int(d))
-        # print("DEBUG: RoundToNSigFigs for num={} --> {}; [updated] n-digitsBeforeDecimal = {}-{} = {}".format(num, dStr, n, digitsBeforeDecimal, n-digitsBeforeDecimal))
+        # print("DEBUG: RoundToNSigFigs for num={} --> {}; [updated] n-digitsBeforeDecimalUpdated = {}-{} = {}".format(num, dStr, n, digitsBeforeDecimalUpdated, n-digitsBeforeDecimalUpdated))
     return dStr, n-digitsBeforeDecimal
 
 
 def GetTableEntryStr(evts, errStatUp="-", errStatDown="-", errSyst=0, addDecimalsUntilNonzero=False, latex=False):
     if evts == "-":
         return evts
-    # print("DEBUG: RoundToNSigFigs for errStatUp={}".format(errStatUp))
+    # print("DEBUG: [1] GetTableEntryStr() RoundToNSigFigs for errStatUp={}".format(errStatUp))
     errStatUpR, digitsAwayFromDecimal = RoundToNSigFigs(errStatUp)
-    # print("DEBUG: AFTER RoundToNSigFigs for errStatUp={}: got errStatUpR={}, digitsAwayFromDecimal={}".format(errStatUp, errStatUpR, digitsAwayFromDecimal))
+    # print("DEBUG: GetTableEntryStr() AFTER RoundToNSigFigs for errStatUp={}: got errStatUpR={}, digitsAwayFromDecimal={}".format(errStatUp, errStatUpR, digitsAwayFromDecimal))
     errStatDownR = str(float(round(Decimal(errStatDown), digitsAwayFromDecimal))) if not isinstance(errStatDown, str) else errStatDown
-    # print("DEBUG: Now for errStatDown={}: got errStatDownR={}, digitsAwayFromDecimal={}".format(errStatDown, errStatDownR, digitsAwayFromDecimal))
+    # print("DEBUG: GetTableEntryStr() Now for errStatDown={}: got errStatDownR={}, digitsAwayFromDecimal={}".format(errStatDown, errStatDownR, digitsAwayFromDecimal))
     evtsR = str(float(round(Decimal(evts), digitsAwayFromDecimal)))
     if float(evtsR) > 1 and evtsR.endswith(".0") and len(evtsR) > len(errStatUpR):
         evtsR = evtsR[:-2]
     elif errStatUpR != "-" and len(evtsR) != len(errStatUpR):
-        # print("DEBUG: reformat evtsR to {} digits: evtsR={} --> {}".format(GetNDecimalDigits(errStatUpR), evtsR, "{0:.{1}f}".format(float(evtsR), GetNDecimalDigits(errStatUpR))))
+        # print("DEBUG: GetTableEntryStr() reformat evtsR to {} digits: evtsR={} --> {}".format(GetNDecimalDigits(errStatUpR), evtsR, "{0:.{1}f}".format(float(evtsR), GetNDecimalDigits(errStatUpR))))
         evtsR = "{0:.{1}f}".format(float(evtsR), GetNDecimalDigits(errStatUpR))
-    # print("DEBUG: Now for evts={}: got evtsR={}, digitsAwayFromDecimal={}".format(evts, evtsR, digitsAwayFromDecimal))
+    # print("DEBUG: GetTableEntryStr() Now for evts={}: got evtsR={}, digitsAwayFromDecimal={}".format(evts, evtsR, digitsAwayFromDecimal))
     # # rounding
     # errStatUpR = RoundToN(errStatUp, 2)
     # if GetNDecimalDigits(errStatUpR) > 1:
@@ -969,7 +982,7 @@ def SumSampleInfoOverYears(sampleInfos, years):
 def CheckHistBins(hist):
     for iBin in range(0, hist.GetNbinsX()+2):
         if hist.GetBinContent(iBin) <= 0:
-            hist.SetBinContent(iBin, 1e-10)
+            hist.SetBinContent(iBin, zeroBkgSmallValue)
     return hist
 
 
@@ -1023,10 +1036,10 @@ def CreateAndWriteHistograms(year):
             for ibkg, background_name in enumerate(background_names):
                 thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
                 if thisBkgEvts <= 0:
-                    print("INFO: CreateAndWriteHistograms() - Got thisBkgEvts={} for background_name={}, selectionName={}".format(thisBkgEvts, background_name, selectionName))
                     lastSel, rate, err, rawEvents = d_backgroundSampleInfos[background_name].GetNearestPositiveSelectionYield(selectionName)
                     # take upper Poisson 68% CL limit of 1.8410216450092634 and scale it by the factor obtained from the nearest nonzero selection
                     thisBkgEvtsErr = 1.8410216450092634 * rate/rawEvents
+                    print("INFO: CreateAndWriteHistograms() - Got thisBkgEvts={} for background_name={}, selectionName={}; will use {} = 1.84*rate/rawEvents = 1.84*{}/{} from the nearest positive selection yield at {} with {} raw events".format(thisBkgEvts, background_name, selectionName, thisBkgEvtsErr, rate, rawEvents, lastSel, rawEvents))
                 CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgEvts, thisBkgEvtsErr)
                 thisBkgFailEvts, thisBkgFailEvtsErr = d_backgroundSampleInfos[background_name].GetFailRateAndErr(selectionName)
                 CreateAndWriteHist([outputRootFile, allOutputRootFile], mass_point, background_name, thisBkgFailEvts, thisBkgFailEvtsErr, "yieldFailFinalSelection", "Yield failing final selection for LQ")
@@ -1512,6 +1525,8 @@ def WriteDatacard(card_file_path, year):
                 totalBackgroundYield = 0
                 for background_name in background_names:
                     bkgYield, bkgYieldErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
+                    if bkgYield <= 0:
+                        bkgYield = zeroBkgSmallValue
                     line += "{} ".format(bkgYield)
                     totalBackgroundYield += bkgYield
                 datacardLines.append(line.strip() + "\n")
@@ -1625,6 +1640,9 @@ def WriteDatacard(card_file_path, year):
                     # need to always fill the syst dicts, but only write the datacard if we have a BDT selection
                     if selectionName != "preselection" and selectionName != "trainingSelection":
                         datacardLines.append(line + "\n")
+                if selectionName != "preselection" and selectionName != "trainingSelection":
+                    datacardLines.append("systs group = " + " ".join([syst for syst in sorted(systematicsNamesBackground["all"])]) + "\n")
+
     
             if selectionName != "preselection" and selectionName != "trainingSelection":
                 # rateParam for signal scaling
@@ -1775,6 +1793,8 @@ for year in allYears:
     d_flatSystematics[year].update({"LumiCorrelated": lumiCorrelatedDeltaXOverX[year]})
     if year == "2017" or year == "2018":
         d_flatSystematics[year].update({"LumiCorrelated1718": lumi1718CorrelatedDeltaXOverX[year]})
+
+zeroBkgSmallValue = 1e-10
 
 n_background = len(background_names)
 # all bkg systematics, plus stat 'systs' for all bkg plus signal plus 3 backNormSysts
@@ -2388,6 +2408,37 @@ if doSystematics:
             systDeltaTable.append(systYieldRow)
         yieldTable.append(yieldRow)
         yieldTable.append(mcRow)
+
+        # compute total syst
+        lastTableRow = ["Total"]
+        lastDeltaRow = ["Total"]
+        for selection in selectionNames:
+            # selection = selection.replace("LQ", "").replace("preselection", "0").replace("trainingSelection", "1")
+            fullSystDelta = 0
+            fullSystPct = 0
+            for iSyst, syst in enumerate(d_systNominals[sampleName].keys()):
+                if not DoesSystematicApplyAnyYear(syst, sampleName, d_applicableSystematics):
+                    continue
+                # print("d_systNominals[{}][{}].keys()={}".format(sampleName, syst, d_systNominals[sampleName][syst].keys()))
+                if not selection in d_systNominals[sampleName][syst].keys():
+                    continue
+                value = d_systNominals[sampleName][syst][selection]
+                systYieldVal = 0
+                fillVal = 0
+                if value != 0:
+                    systYieldVal = max(float(d_systUpDeltas[sampleName][syst][selection]),
+                                  float(d_systDownDeltas[sampleName][syst][selection]))
+                    fillVal = max(100*float(d_systUpDeltas[sampleName][syst][selection])/value,
+                                  100*float(d_systDownDeltas[sampleName][syst][selection])/value)
+                fullSystDelta += systYieldVal**2
+                fullSystPct += fillVal**2
+            fullSystDelta = math.sqrt(fullSystDelta)
+            fullSystPct = math.sqrt(fullSystPct)
+            lastTableRow.append(fullSystPct)
+            lastDeltaRow.append(fullSystDelta)
+        table.append(lastTableRow)
+        systDeltaTable.append(lastDeltaRow)
+
         print("Systematics tables for sample Name: {}".format(sampleName))
         print(tabulate(table, headers=tableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
         print(tabulate(systDeltaTable, headers=systDeltaTableHeaders, tablefmt="fancy_grid", floatfmt=".2f"))
@@ -2601,7 +2652,8 @@ for i_signal_name, signal_name in enumerate(signal_names):
         for i_background_name, background_name in enumerate(background_names):
             thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionName)
             # thisBkgEvtsErrUp, thisBkgEvtsErrDown = GetStatErrorsFromDatacard(d_datacardStatErrs[selectionName][background_name], thisBkgEvts)
-            # print "GetStatErrorsFromDatacard for selection={}, background={}, thisBkgEvts={} + {} - {}".format(selectionName, background_name, thisBkgEvts, thisBkgEvtsErrUp, thisBkgEvtsErrDown)
+            # if "1500" in selectionName and "ZJet" in background_name:
+            #     print("INFO: GetStatErrorsFromDatacard for selection={}, background={}, thisBkgEvts={} +/- {}".format(selectionName, background_name, thisBkgEvts, thisBkgEvtsErr))
             thisBkgEvtsErrUp = thisBkgEvtsErr
             thisBkgEvtsErrDown = thisBkgEvtsErr
             # thisBkgTotalEntries = d_background_unscaledRates[background_name][selectionName]
@@ -2638,6 +2690,16 @@ for i_signal_name, signal_name in enumerate(signal_names):
             ),  # assumes we always have > 0 signal events
         ]
         for background_name in background_names:
+            # if "1500" in selectionName and "ZJet" in background_name:
+            #     print("INFO: GetStatErrorsFromDatacard for selection={}, background={}, backgroundEvgts={}, backgroundEvtsErrUp={}, backgroundEvtsErrDown={}, tableEntry={}".format(selectionName, background_name,
+            #                                                                                                                                                                         backgroundEvts[background_name],
+            #                                                                                                                                                                         backgroundEvtsErrUp[background_name],
+            #                                                                                                                                                                         backgroundEvtsErrDown[background_name],
+            #                                                                                                                                                                         GetTableEntryStr(
+            #                                                                                                                                                                             backgroundEvts[background_name],
+            #                                                                                                                                                                             backgroundEvtsErrUp[background_name],
+            #                                                                                                                                                                             backgroundEvtsErrDown[background_name],
+            #                                                                                                                                                                             )))
             row.append(
                 GetTableEntryStr(
                     backgroundEvts[background_name],
