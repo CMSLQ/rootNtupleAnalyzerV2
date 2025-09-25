@@ -1075,6 +1075,7 @@ def FillDicts(rootFilepath, sampleNames, bkgType, dictSavedSamples, dictSamplesC
         thisSampleRootFilepath = rootFilepath
         if ".root" not in rootFilepath:
             thisSampleRootFilepath += GetPlotFilename(sampleName, dictSavedSamples, dictSamplesContainingSample)
+            # print("DEBUG: GetPlotFilename({}, {}, {}) = {}".format(sampleName, dictSavedSamples, dictSamplesContainingSample, GetPlotFilename(sampleName, dictSavedSamples, dictSamplesContainingSample)))
         scaledRootFile = r.TFile.Open(thisSampleRootFilepath)
         if not scaledRootFile or scaledRootFile.IsZombie():
             raise RuntimeError("Could not open root file: {}".format(scaledRootFile.GetName()))
@@ -2606,6 +2607,7 @@ for sample in samplesAlwaysBelowOnePct:
 print()
 
 # make final selection tables
+includeSystErrPerBackground = True
 columnNames = [
     "MLQ",
     "signal"]
@@ -2642,6 +2644,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
         backgroundEvts = {}
         backgroundEvtsErrUp = {}
         backgroundEvtsErrDown = {}
+        backgroundEvtsErrSyst = {}
         totalBackground = 0.0
         totalBackgroundErrStatUp = 0.0
         totalBackgroundErrStatDown = 0.0
@@ -2676,6 +2679,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
             backgroundEvts[background_name] = thisBkgEvts
             backgroundEvtsErrUp[background_name] = thisBkgEvtsErrUp
             backgroundEvtsErrDown[background_name] = thisBkgEvtsErrDown
+            backgroundEvtsErrSyst[background_name] = thisBkgSystErr
         totalBackgroundErrStatUp = math.sqrt(totalBackgroundErrStatUp)
         totalBackgroundErrStatDown = math.sqrt(totalBackgroundErrStatDown)
         totalBackgroundErrSyst = math.sqrt(totalBackgroundErrSyst)
@@ -2705,6 +2709,7 @@ for i_signal_name, signal_name in enumerate(signal_names):
                     backgroundEvts[background_name],
                     backgroundEvtsErrUp[background_name],
                     backgroundEvtsErrDown[background_name],
+                    backgroundEvtsErrSyst[background_name] if includeSystErrPerBackground else 0
                 )
             )
         row.append(
