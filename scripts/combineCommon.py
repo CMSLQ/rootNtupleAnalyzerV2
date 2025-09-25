@@ -1711,12 +1711,12 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
     return dictFinalHistoAtSample, htemp
 
 
-def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, fitType):
+def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, postFitType):
     fitDiagFilename = fitDiagFilePath + "/fitDiagnostics.m{}.root".format(mass)
     fitDiagFile = r.TFile.Open(fitDiagFilename)
-    if fitType == "prefit":
+    if postFitType == "prefit":
         suffix = "prefit"
-    elif fitType == "postfit":
+    else:
         suffix = "fit_" + postFitType
     if "17" in year:
         year = "year2017"
@@ -1739,14 +1739,14 @@ def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mas
     return norm, unc
 
 
-def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, doPrefit, systNames, verbose=True):
+def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, doPrefit, fitType, systNames, verbose=True):
     if not isMC:
         return histoDict
     
     normsByMass = {}
     totUncsByMass = {}
     for mass in masses:
-        norm, totUncertainty = GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, "prefit" if doPrefit else "postfit")
+        norm, totUncertainty = GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, "prefit" if doPrefit else fitType)
         # print("DEBUG: got norm {} and uncertainty {} from fitDiagPath={}, year={}, mass={}, sample={}, prefit={}".format(norm,
         #                                                                                                                  totUncertainty,
         #                                                                                                                  fitDiagFilePath,
@@ -1812,7 +1812,7 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                         if yBin == 1:
                             if hist.GetBinError(xBin, 1) != 0:
                                 if verbose:
-                                    INFOprint(": hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinError(xBin, yBin),
+                                    print("INFO: hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinError(xBin, yBin),
                                                                                                                 uncR2/integralErr.value * hist.GetBinError(xBin, yBin)))
                                 hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
                         elif yBin == hist.GetYaxis().FindFixBin("TotalSystematic"):
