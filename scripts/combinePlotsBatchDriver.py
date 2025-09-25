@@ -149,6 +149,7 @@ def CreateExecArgs():
            args += ['--preFit']
        elif options.postFit:
            args += ['--postFit']
+           args += ['--fitType ' + options.fitType]
    return args
 
 
@@ -194,7 +195,8 @@ def WriteCondorSubFile(nJobs, condorFilename):
         inputFilesToTransfer.extend([str(Path(xsection).resolve().parent.parent) for idx, xsection in enumerate(SeparateArgs(options.xsection))])
         inputFilesToTransfer.extend([str(Path(inputList).resolve().parent) for idx, inputList in enumerate(SeparateArgs(options.inputList))])
         inputFilesToTransfer.extend([str(Path(sampleList).resolve()) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])
-        inputFilesToTransfer.extend([str(Path(options.fitDiagFilepath).resolve())])
+        if options.fitDiagFilepath is not None:
+            inputFilesToTransfer.extend([str(Path(options.fitDiagFilepath).resolve())])
         filesToTransfer = ",".join(inputFilesToTransfer)
         # filesToTransfer += ","
         # filesToTransfer += options.filesToTransfer
@@ -389,12 +391,24 @@ parser.add_option(
     metavar="PREFIT",
 )
 
+parser.add_option(
+    "--fitType",
+    dest="fitType",
+    default=None,
+    help="fit type for postfit final selection plots",
+    metavar="FITTYPE",
+)
 
 (options, args) = parser.parse_args()
 
 requiredOpts = [options.inputList, options.analysisCode, options.inputDir, options.intLumi, options.xsection, options.outputDir, options.sampleListForMerging, options.years]
-if any(opt is None for opt in requiredOpts):
-    print("ERROR: one or more required options not given.")
+requiredOptNames = ["inputList", "analysisCode", "inputDir", "intLumi", "xsection", "outputDir", "sampleListForMerging", "years"]
+missingOpts = []
+for idx, opt in enumerate(requiredOpts):
+    if opt is None:
+        missingOpts.append(requiredOptNames[idx])
+if len(missingOpts):
+    print("ERROR: one or more required options not given:", missingOpts)
     raise RuntimeError(usage)
 
 mergingFiles = SeparateArgs(options.sampleListForMerging)
@@ -429,6 +443,8 @@ if options.postFit or options.preFit:
         raise RuntimeError("With options preFit or postFit, must provide path to FitDiagnostics root files with prefit or postfit results.")
     if options.tablesOnly:
         raise RuntimeError("With options preFit or postFit, doesn't make sense to do tables only as tables are not affected (at least at the present time).")
+if options.postFit and options.fitType is None:
+    raise RuntimeError("With option postFit, must provide fit type (b or sb).")
 
 print("Launched like:")
 print("python ", end=' ')

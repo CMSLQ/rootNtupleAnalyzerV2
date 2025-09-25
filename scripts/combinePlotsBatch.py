@@ -401,9 +401,10 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisPieceHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
             # write out hists to always save for each piece
             objectNamesToKeep = ["eventspassingcuts", "eventspassingcuts_unscaled", "systematicnametobranchesmap", "systematics"]
-            histsToKeep = {idx:hist for idx, hist in histoDictThisSample.items() if hist.GetName().lower() in objectNamesToKeep}
+            histsToKeep = {idx:hist for idx, hist in thisPieceHistos.items() if any(objectName in hist.GetName().lower() for objectName in objectNamesToKeep)}
             sampleName = combineCommon.FindSampleName(matchingPiece, dictSamples[pieceInYears[0]])  # just try to lookup sample name from mapping in first year in which it was found
             for hist in histsToKeep.values():
+                oldHistName = hist.GetName()
                 RenameHist(hist, sampleName)
             combineCommon.WriteHistos(outputTfile, histsToKeep, matchingPiece, corrLHESysts, isMC, True)
         piecesAdded.append(matchingPiece)
@@ -459,6 +460,7 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
     isQCD = "qcd" in tfileNameTemplate.lower()
     doPrefit = options.preFit
     doPostFit = options.postFit
+    fitType = options.fitType
 
     piecesToAdd = set()
     corrLHESysts = None
@@ -544,8 +546,8 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
 
         sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
         if doHists:
-            print("\t[{}] renormalize histograms to {} yields/uncs for year={} using postFitType={} and systNames={}".format(sample, "prefit" if doPrefit else "postfit", postFitType if doPostFit else "(prefit)", year, systNames), flush=True)
-            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit, systNames)
+            print("\t[{}] renormalize histograms to {} yields/uncs for year={} using fitType={} and systNames={}".format(sample, "prefit" if doPrefit else "postfit", fitType if doPostFit else "(prefit)", year, systNames), flush=True)
+            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit, fitType, systNames)
             plotWeight = 1.0  # we already scaled each sample above
             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
@@ -652,6 +654,9 @@ def FillDictFromOptionByYear(option, years):
         theDict[year] = None
         for option in optionList:
             if year in option:
+                theDict[year] = option
+            elif year.replace("20", "UL"):
+                # also allow matches like UL17 in the option with specified year of 2017
                 theDict[year] = option
         if theDict[year] is None:
             raise RuntimeError("Could not find option for year {} among {}".format(year, optionList))
@@ -850,13 +855,21 @@ if __name__ == "__main__":
         metavar="PREFIT",
     )
 
+    parser.add_option(
+        "--fitType",
+        dest="fitType",
+        default=None,
+        help="fit type for postfit final selection plots",
+        metavar="FITTYPE",
+    )
+
 
     # TODO perhaps make this an option
     inputListFilename = "inputListAllCurrent.txt"
     masses = range(300, 3100, 100)
     finalSelectionVarName = "BDTOutput_LQ"
     samplesToOverrideFromYieldHistos = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "OTHERBKG_dibosonNLO_singleTop"]
-    postFitType = "b"
+    # postFitType = "b"
     # postFitType = "sb"
     systNames = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "LHEPdf", "LHEScale"]
     
