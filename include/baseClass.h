@@ -133,12 +133,38 @@ class SimpleCut {
     template <typename T>
       void setValue(const T& newValue) {
         // in this case, we are reading branches only and haven't read the branch once yet
+    //typedef std::variant<float, int, unsigned long long int, unsigned int, bool> ValueType;
         if(branchType == 'x') {
-          if constexpr (std::is_same_v<T, double>)
+          if constexpr (std::is_same_v<T, double>) {
             value = static_cast<float>(newValue);
-          else
-            value = newValue;
-          branchType = 'y';
+            branchType = 'F';
+          }
+          else {
+            if constexpr (std::is_same_v<T, float>) {
+              value = newValue;
+              branchType = 'F';
+            }
+            else if constexpr (std::is_same_v<T, int>) {
+              value = newValue;
+              branchType = 'I';
+            }
+            else if constexpr (std::is_same_v<T, unsigned long long int>) {
+              value = newValue;
+              branchType = 'g';
+            }
+            else if constexpr (std::is_same_v<T, unsigned int>) {
+              value = newValue;
+              branchType = 'i';
+            }
+            else if constexpr (std::is_same_v<T, bool>) {
+              value = newValue;
+              branchType = 'O';
+            }
+            else {
+              STDOUT("ERROR: value type '" << typeid(newValue).name() << "' for variable named '" << variableName << "' is not one supported. Must add support for additional branch types.");
+              exit(-2);
+            }
+          }
         }
         if constexpr (std::is_same_v<T, double>)
           value = static_cast<float>(newValue);
@@ -1008,7 +1034,9 @@ class baseClass {
     void fillSkimTree();
     void fillReducedSkimTree();
     void updateBranchList();
-
+    bool initSkimTreeCutBranches_ = false;
+    std::list<bool> passedCuts_;
+    std::list<bool> passedCutAndAllPreviousCuts_;
 
     //Reduced Skim stuff
     bool produceReducedSkim_;

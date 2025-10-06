@@ -270,6 +270,7 @@ void baseClass::init()
     hCount_->GetXaxis()->SetBinLabel(3,"sum of gen weights");
     hCount_->GetXaxis()->SetBinLabel(4,"sum of TopPt weights");
     hCount_->GetXaxis()->SetBinLabel(5,"sum of sign of gen weights");
+    initSkimTreeCutBranches_ = true;
   }
 
   // Reduced Skim stuff
@@ -1080,6 +1081,8 @@ void baseClass::fillOptimizerWithValue(const string& s, const float& d)
 
 template<typename T> void baseClass::evaluateCuts(map<string, T>& cutNameToCut, map<string, bool>& combNameToPassFail, vector<string>& orderedCutNames, bool verbose)
 {
+  passedCuts_.clear();
+  passedCutAndAllPreviousCuts_.clear();
   combNameToPassFail.clear();
   for (vector<string>::iterator it = orderedCutNames.begin(); it != orderedCutNames.end(); it++)
   {
@@ -1104,6 +1107,57 @@ template<typename T> void baseClass::evaluateCuts(map<string, T>& cutNameToCut, 
       map<string,bool>::iterator ap = combNameToPassFail.find( "all" );
       combNameToPassFail["all"] = (ap==combNameToPassFail.end()?true:ap->second);
       if(verbose) std::cout << "PASSED cut: " << c->variableName << "; value is: " << c->getStringValue() << std::endl;
+    }
+    passedCuts_.push_back(passed);
+  }
+
+  if(produceSkim_) {
+    for (vector<string>::iterator it = orderedCutNames.begin(); it != orderedCutNames.end(); it++)
+      passedCutAndAllPreviousCuts_.push_back(passedCut(*it) && passedAllPreviousCuts(*it));
+    if(initSkimTreeCutBranches_) {
+      // add branches for cut information
+      for (vector<string>::iterator it = orderedCutNames.begin(); it != orderedCutNames.end(); it++) {
+        auto&& cc = cutNameToCut.find(*it);
+        auto& c = cc->second;
+        if(skim_tree_->GetBranch(it->c_str()))
+          continue;
+        if (c->template valueIsType<float>()) {
+          addSkimTreeBranch(*it, c->template getValueAddress<float>(), *it+"/"+c->branchType);
+        }
+        else if (c->template valueIsType<int>()) {
+          addSkimTreeBranch(*it, c->template getValueAddress<int>(), *it+"/"+c->branchType);
+        }
+        else if (c->template valueIsType<unsigned long long int>()) {
+          addSkimTreeBranch(*it, c->template getValueAddress<unsigned long long int>(), *it+"/"+c->branchType);
+        }
+        else if (c->template valueIsType<unsigned int>()) {
+          addSkimTreeBranch(*it, c->template getValueAddress<unsigned int>(), *it+"/"+c->branchType);
+        }
+        else if (c->template valueIsType<bool>()) {
+          addSkimTreeBranch(*it, c->template getValueAddress<bool>(), *it+"/"+c->branchType);
+        }
+        else {
+          STDOUT("ERROR: couldn't understand type for cut name '" << *it << "'; valueTypeName=" << c->getValueTypeName() << "; has branch type = '" << c->branchType << "'");
+          exit(-2);
+        }
+      }
+      for(list<bool>::iterator it = passedCuts_.begin(); it != passedCuts_.end(); it++) {
+          std::string cutName = orderedCutNames[std::distance(passedCuts_.begin(), it)];
+          addSkimTreeBranch("Passed_"+cutName, &(*it), std::string("Passed_")+cutName+std::string("/O"));
+      }
+      for(list<bool>::iterator it = passedCutAndAllPreviousCuts_.begin(); it != passedCutAndAllPreviousCuts_.end(); it++) {
+          std::string cutName = orderedCutNames[std::distance(passedCutAndAllPreviousCuts_.begin(), it)];
+          addSkimTreeBranch("PassedAndAllPrevious_"+cutName, &(*it), std::string("PassedAndAllPrevious_")+cutName+std::string("/O"));
+      }
+      initSkimTreeCutBranches_ = false;
+    }
+    for(list<bool>::iterator it = passedCuts_.begin(); it != passedCuts_.end(); it++) {
+      std::string cutName = orderedCutNames[std::distance(passedCuts_.begin(), it)];
+      resetSkimTreeBranchAddress("Passed_"+cutName, &(*it));
+    }
+    for(list<bool>::iterator it = passedCutAndAllPreviousCuts_.begin(); it != passedCutAndAllPreviousCuts_.end(); it++) {
+      std::string cutName = orderedCutNames[std::distance(passedCutAndAllPreviousCuts_.begin(), it)];
+      resetSkimTreeBranchAddress("PassedAndAllPrevious_"+cutName, &(*it));
     }
   }
 }
