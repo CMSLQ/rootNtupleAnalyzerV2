@@ -270,7 +270,7 @@ def MakeCombinedSample(args):
                         thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
 
                     if not options.tablesOnly:
-                        histoDictThisSample, _ = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+                        histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
 
                 if not doWeightingThisFile:
                     doPDFReweight = False
