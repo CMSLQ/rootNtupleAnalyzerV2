@@ -304,6 +304,8 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
         if doHists:
             print("INFO: updating thisPieceHistos using plotWeight=", plotWeight)
             thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, sampleHistos, matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
+    Ntot = float(thisYearTable[0]["Npass"])
+    print("INFO: inputDatFile={} for sample={}, {}={}".format(inputDatFile, sample, thisYearTable[0]["variableName"], Ntot), flush=True)
     return thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot
 
 
@@ -324,7 +326,7 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
         sampleInfo = dictSamples[year][sample]
         pieceList = sampleInfo["pieces"]
         piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
-        # print("For sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(sample, piecesToAdd, dictDatasetsFileNames))
+        # print("DEBUG: For year={}, sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(year, sample, piecesToAdd, dictDatasetsFileNames))
         corrLHESystsThisSample = sampleInfo["correlateLHESystematics"]
         if corrLHESysts is None:
             corrLHESysts = corrLHESystsThisSample
@@ -472,7 +474,6 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
         pieceList = sampleInfo["pieces"]
         piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
         yearsToUse.append(year)
-        # print("For sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(sample, piecesToAdd, dictDatasetsFileNames))
         corrLHESystsThisSample = sampleInfo["correlateLHESystematics"]
         if corrLHESysts is None:
             corrLHESysts = corrLHESystsThisSample
@@ -655,7 +656,7 @@ def FillDictFromOptionByYear(option, years):
         for option in optionList:
             if year in option:
                 theDict[year] = option
-            elif year.replace("20", "UL"):
+            elif year.replace("20", "UL") in option:
                 # also allow matches like UL17 in the option with specified year of 2017
                 theDict[year] = option
         if theDict[year] is None:
