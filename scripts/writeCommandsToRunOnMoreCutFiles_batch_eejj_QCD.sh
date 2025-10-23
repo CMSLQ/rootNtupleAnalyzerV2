@@ -26,9 +26,12 @@ fi
 
 #### INPUTS HERE ####
 #------------
-#ANANAME=qcd_eejj_11nov2024_presel
-#ANANAME=qcd_eejj_13nov2024_bdt_LQToDEle
-ANANAME=qcd_eejj_15nov2024_bdt_LQToBEle
+#ANANAME=qcd_eejj_3feb2025_presel
+#ANANAME=qcd_eejj_19feb2025_bdt_LQToDEle
+#ANANAME=qcd_eejj_28feb2025_bdt_LQToBEle
+#ANANAME=qcd_eejj_13feb2025_bdt_minBkg0p5_LQToDEle
+#ANANAME=qcd_eejj_6mar2025_bdt_minBkg0p5
+ANANAME=qcd_eejj_6oct2025_bdt_minBkg0p5
 #------------
 #inputlist2016pre_1FR=config/inputListsRSKQCD_heep_UL16preVFP_24oct24/inputListAllCurrent.txt
 #inputlist2016pre_2FR=config/inputListsRSKQCD_heep_UL16preVFP_24oct24/inputListAllCurrent.txt
@@ -39,15 +42,6 @@ ANANAME=qcd_eejj_15nov2024_bdt_LQToBEle
 #inputlist2018_1FR=config/inputListsRSKQCD_heep_UL18_24oct24/inputListAllCurrent.txt
 #inputlist2018_2FR=config/inputListsRSKQCD_heep_UL18_24oct24/inputListAllCurrent.txt
 #
-#inputlist2016pre_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL16preVFP_28oct2024/inputListAllCurrent.txt
-#inputlist2016pre_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL16preVFP_28oct2024/inputListAllCurrent.txt
-#inputlist2016post_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL16postVFP_28oct2024/inputListAllCurrent.txt
-#inputlist2016post_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL16postVFP_28oct2024/inputListAllCurrent.txt
-#inputlist2017_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL17_28oct2024/inputListAllCurrent.txt
-#inputlist2017_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL17_28oct2024/inputListAllCurrent.txt
-#inputlist2018_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL18_28oct2024/inputListAllCurrent.txt
-#inputlist2018_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL18_28oct2024/inputListAllCurrent.txt
-#
 inputlist2016pre_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL16preVFP_11nov2024/inputListAllCurrent.txt
 inputlist2016pre_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL16preVFP_11nov2024/inputListAllCurrent.txt
 inputlist2016post_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL16postVFP_11nov2024/inputListAllCurrent.txt
@@ -57,10 +51,10 @@ inputlist2017_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL17_11nov202
 inputlist2018_1FR=config/inputListsAnalysisQCDPreselectionSkim_1FR_UL18_11nov2024/inputListAllCurrent.txt
 inputlist2018_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL18_11nov2024/inputListAllCurrent.txt
 #------------
-#xsection2016pre=config/xsection_13TeV_2022.txt
-#xsection2016post=config/xsection_13TeV_2022.txt
-#xsection2017=config/xsection_13TeV_2022.txt
-#xsection2018=config/xsection_13TeV_2022.txt
+xsection2016pre=config/xsection_13TeV_2022.txt
+xsection2016post=config/xsection_13TeV_2022.txt
+xsection2017=config/xsection_13TeV_2022.txt
+xsection2018=config/xsection_13TeV_2022.txt
 #
 #xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_28oct2024_dyjAMCatNLO.txt
 #xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_28oct2024_dyjAMCatNLO.txt
@@ -72,10 +66,10 @@ inputlist2018_2FR=config/inputListsAnalysisQCDPreselectionSkim_2FR_UL18_11nov202
 #xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
 #xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/eejj_11nov2024_presel_trigSFMod/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
 #
-xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
-xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
-xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
-xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2016pre=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016preVFP/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2016post=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2016postVFP/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2017=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2017/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
+#xsection2018=/afs/cern.ch/user/s/scooper/work/public/Leptoquarks/ultralegacy/rescaledCrossSections/2018/eejj_13nov2024_bdt_LQToDEle/xsection_13TeV_2022_Mee_BkgControlRegion_gteTwoBtaggedJets_TTbar_Mee_BkgControlRegion_DYJets_dyjAMCatNLO.txt
 #------------
 CODENAME=analysisClass_lq_eejj_QCD
 #------------
@@ -101,42 +95,40 @@ OUTDIRPATH=$LQDATA  # a subdir will be created for each cut file
 #)
 
 # final selections: LQToDEle
-#
-#cutFileAna2016pre=(
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
-#)
-#cutFileAna2016post=(
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
-#)
-#cutFileAna2017=(
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
-#)
-#cutFileAna2018=(
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
-#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
-#)
-
-# final selections: LQToBEle
-#
 cutFileAna2016pre=(
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
 )
 cutFileAna2016post=(
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
 )
 cutFileAna2017=(
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
 )
 cutFileAna2018=(
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
-  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_singleFR.txt"
+  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_QCD_doubleFR.txt"
 )
+
+# final selections: LQToBEle
+# cutFileAna2016pre=(
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+# )
+# cutFileAna2016post=(
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+# )
+# cutFileAna2017=(
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+# )
+# cutFileAna2018=(
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_QCD_singleFR.txt"
+#   "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_QCD_doubleFR.txt"
+# )
 
 
 #cutFileAna2016pre=(
@@ -146,6 +138,24 @@ cutFileAna2018=(
 #cutFileAna2016post=(
 #  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/cutTable_lq_eejj_QCD_singleFR_dedicatedMasses.txt"
 #  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/cutTable_lq_eejj_QCD_doubleFR_dedicatedMasses.txt"
+#)
+# final selections: LQToDEle
+# min Bkg 0
+#cutFileAna2016pre=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+#cutFileAna2016post=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+#cutFileAna2017=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_doubleFR.txt"
+#)
+#cutFileAna2018=(
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_singleFR.txt"
+#  "/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/minNBStudy/minNB0p5/cutTable_lq_eejj_QCD_doubleFR.txt"
 #)
 
 # ilumi

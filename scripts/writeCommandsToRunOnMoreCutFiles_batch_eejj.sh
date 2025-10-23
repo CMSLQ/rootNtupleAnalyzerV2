@@ -28,7 +28,9 @@ fi
 #------------
 #ANANAME=eejj_13nov2024_bdt_LQToDEle
 #ANANAME=eejj_11nov2024_presel
-ANANAME=eejj_15nov2024_bdt_LQToBEle
+#ANANAME=eejj_28feb2025_bdt_LQToBEle
+#ANANAME=eejj_6mar2025_bdt_minBkg0p5
+ANANAME=eejj_6oct2025_bdt_minBkg0p5
 #------------
 QCDANANAME=qcd_${ANANAME}
 #------------
@@ -82,15 +84,20 @@ OUTDIRPATH=$LQDATA  # a subdir will be created for each cut file
 #cutFileAna2017="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/cutTable_lq_eejj_BDT.txt"
 #cutFileAna2018="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/cutTable_lq_eejj_BDT.txt"
 # LQToDEle final selections
-#cutFileAna2016pre="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
-#cutFileAna2016post="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
-#cutFileAna2017="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
-#cutFileAna2018="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
-# LQToBEle final selections
-cutFileAna2016pre="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_BDT.txt"
-cutFileAna2016post="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_BDT.txt"
-cutFileAna2017="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_BDT.txt"
-cutFileAna2018="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_BDT.txt"
+cutFileAna2016pre="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
+cutFileAna2016post="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
+cutFileAna2017="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
+cutFileAna2018="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/HTLO-amcatnlo/cutTable_lq_eejj_BDT.txt"
+# # LQToBEle final selections
+# cutFileAna2016pre="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/LQToBEle/cutTable_lq_eejj_BDT.txt"
+# cutFileAna2016post="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/LQToBEle/cutTable_lq_eejj_BDT.txt"
+# cutFileAna2017="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/LQToBEle/cutTable_lq_eejj_BDT.txt"
+# cutFileAna2018="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/LQToBEle/cutTable_lq_eejj_BDT.txt"
+# min bkg0p5
+# cutFileAna2016pre="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/preVFP/minNBStudy/minNB0p5/cutTable_lq_eejj_BDT.txt"
+# cutFileAna2016post="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2016/Analysis/postVFP/minNBStudy/minNB0p5/cutTable_lq_eejj_BDT.txt"
+# cutFileAna2017="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2017/Analysis/minNBStudy/minNB0p5/cutTable_lq_eejj_BDT.txt"
+# cutFileAna2018="/afs/cern.ch/user/s/scooper/work/private/LQNanoAODAttempt/Leptoquarks/analyzer/rootNtupleMacrosV2/config2018/Analysis/minNBStudy/minNB0p5/cutTable_lq_eejj_BDT.txt"
 #------------
 # ilumi
 ilumi2016pre=19497.897120
@@ -99,7 +106,7 @@ ilumi2017=41477.877399
 ilumi2018=59827.449483
 excludeCombining=""
 #------------
-QUEUEANA=tomorrow
+QUEUEANA=testmatch
 #QUEUEANA=workday
 #------------
 if [ "$YEAR" = "2016preVFP" ]; then
@@ -190,8 +197,7 @@ suffix=${suffix%\.*}
 #
 #find combinePlotsCondor/error/ -size +0 -type f -print0 -exec echo " had errors; content follows" \; -exec cat {} \;
 #
-#python $LQANA/scripts/combineAndSortTables.py $EOSDIR/output_$suffix/unscaled/ $SAMPLELISTFORMERGING \
-#&& python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > makePlots.log \
+#python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > makePlots.log \
 #&& python $LQMACRO/plotting2016/calc_DYJetsAndTTBarRescale_And_xsecFile.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > rescale.log \
 #&& mkdir -p dyj_MGHTLO && cd dyj_MGHTLO \
 #&& python $LQMACRO/plotting2016/calc_DYJetsAndTTBarRescale_And_xsecFile.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} ZJet_madgraphLO_HT > rescale.log \
@@ -208,9 +214,12 @@ suffix=${suffix%\.*}
 #
 #find combinePlotsCondor/error/ -size +0 -type f -print0 -exec echo " had errors; content follows" \; -exec cat {} \;
 #
-#python $LQANA/scripts/combineAndSortTables.py $EOSDIR/output_$suffix/ $SAMPLELISTFORMERGING \
-#&& python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix ${YEAR} > makePlots.log \
-#&& python $LQANA/scripts/makeCutflow.py combinedTable.dat > cutflows.txt
+#python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix ${YEAR} > makePlots.log \
+#&& python $LQANA/scripts/makeCutflowFromHist.py $EOSDIR/output_$suffix ${YEAR} \
+#&& mkdir lqtobele \
+#&& cd lqtobele \
+#python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix ${YEAR} LQToBEle > makePlots.log \
+#&& python $LQANA/scripts/makeCutflowFromHist.py $EOSDIR/output_$suffix ${YEAR} LQToBEle
 #EOF
 ####################################################################################################
 # final selections only
@@ -223,24 +232,6 @@ python scripts/launchAnalysis_batch_ForSkimToEOS.py -i $INPUTLIST -o $OUTDIRPATH
 
 ./scripts/checkJobs.sh $OUTDIRPATH/$SUBDIR/condor_$suffix $EOSDIR/$suffix/condor
 
-mkdir -p $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/unscaled && cd $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/unscaled \
-&& $LQANA/scripts/combinePlotsBatchDriver.py \
-    -i $INPUTLIST \
-    -c $CODENAME \
-    -d $EOSDIR/$suffix/condor \
-    -l  $(echo "$ILUM*$FACTOR" | bc) \
-    -x $XSECTIONDEFAULT  \
-    -o $EOSDIR/output_$suffix/unscaled \
-    -s $SAMPLELISTFORMERGING
-
-find combinePlotsCondor/error/ -size +0 -type f -print0 -exec echo " had errors; content follows" \; -exec cat {} \;
-
-python $LQANA/scripts/combineAndSortTables.py $EOSDIR/output_$suffix/unscaled/ $SAMPLELISTFORMERGING \
-&& python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > makePlots.log \
-&& python $LQMACRO/plotting2016/calc_DYJetsAndTTBarRescale_And_xsecFile.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} > rescale.log \
-&& mkdir -p dyj_MGHTLO && cd dyj_MGHTLO \
-&& python $LQMACRO/plotting2016/calc_DYJetsAndTTBarRescale_And_xsecFile.py ${QCDFILE} $EOSDIR/output_$suffix/unscaled ${YEAR} ZJet_madgraphLO_HT > rescale.log \
-
 mkdir -p $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/scaled && cd $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/scaled \
 && $LQANA/scripts/combinePlotsBatchDriver.py \
     -i $INPUTLIST \
@@ -249,14 +240,19 @@ mkdir -p $LQANA/versionsOfAnalysis/${YEAR}/eejj/${ANANAME}/scaled && cd $LQANA/v
     -l  $(echo "$ILUM*$FACTOR" | bc) \
     -x $XSECTION  \
     -o $EOSDIR/output_$suffix \
-    -s $SAMPLELISTFORMERGING
+    -s $SAMPLELISTFORMERGING \
+    -y ${YEAR}
 
 find combinePlotsCondor/error/ -size +0 -type f -print0 -exec echo " had errors; content follows" \; -exec cat {} \;
 
-python $LQANA/scripts/combineAndSortTables.py $EOSDIR/output_$suffix/ $SAMPLELISTFORMERGING \
-&& python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py ${QCDFILE} $EOSDIR/output_$suffix ${YEAR} > makePlots.log \
-&& python $LQANA/scripts/makeCutflow.py combinedTable.dat > cutflows.txt \
-&& python $LQANA/scripts/makeDatacard.py ${QCDFILE} $EOSDIR/output_$suffix ${YEAR} > makeDatacard.log
+python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py -q ${QCDFILE} -m $EOSDIR/output_$suffix -y ${YEAR} > makePlots.log \
+&& python $LQANA/scripts/makeCutflowFromHist.py $EOSDIR/output_$suffix ${YEAR} \
+&& python $LQANA/scripts/makeDatacard.py ${QCDANANAME} ${ANANAME} ${YEAR} > makeDatacard.log \
+&& mkdir lqtobele \
+&& cd lqtobele \
+&& python $LQMACRO/plotting2016/makeStackHistoTemplateV2_eejj.py -q ${QCDFILE} -m $EOSDIR/output_$suffix -y ${YEAR} -s LQToBEle > makePlots.log \
+&& python $LQANA/scripts/makeCutflowFromHist.py $EOSDIR/output_$suffix ${YEAR}  LQToBEle \
+&& python $LQANA/scripts/makeDatacard.py ${QCDANANAME} ${ANANAME} ${YEAR}  LQToBEle > makeDatacard.log
 EOF
 
 done
