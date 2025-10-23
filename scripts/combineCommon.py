@@ -1782,6 +1782,7 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
             elif "TH2" in hist.__repr__():
                 if "WithSystematics" not in hist.GetName():
                     # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
+                    print("WARN: not scaling hist {}, as we don't know how".format(hist.GetName()))
                     continue
                 hist = AddHistoBins(hist, "y", ["TotalSystematic"])
                 # # DEBUG
