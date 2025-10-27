@@ -143,8 +143,11 @@ def CreateExecArgs():
    args += ['-x ' + ",".join([GetNameRelativeToSecondParent(xsection) for idx, xsection in enumerate(SeparateArgs(options.xsection))])]
    args += ['-o ' + options.outputDir]
    args += ['-s ' + ",".join([str(Path(sampleList).name) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])]
-   if options.fitDiagFilepath:
-       args += ['--fitDiagFilepath ' + str(Path(options.fitDiagFilepath).name)]
+   if options.fitDiagFilepath is not None or options.postFitJSON is not None:
+       if options.fitDiagFilepath:
+           args += ['--fitDiagFilepath ' + str(Path(options.fitDiagFilepath).name)]
+       elif options.postFitJSON:
+           args += ['--postFitJSON ' + str(Path(options.postFitJSON).name)]
        if options.preFit:
            args += ['--preFit']
        elif options.postFit:
@@ -197,6 +200,8 @@ def WriteCondorSubFile(nJobs, condorFilename):
         inputFilesToTransfer.extend([str(Path(sampleList).resolve()) for idx, sampleList in enumerate(SeparateArgs(options.sampleListForMerging))])
         if options.fitDiagFilepath is not None:
             inputFilesToTransfer.extend([str(Path(options.fitDiagFilepath).resolve())])
+        elif options.postFitJSON is not None:
+            inputFilesToTransfer.extend([str(Path(options.postFitJSON).resolve())])
         filesToTransfer = ",".join(inputFilesToTransfer)
         # filesToTransfer += ","
         # filesToTransfer += options.filesToTransfer
@@ -374,6 +379,14 @@ parser.add_option(
 )
 
 parser.add_option(
+    "--postFitJSON",
+    dest="postFitJSON",
+    default=None,
+    help="Post-fit JSON file containing separated stat/syst uncertainties (fitdiagnostics after processing)",
+    metavar="POSTFITJSON",
+)
+
+parser.add_option(
     "--postFit",
     dest="postFit",
     default=False,
@@ -439,8 +452,8 @@ if os.path.isfile(options.histInclusionList) is True:
 if options.postFit and options.preFit:
     raise RuntimeError("Can't specify both preFit and postFit options.")
 if options.postFit or options.preFit:
-    if options.fitDiagFilepath is None:
-        raise RuntimeError("With options preFit or postFit, must provide path to FitDiagnostics root files with prefit or postfit results.")
+    if options.fitDiagFilepath is None and options.postFitJSON is None:
+        raise RuntimeError("With options preFit or postFit, must provide either (1) path to FitDiagnostics root files with prefit or postfit results using --fitDiagFilepath or (2) post-fit JSON file using --postFitJSON")
     if options.tablesOnly:
         raise RuntimeError("With options preFit or postFit, doesn't make sense to do tables only as tables are not affected (at least at the present time).")
 if options.postFit and options.fitType is None:

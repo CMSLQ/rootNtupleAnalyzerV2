@@ -13,6 +13,7 @@ from ruamel.yaml import YAML
 import numpy as np
 import ctypes
 import ROOT as r
+import json
 import faulthandler
 faulthandler.enable()
 
@@ -1711,6 +1712,20 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
     return dictFinalHistoAtSample, htemp
 
 
+def GetNormAndUncertaintyFromJSON(sample, postFitJson, mass, postFitType):
+    if postFitType == "prefit":
+        suffix = "prefit"
+    else:
+        suffix = "fit_" + postFitType
+    with open(postFitJson, 'r') as theFile:
+        data = json.load(theFile)
+    info = data[str(mass)][sample][suffix]["bin1"]
+    norm = info["yield"]
+    statUnc = info["statErr"]
+    systUnc = info["systErr"]
+    return norm, statUnc, systUnc
+
+
 def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, postFitType):
     fitDiagFilename = fitDiagFilePath + "/fitDiagnostics.m{}.root".format(mass)
     fitDiagFile = r.TFile.Open(fitDiagFilename)
@@ -1739,20 +1754,30 @@ def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mas
     return norm, unc
 
 
-def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, doPrefit, fitType, systNames, verbose=True):
+def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, postFitJSON, doPrefit, fitType, systNames, nYears, verbose=True):
     if not isMC:
         return histoDict
     
     normsByMass = {}
-    totUncsByMass = {}
+    statUncsByMass = {}
+    systUncsByMass = {}
     for mass in masses:
-        norm, totUncertainty = GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, "prefit" if doPrefit else fitType)
-        # print("DEBUG: got norm {} and uncertainty {} from fitDiagPath={}, year={}, mass={}, sample={}, prefit={}".format(norm,
-        #                                                                                                                  totUncertainty,
-        #                                                                                                                  fitDiagFilePath,
-        #                                                                                                                  year, mass, sample, doPrefit))
+        if fitDiagFilePath is not None:
+            norm, totUncertainty = GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mass, "prefit" if doPrefit else fitType)
+            # print("DEBUG: got norm {} and uncertainty {} from fitDiagPath={}, year={}, mass={}, sample={}, prefit={}".format(norm,
+            #                                                                                                                  totUncertainty,
+            #                                                                                                                  fitDiagFilePath,
+            #                                                                                                                  year, mass, sample, doPrefit))
+            statUncsByMass[mass] = totUncertainty/math.sqrt(2)
+            systUncsByMass[mass] = totUncertainty/math.sqrt(2)
+        elif postFitJSON is not None:
+            norm, statUnc, systUnc = GetNormAndUncertaintyFromJSON(sample, postFitJSON, mass, "prefit" if doPrefit else fitType)
+            norm /= nYears
+            statUnc /= math.sqrt(nYears)
+            systUnc /= math.sqrt(nYears)
+            statUncsByMass[mass] = statUnc
+            systUncsByMass[mass] = systUnc
         normsByMass[mass] = norm
-        totUncsByMass[mass] = totUncertainty
 
     scaledHists = {}
     for idx, histo in histoDict.items():
@@ -1767,9 +1792,10 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
             continue  # not a final selection plot
 
         norm = normsByMass[myMass]
-        totUncertainty = totUncsByMass[myMass]
+        statUncertainty = statUncsByMass[myMass]
+        systUncertainty = systUncsByMass[myMass]
         if verbose:
-            print("INFO: Using norm={}, totUncertainty={} [/sqrt(2)={}] to rescale '{}' (myMass={})".format(norm, totUncertainty, totUncertainty/math.sqrt(2), hist.GetName(), myMass))
+            print("INFO: Using norm={}, statUncertainty={}, systUncertainty={} to rescale '{}' (myMass={})".format(norm, statUncertainty, systUncertainty, hist.GetName(), myMass))
 
         if norm is not None:
             # make sure there is a valid fit result
@@ -1778,7 +1804,8 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                 integral = hist.Integral()
                 for xBin in range(0, hist.GetNbinsX()+2):
                     hist.SetBinContent(xBin, norm/integral if integral != 0 else 0)
-                    hist.SetBinError(xBin, totUncertainty/hist.GetBinError(xBin) if hist.GetBinError(xBin) != 0 else 0)  # sum[bine^2] = unc^2 --> bine = bine/sqrt(nbins)
+                    # renorm to stat unc only
+                    hist.SetBinError(xBin, statUncertainty/hist.GetBinError(xBin) if hist.GetBinError(xBin) != 0 else 0)  # sum[bine^2] = unc^2 --> bine = bine/sqrt(nbins)
             elif "TH2" in hist.__repr__():
                 if "WithSystematics" not in hist.GetName():
                     # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
@@ -1797,7 +1824,6 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                 if verbose:
                     print("INFO: systIntegral = {} +/- {}".format(systIntegral, systIntegralErr))
 
-                uncR2 = totUncertainty/math.sqrt(2)
                 integralErr = ctypes.c_double()
                 integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)
                 if verbose:
@@ -1814,14 +1840,14 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                             if hist.GetBinError(xBin, 1) != 0:
                                 if verbose:
                                     print("INFO: hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, hist.GetBinError(xBin, yBin),
-                                                                                                                uncR2/integralErr.value * hist.GetBinError(xBin, yBin)))
-                                hist.SetBinError(xBin, yBin, uncR2/integralErr.value * hist.GetBinError(xBin, yBin))
+                                                                                                                statUncertainty/integralErr.value * hist.GetBinError(xBin, yBin)))
+                                hist.SetBinError(xBin, yBin, statUncertainty/integralErr.value * hist.GetBinError(xBin, yBin))
                         elif yBin == hist.GetYaxis().FindFixBin("TotalSystematic"):
                             if systHist.GetBinError(xBin, 1) != 0:
                                 if verbose:
                                     print("INFO: hist '{}', xBin={}, yBin={}, scale bin error {} --> {}".format(hist.GetName(), xBin, yBin, systHist.GetBinError(xBin),
-                                                                                                                uncR2/systIntegralErr.value * systHist.GetBinError(xBin)))
-                                hist.SetBinError(xBin, yBin, uncR2/systIntegralErr.value * systHist.GetBinError(xBin))
+                                                                                                                systUncertainty/systIntegralErr.value * systHist.GetBinError(xBin)))
+                                hist.SetBinError(xBin, yBin, systUncertainty/systIntegralErr.value * systHist.GetBinError(xBin))
 
                 if verbose:
                     integral = hist.IntegralAndError(0, hist.GetNbinsX()+2, 1, 1, integralErr)

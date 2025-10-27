@@ -233,7 +233,7 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
             sampleHistos = GetHistosFromInclusionList(rootFilename, sample, ["SumOfWeights", "LHEPdfSumw"], xsectionFound)
 
         # XXX  DEBUG
-        # sampleHistos = [hist for hist in sampleHistos if any(nameToKeep in hist.GetName() for nameToKeep in ["BDTOutput_LQ1200", "SumOfWeights", "systematicNameToBranchesMap", "systematics"])]
+        # sampleHistos = [hist for hist in sampleHistos if any(nameToKeep in hist.GetName() for nameToKeep in ["Pt1stEle_LQ1200", "BDTOutput_LQ1200", "SumOfWeights", "systematicNameToBranchesMap", "systematics"])]
         # XXX  DEBUG END
 
         # ---Read .dat table
@@ -450,7 +450,7 @@ def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemp
     return tfileNameTemplate.format(sample), outputDatFile
 
 
-def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,fitDiagFilepath):
+def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables):
     if sample not in samplesToOverrideFromYieldHistos:
         return MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
     doHists = not options.tablesOnly
@@ -548,7 +548,7 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
         sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
         if doHists:
             print("\t[{}] renormalize histograms to {} yields/uncs for year={} using fitType={} and systNames={}".format(sample, "prefit" if doPrefit else "postfit", fitType if doPostFit else "(prefit)", year, systNames), flush=True)
-            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, fitDiagFilepath, doPrefit, fitType, systNames)
+            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, options.fitDiagFilepath, options.postfitjson, doPrefit, fitType, systNames, len(yearsToUse))
             plotWeight = 1.0  # we already scaled each sample above
             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
@@ -839,6 +839,14 @@ if __name__ == "__main__":
     )
     
     parser.add_option(
+        "--postFitJSON",
+        dest="postfitjson",
+        default=None,
+        help="Post-fit JSON file containing separated stat/syst uncertainties (fitdiagnostics after processing)",
+        metavar="POSTFITJSON",
+    )
+    
+    parser.add_option(
         "--postFit",
         dest="postFit",
         default=False,
@@ -893,8 +901,8 @@ if __name__ == "__main__":
     if options.postFit and options.preFit:
         raise RuntimeError("Can't specify both preFit and postFit options.")
     if options.postFit or options.preFit:
-        if options.fitDiagFilepath is None:
-            raise RuntimeError("With options preFit or postFit, must provide path to FitDiagnostics root files with prefit or postfit results.")
+        if options.fitDiagFilepath is None and options.postfitjson is None:
+            raise RuntimeError("With options preFit or postFit, must provide path to FitDiagnostics root files or post-fit JSON file with prefit or postfit results.")
         if options.tablesOnly:
             raise RuntimeError("With options preFit or postFit, doesn't make sense to do tables only as tables are not affected (at least at the present time).")
         # FilesMustExist(options.fitDiagFilepath)  # not sure which mass to use
@@ -1025,8 +1033,7 @@ if __name__ == "__main__":
     
     if options.preFit or options.postFit:
         outputFile, outputDatFile = MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
-                                                       sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables,
-                                                       options.fitDiagFilepath)
+                                                       sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
     else:
         outputFile, outputDatFile = MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
                                                        sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
