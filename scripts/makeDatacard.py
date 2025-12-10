@@ -234,8 +234,8 @@ class SampleInfo:
     # return abs val of syst; also checks for deltaOverNom==1 and does renorm if needed
     def GetSystematicEffectAbs(self, year, systName, selection, applicableSysts, verbose=False, symmetrize=True):
         # verbose = True
-        if "ptBinned" in self.sampleName and selection == "preselection":
-            verbose = True
+        # if "ptBinned" in self.sampleName and selection == "preselection":
+        #     verbose = True
         entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts[year], symmetrize, verbose)
         if verbose:
             print("INFO GetSystematicEffectAbs(): For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
@@ -1692,6 +1692,10 @@ def WriteDatacard(card_file_path, year):
                             d_systUpDeltas[background_name][syst] = {}
                             d_systDownDeltas[background_name][syst] = {}
                         systEntry, deltaOverNominalUp, deltaOverNominalDown, systNomYield, systSelection, preselRatios = d_backgroundSampleInfos[background_name].GetSystematicEffectAbs("all", syst, selectionNameSyst, d_applicableSystematics)
+                        # if "lumi" in syst.lower():
+                        #     thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionNameSyst)
+                        #     print("INFO: Got syst entry for sample={} selectionNameSyst={} systSelection={}, syst={}, systEntry={}, thisBkgEvts={}, systNomYield={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                        #             background_name, selectionNameSyst, systSelection, syst, systEntry, thisBkgEvts, systNomYield, deltaOverNominalUp*systNomYield, deltaOverNominalDown*systNomYield))
                         thisBkgEvts, thisBkgEvtsErr = d_backgroundSampleInfos[background_name].GetRateAndErr(selectionNameSyst)
                         thisBkgSystUp = deltaOverNominalUp*systNomYield
                         thisBkgSystDown = deltaOverNominalDown*systNomYield
@@ -1722,9 +1726,12 @@ def WriteDatacard(card_file_path, year):
                         if EntryIsValid(systEntry):
                             d_backgroundSampleInfos[background_name].UpdateSystsApplied(syst)
                             line += str(systEntry) + " "
+                            # if "lumi" in syst.lower():
+                            #     print("\tINFO2: Got valid syst entry for sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                            #             background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                         else:
                             # if "lumi" in syst.lower():
-                            #     print("INFO2: Got invalid syst entry for sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
+                            #     print("\tINFO2: INVALID syst entry for sample={} selection={} syst={}, systEntry={}, thisBkgEvts={}, d_systUpDeltas={}, d_systDownDeltas={}".format(
                             #             background_name, selectionNameSyst, syst, systEntry, thisBkgEvts, thisBkgSystUp, thisBkgSystDown))
                             line += "- "
                         # if "ZJet" in background_name and "800" in selectionNameSyst and "EES" in syst:

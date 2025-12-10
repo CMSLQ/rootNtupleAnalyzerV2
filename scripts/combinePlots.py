@@ -270,7 +270,7 @@ def MakeCombinedSample(args):
                         thisPieceTable = combineCommon.UpdateTable(dataThisFile, thisPieceTable)
 
                     if not options.tablesOnly:
-                        histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+                        histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, sampleHistos, matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD, uncorrelatedSysts)
 
                 if not doWeightingThisFile:
                     doPDFReweight = False
@@ -562,6 +562,7 @@ doPDFReweight2016LQSignals = False
 if doPDFReweight2016LQSignals:
     print("Doing PDF reweighting for 2016 LQ B/D signal samples")
 
+uncorrelatedSysts = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "UnclusteredEne"]
 ncores = int(options.nCores)
 print("Using {} cores".format(ncores))
 result_list = []

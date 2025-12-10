@@ -90,7 +90,7 @@ def CreateAndSubmitJobs(sampleDict):
     shFilename = condorSubfileDir + "/condor.sh"
     samplesSet = set()
     for year, sampleList in sampleDict.items():
-        samplesToCombine = [sample for sample, keys in sampleList.items() if keys["save"]]
+        samplesToCombine = [sample for sample, keys in sampleList.items()]
         samplesSet.update(samplesToCombine)
     WriteCondorShFile(samplesSet, shFilename)
     print("INFO: wrote sh file to {}".format(shFilename))

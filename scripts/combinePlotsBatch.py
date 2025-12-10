@@ -291,7 +291,7 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
             # thisPieceTable = combineCommon.UpdateTable(data, thisPieceTable)
             print("INFO: dataThisFile for sample={} now has NoCuts(weighted)={}".format(sample, float(dataThisFile[0]["Npass"])), flush=True)
         # sample, numPieces = combineCommon.FindSampleNameFromPiece(currentPiece, dictSamples[year])
-        # TODO if desired later
+        # TODO if desired/needed later
         # if sample in samplesToOverrideFromYieldHistos and postPreRatios is not None:
         #     OverrideTableFinalSelections(dataThisFile, sample, postPreRatios[year])
         thisYearTable = combineCommon.UpdateTable(dataThisFile, thisYearTable)
@@ -303,156 +303,155 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
 
         if doHists:
             print("INFO: updating thisPieceHistos using plotWeight=", plotWeight)
-            thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, sampleHistos, matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
+            thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, sampleHistos, matchingPiece, True, sample, plotWeight, corrLHESysts, not isMC, isQCD, [], symmetrize)
     Ntot = float(thisYearTable[0]["Npass"])
     print("INFO: inputDatFile={} for sample={}, {}={}".format(inputDatFile, sample, thisYearTable[0]["variableName"], Ntot), flush=True)
     return thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot
 
 
-def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables):
-    doHists = not options.tablesOnly
-    if doHists:
-        outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
-    outputDatFile = datFileNameTemplate.format(sample)
-    histoDictThisSample = OrderedDict()
-    sampleTable = {}
-    isQCD = "qcd" in tfileNameTemplate.lower()
-
-    piecesToAdd = set()
-    corrLHESysts = None
-    for year in SeparateArgs(options.years):
-        if sample not in dictSamples[year].keys():
-            continue
-        sampleInfo = dictSamples[year][sample]
-        pieceList = sampleInfo["pieces"]
-        piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
-        # print("DEBUG: For year={}, sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(year, sample, piecesToAdd, dictDatasetsFileNames))
-        corrLHESystsThisSample = sampleInfo["correlateLHESystematics"]
-        if corrLHESysts is None:
-            corrLHESysts = corrLHESystsThisSample
-        else:
-            if corrLHESysts != corrLHESystsThisSample:
-                raise RuntimeError("For sample={}, year={}, correlateLHESystematics is {} while for previous year(s) it was not; combining like this is not implemented".format(
-                    sample, year, corrLHESystsThisSample, corrLHESysts))
-
-    piecesAdded = []
-    # ---Loop over datasets in the inputlist
-    for currentPiece in piecesToAdd:
-        thisPieceTable = {}
-        thisPieceHistos = {}
-        pieceInYears = []
-        for year in SeparateArgs(options.years):
-            sumWeights = 0
-            lhePdfWeightSumw = 0
-            Ntot = 0
-            thisYearTable = {}
-            thisYearHistos = {}
-            datasetsFileNamesCleaned = {combineCommon.SanitizeDatasetNameFromInputList(k): v for k, v in dictDatasetsFileNames[year].items()}
-            # print("For sample {}, datasetsFileNamesCleaned={}".format(sample, datasetsFileNamesCleaned))
-            if currentPiece in datasetsFileNamesCleaned.keys():
-                matchingPiece = currentPiece
-                pieceInYears.append(year)
-            else:
-                # raise RuntimeError("ERROR: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={}".format(sample, currentPiece, datasetsFileNamesCleaned))
-                print("INFO: skipping year={} for sample {} as we could not find currentPiece={} in datasetsFileNamesCleaned={}".format(year, sample, currentPiece, datasetsFileNamesCleaned))
-                continue
-            singleFilePiece = True if len(datasetsFileNamesCleaned[currentPiece]) == 1 else False
-
-            sampleInfo = dictSamples[year][sample]
-            corrLHESysts = sampleInfo["correlateLHESystematics"]
-            isMC = sampleInfo["isMC"]
-            xsections = xsectionDict[year]
-            intLumi = intLumis[year]
-            xsection_val, xsectionFound = GetXSection(matchingPiece, xsections)
-
-            print("For sample {}, datasetsFileNamesCleaned[{}]={}".format(sample, currentPiece, datasetsFileNamesCleaned[currentPiece]))
-            thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot = LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNamesToUse, xsectionFound, useInclusionList, doHists,
-                                                                 singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD,
-                                                                 xsection_val)
-
-            # combine this year with the rest of the pieces per year
-            print("\t[{}] zeroing negative table yields for currentPiece={} for year={}".format(sample, currentPiece, year), flush=True)
-            combineCommon.ZeroNegativeTableYields(thisYearTable)
-            if doHists:
-                print("\t[{}] zeroing negative histo bins for piece={} for year={}".format(sample, currentPiece, year), flush=True)
-                combineCommon.ZeroNegativeHistoBins(thisYearHistos.values())
-            if singleFilePiece:
-                plotWeight = 1.0
-            else:
-                doPDFReweight = False
-                # if "2016" in inputRootFile:
-                #     if "LQToBEle" in inputRootFile or "LQToDEle" in inputRootFile:
-                #         doPDFReweight = doPDFReweight2016LQSignals
-                weight, plotWeight, xsection_X_intLumi = CalculateWeight(
-                    Ntot, xsection_val, intLumi, sumWeights, matchingPiece, lhePdfWeightSumw, doPDFReweight
-                )
-                print("\t[{}] weight(x1000): ".format(currentPiece) + str(weight) + " = " + str(xsection_X_intLumi), "/", end=' ', flush=True)
-                print(str(sumWeights), flush=True)
-                thisYearTable = combineCommon.CreateWeightedTable(thisYearTable, weight, xsection_X_intLumi)
-                Ntot = float(thisYearTable[0]["Npass"])
-            if doHists:
-                thisPieceHistos = combineCommon.UpdateHistoDict(thisPieceHistos, list(thisYearHistos.values()), matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
-            thisPieceTable = combineCommon.UpdateTable(thisYearTable, thisPieceTable)
-            print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
-            print("INFO: done with currentPiece={}, thisYearTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(thisYearTable[0]["Npass"])), flush=True)
-
-        sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
-        if doHists:
-            plotWeight = 1.0  # we already scaled each sample above
-            # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
-            histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisPieceHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
-            # write out hists to always save for each piece
-            objectNamesToKeep = ["eventspassingcuts", "eventspassingcuts_unscaled", "systematicnametobranchesmap", "systematics"]
-            histsToKeep = {idx:hist for idx, hist in thisPieceHistos.items() if any(objectName in hist.GetName().lower() for objectName in objectNamesToKeep)}
-            sampleName = combineCommon.FindSampleName(matchingPiece, dictSamples[pieceInYears[0]])  # just try to lookup sample name from mapping in first year in which it was found
-            for hist in histsToKeep.values():
-                oldHistName = hist.GetName()
-                RenameHist(hist, sampleName)
-            combineCommon.WriteHistos(outputTfile, histsToKeep, matchingPiece, corrLHESysts, isMC, True)
-        piecesAdded.append(matchingPiece)
-
-    # validation of combining pieces
-    Validate(piecesAdded, piecesToAdd, sample)
-
-    # ---Create final tables
-    combinedTableThisSample = combineCommon.CalculateEfficiency(sampleTable)
-    with open(outputDatFile, "w") as theFile:
-        combineCommon.WriteTable(combinedTableThisSample, sample, theFile)
-    # for writing tables later
-    dictFinalTables[sample] = combinedTableThisSample
-
-    # write histos
-    if doHists:
-        combineCommon.WriteHistos(outputTfile, histoDictThisSample, sample, corrLHESysts, isMC, True)
-        # always keep tmap, eventspassingcuts, and 2-D syst hists in final root file
-        if not sampleInfo["save"]:
-            objectNamesToKeep = ["eventspassingcuts", "systematicnametobranchesmap"]
-            histsToKeep = {k:v for k, v in histoDictThisSample.items() if any(objectName in v.GetName().lower() for objectName in objectNamesToKeep) or (v.InheritsFrom("TH2") and "systematics" in v.GetName().lower())}
-            tfileKeepName = tfileNameTemplate.format(sample).replace("_plots.root", "_keep_plots.root")
-            outputTfileKeep = TFile.Open(tfileKeepName, "RECREATE", "", 207)
-            combineCommon.WriteHistos(outputTfileKeep, histsToKeep, sample, corrLHESysts, isMC, True)
-            outputTfileKeep.Close()
-            # remove for now to keep pdf/scale weight bins
-            # print("INFO: saving pruned hists", flush=True)
-            if pruneSystHists:
-                SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
-            # print("INFO: done saving pruned hists", flush=True)
-        if sample in samplesToSave:
-            dictFinalHisto[sample] = histoDictThisSample
-        outputTfile.Close()
-        # remove for now to keep pdf/scale weight bins
-        # print("INFO: [save] saving pruned hists", flush=True)
-        if pruneSystHists:
-            SavePrunedSystHistos(tfileNameTemplate.format(sample), tfileNameTemplate.format(sample).replace("_plots.root", "_plots_pruned.root"))
-    # print("INFO: [save] done saving pruned hists", flush=True)
-    #dictDatasetsFileNames[sample] = tfileNameTemplate.format(sample)
-    #print("[{}] now dictDatasetsFileNames={}".format(sample, dictDatasetsFileNames), flush=True)
-    return tfileNameTemplate.format(sample), outputDatFile
+# def MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables):
+#     doHists = not options.tablesOnly
+#     if doHists:
+#         outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
+#     outputDatFile = datFileNameTemplate.format(sample)
+#     histoDictThisSample = OrderedDict()
+#     sampleTable = {}
+#     isQCD = "qcd" in tfileNameTemplate.lower()
+# 
+#     piecesToAdd = set()
+#     corrLHESysts = None
+#     for year in SeparateArgs(options.years):
+#         if sample not in dictSamples[year].keys():
+#             continue
+#         sampleInfo = dictSamples[year][sample]
+#         pieceList = sampleInfo["pieces"]
+#         piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
+#         # print("DEBUG: For year={}, sample {}, piecesToAdd looks like {}, dictDatasetsFileNames={}".format(year, sample, piecesToAdd, dictDatasetsFileNames))
+#         corrLHESystsThisSample = sampleInfo["correlateLHESystematics"]
+#         if corrLHESysts is None:
+#             corrLHESysts = corrLHESystsThisSample
+#         else:
+#             if corrLHESysts != corrLHESystsThisSample:
+#                 raise RuntimeError("For sample={}, year={}, correlateLHESystematics is {} while for previous year(s) it was not; combining like this is not implemented".format(
+#                     sample, year, corrLHESystsThisSample, corrLHESysts))
+# 
+#     piecesAdded = []
+#     # ---Loop over datasets in the inputlist
+#     for currentPiece in piecesToAdd:
+#         thisPieceTable = {}
+#         thisPieceHistos = {}
+#         pieceInYears = []
+#         for year in SeparateArgs(options.years):
+#             sumWeights = 0
+#             lhePdfWeightSumw = 0
+#             Ntot = 0
+#             thisYearTable = {}
+#             thisYearHistos = {}
+#             datasetsFileNamesCleaned = {combineCommon.SanitizeDatasetNameFromInputList(k): v for k, v in dictDatasetsFileNames[year].items()}
+#             # print("For sample {}, datasetsFileNamesCleaned={}".format(sample, datasetsFileNamesCleaned))
+#             if currentPiece in datasetsFileNamesCleaned.keys():
+#                 matchingPiece = currentPiece
+#                 pieceInYears.append(year)
+#             else:
+#                 # raise RuntimeError("ERROR: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={}".format(sample, currentPiece, datasetsFileNamesCleaned))
+#                 print("INFO: skipping year={} for sample {} as we could not find currentPiece={} in datasetsFileNamesCleaned={}".format(year, sample, currentPiece, datasetsFileNamesCleaned))
+#                 continue
+#             singleFilePiece = True if len(datasetsFileNamesCleaned[currentPiece]) == 1 else False
+# 
+#             sampleInfo = dictSamples[year][sample]
+#             corrLHESysts = sampleInfo["correlateLHESystematics"]
+#             isMC = sampleInfo["isMC"]
+#             xsections = xsectionDict[year]
+#             intLumi = intLumis[year]
+#             xsection_val, xsectionFound = GetXSection(matchingPiece, xsections)
+# 
+#             print("For sample {}, datasetsFileNamesCleaned[{}]={}".format(sample, currentPiece, datasetsFileNamesCleaned[currentPiece]))
+#             thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot = LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNamesToUse, xsectionFound, useInclusionList, doHists,
+#                                                                  singleFilePiece, intLumi, matchingPiece, corrLHESysts, isMC, isQCD,
+#                                                                  xsection_val)
+# 
+#             # combine this year with the rest of the pieces per year
+#             print("\t[{}] zeroing negative table yields for currentPiece={} for year={}".format(sample, currentPiece, year), flush=True)
+#             combineCommon.ZeroNegativeTableYields(thisYearTable)
+#             if doHists:
+#                 print("\t[{}] zeroing negative histo bins for piece={} for year={}".format(sample, currentPiece, year), flush=True)
+#                 combineCommon.ZeroNegativeHistoBins(thisYearHistos.values())
+#             if singleFilePiece:
+#                 plotWeight = 1.0
+#             else:
+#                 doPDFReweight = False
+#                 # if "2016" in inputRootFile:
+#                 #     if "LQToBEle" in inputRootFile or "LQToDEle" in inputRootFile:
+#                 #         doPDFReweight = doPDFReweight2016LQSignals
+#                 weight, plotWeight, xsection_X_intLumi = CalculateWeight(
+#                     Ntot, xsection_val, intLumi, sumWeights, matchingPiece, lhePdfWeightSumw, doPDFReweight
+#                 )
+#                 print("\t[{}] weight(x1000): ".format(currentPiece) + str(weight) + " = " + str(xsection_X_intLumi), "/", end=' ', flush=True)
+#                 print(str(sumWeights), flush=True)
+#                 thisYearTable = combineCommon.CreateWeightedTable(thisYearTable, weight, xsection_X_intLumi)
+#                 Ntot = float(thisYearTable[0]["Npass"])
+#             if doHists:
+#                 thisPieceHistos = combineCommon.UpdateHistoDict(thisPieceHistos, list(thisYearHistos.values()), matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
+#             thisPieceTable = combineCommon.UpdateTable(thisYearTable, thisPieceTable)
+#             print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
+#             print("INFO: done with currentPiece={}, thisYearTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(thisYearTable[0]["Npass"])), flush=True)
+# 
+#         sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
+#         if doHists:
+#             plotWeight = 1.0  # we already scaled each sample above
+#             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
+#             histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisPieceHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+#             # write out hists to always save for each piece
+#             objectNamesToKeep = ["eventspassingcuts", "eventspassingcuts_unscaled", "systematicnametobranchesmap", "systematics"]
+#             histsToKeep = {idx:hist for idx, hist in thisPieceHistos.items() if any(objectName in hist.GetName().lower() for objectName in objectNamesToKeep)}
+#             sampleName = combineCommon.FindSampleName(matchingPiece, dictSamples[pieceInYears[0]])  # just try to lookup sample name from mapping in first year in which it was found
+#             for hist in histsToKeep.values():
+#                 oldHistName = hist.GetName()
+#                 RenameHist(hist, sampleName)
+#             combineCommon.WriteHistos(outputTfile, histsToKeep, matchingPiece, corrLHESysts, isMC, True)
+#         piecesAdded.append(matchingPiece)
+# 
+#     # validation of combining pieces
+#     Validate(piecesAdded, piecesToAdd, sample)
+# 
+#     # ---Create final tables
+#     combinedTableThisSample = combineCommon.CalculateEfficiency(sampleTable)
+#     with open(outputDatFile, "w") as theFile:
+#         combineCommon.WriteTable(combinedTableThisSample, sample, theFile)
+#     # for writing tables later
+#     dictFinalTables[sample] = combinedTableThisSample
+# 
+#     # write histos
+#     if doHists:
+#         combineCommon.WriteHistos(outputTfile, histoDictThisSample, sample, corrLHESysts, isMC, True)
+#         # always keep tmap, eventspassingcuts, and 2-D syst hists in final root file
+#         if not sampleInfo["save"]:
+#             objectNamesToKeep = ["eventspassingcuts", "systematicnametobranchesmap"]
+#             histsToKeep = {k:v for k, v in histoDictThisSample.items() if any(objectName in v.GetName().lower() for objectName in objectNamesToKeep) or (v.InheritsFrom("TH2") and "systematics" in v.GetName().lower())}
+#             tfileKeepName = tfileNameTemplate.format(sample).replace("_plots.root", "_keep_plots.root")
+#             outputTfileKeep = TFile.Open(tfileKeepName, "RECREATE", "", 207)
+#             combineCommon.WriteHistos(outputTfileKeep, histsToKeep, sample, corrLHESysts, isMC, True)
+#             outputTfileKeep.Close()
+#             # remove for now to keep pdf/scale weight bins
+#             # print("INFO: saving pruned hists", flush=True)
+#             if pruneSystHists:
+#                 SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
+#             # print("INFO: done saving pruned hists", flush=True)
+#         if sample in samplesToSave:
+#             dictFinalHisto[sample] = histoDictThisSample
+#         outputTfile.Close()
+#         # remove for now to keep pdf/scale weight bins
+#         # print("INFO: [save] saving pruned hists", flush=True)
+#         if pruneSystHists:
+#             SavePrunedSystHistos(tfileNameTemplate.format(sample), tfileNameTemplate.format(sample).replace("_plots.root", "_plots_pruned.root"))
+#     # print("INFO: [save] done saving pruned hists", flush=True)
+#     #dictDatasetsFileNames[sample] = tfileNameTemplate.format(sample)
+#     #print("[{}] now dictDatasetsFileNames={}".format(sample, dictDatasetsFileNames), flush=True)
+#     return tfileNameTemplate.format(sample), outputDatFile
 
 
 def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables):
-    if sample not in samplesToOverrideFromYieldHistos:
-        return MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, tfileNameTemplate, datFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
+    renormThisSample = sample in samplesToOverrideFromYieldHistos
     doHists = not options.tablesOnly
     if doHists:
         outputTfile = TFile.Open(tfileNameTemplate.format(sample), "RECREATE", "", 207)
@@ -464,7 +463,7 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
     doPostFit = options.postFit
     fitType = options.fitType
 
-    piecesToAdd = set()
+    # piecesToAdd = set()
     corrLHESysts = None
     yearsToUse = []
     for year in SeparateArgs(options.years):
@@ -472,7 +471,7 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
             continue
         sampleInfo = dictSamples[year][sample]
         pieceList = sampleInfo["pieces"]
-        piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
+        # piecesToAdd.update(combineCommon.ExpandPieces(pieceList, dictSamples[year]))
         yearsToUse.append(year)
         corrLHESystsThisSample = sampleInfo["correlateLHESystematics"]
         if corrLHESysts is None:
@@ -487,6 +486,9 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
         thisYearTable = {}
         thisYearHistos = {}
         piecesAdded = []
+        yearSampleInfo = dictSamples[year][sample]
+        yearPieceList = yearSampleInfo["pieces"]
+        piecesToAdd = combineCommon.ExpandPieces(yearPieceList, dictSamples[year])
         for currentPiece in piecesToAdd:
             thisPieceTable = {}
             thisPieceHistos = {}
@@ -498,9 +500,9 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
             if currentPiece in datasetsFileNamesCleaned.keys():
                 matchingPiece = currentPiece
             else:
-                # raise RuntimeError("ERROR: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={}".format(sample, currentPiece, datasetsFileNamesCleaned))
-                print("INFO: skipping year={} for sample {} as we could not find currentPiece={} in datasetsFileNamesCleaned={}".format(year, sample, currentPiece, datasetsFileNamesCleaned))
-                continue
+                raise RuntimeError("ERROR: for sample {}, could not find currentPiece={} in datasetsFileNamesCleaned={}".format(sample, currentPiece, datasetsFileNamesCleaned))
+                # print("INFO: skipping year={} for sample {} as we could not find currentPiece={} in datasetsFileNamesCleaned={}".format(year, sample, currentPiece, datasetsFileNamesCleaned))
+                # continue
             singleFilePiece = True if len(datasetsFileNamesCleaned[currentPiece]) == 1 else False
 
             sampleInfo = dictSamples[year][sample]
@@ -536,7 +538,9 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
                 thisPieceTable = combineCommon.CreateWeightedTable(thisPieceTable, weight, xsection_X_intLumi)
                 Ntot = float(thisPieceTable[0]["Npass"])
             if doHists:
-                thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, list(thisPieceHistos.values()), matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
+                # here is where we might have to combine different processes
+                thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, list(thisPieceHistos.values()), matchingPiece, False, sample, plotWeight, corrLHESysts, not isMC, isQCD, [], symmetrize, d_flatSystematics[GetLookupYear(year)])
+                # thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, list(thisPieceHistos.values()), matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
             thisYearTable = combineCommon.UpdateTable(thisPieceTable, thisYearTable)
             print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
             print("INFO: done with currentPiece={}, thisYearTable for sample={} now has NoCuts(weighted)={}".format(currentPiece, sample, float(thisYearTable[0]["Npass"])), flush=True)
@@ -545,13 +549,16 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
         # validation of combining pieces
         Validate(piecesAdded, piecesToAdd, sample)
 
-        sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
+        sampleTable = combineCommon.UpdateTable(thisYearTable, sampleTable)
+        # sampleTable = combineCommon.UpdateTable(thisPieceTable, sampleTable)
         if doHists:
-            print("\t[{}] renormalize histograms to {} yields/uncs for year={} using fitType={} and systNames={}".format(sample, "prefit" if doPrefit else "postfit", fitType if doPostFit else "(prefit)", year, systNames), flush=True)
-            thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, options.fitDiagFilepath, options.postfitjson, doPrefit, fitType, systNames, len(yearsToUse))
+            if renormThisSample and (options.fitDiagFilepath is not None or options.postfitjson is not None):
+                print("\t[{}] renormalize histograms to {} yields/uncs for year={} using fitType={} and systNames={}".format(sample, "prefit" if doPrefit else "postfit", fitType if doPostFit else "(prefit)", year, systNames), flush=True)
+                thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, options.fitDiagFilepath, options.postfitjson, doPrefit, fitType, systNames, len(yearsToUse))
             plotWeight = 1.0  # we already scaled each sample above
             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
-            histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
+            histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, True, sample, plotWeight, corrLHESysts, not isMC, isQCD, uncorrelatedSysts, symmetrize)
+            # histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
 
     # ---Create final tables
     combinedTableThisSample = combineCommon.CalculateEfficiency(sampleTable)
@@ -563,19 +570,19 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
     # write histos
     if doHists:
         combineCommon.WriteHistos(outputTfile, histoDictThisSample, sample, corrLHESysts, isMC, True)
-        # always keep tmap, eventspassingcuts, and 2-D syst hists in final root file
-        if not sampleInfo["save"]:
-            objectNamesToKeep = ["eventspassingcuts", "systematicnametobranchesmap"]
-            histsToKeep = {k:v for k, v in histoDictThisSample.items() if any(objectName in v.GetName().lower() for objectName in objectNamesToKeep) or (v.InheritsFrom("TH2") and "systematics" in v.GetName().lower())}
-            tfileKeepName = tfileNameTemplate.format(sample).replace("_plots.root", "_keep_plots.root")
-            outputTfileKeep = TFile.Open(tfileKeepName, "RECREATE", "", 207)
-            combineCommon.WriteHistos(outputTfileKeep, histsToKeep, sample, corrLHESysts, isMC, True)
-            outputTfileKeep.Close()
-            # remove for now to keep pdf/scale weight bins
-            # print("INFO: saving pruned hists", flush=True)
-            if pruneSystHists:
-                SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
-            # print("INFO: done saving pruned hists", flush=True)
+        # # always keep tmap, eventspassingcuts, and 2-D syst hists in final root file
+        # if not sampleInfo["save"]:
+        #     objectNamesToKeep = ["eventspassingcuts", "systematicnametobranchesmap"]
+        #     histsToKeep = {k:v for k, v in histoDictThisSample.items() if any(objectName in v.GetName().lower() for objectName in objectNamesToKeep) or (v.InheritsFrom("TH2") and "systematics" in v.GetName().lower())}
+        #     tfileKeepName = tfileNameTemplate.format(sample).replace("_plots.root", "_keep_plots.root")
+        #     outputTfileKeep = TFile.Open(tfileKeepName, "RECREATE", "", 207)
+        #     combineCommon.WriteHistos(outputTfileKeep, histsToKeep, sample, corrLHESysts, isMC, True)
+        #     outputTfileKeep.Close()
+        #     # remove for now to keep pdf/scale weight bins
+        #     # print("INFO: saving pruned hists", flush=True)
+        #     if pruneSystHists:
+        #         SavePrunedSystHistos(tfileKeepName, tfileKeepName.replace("_keep_plots.root", "_keep_plots_pruned.root"))
+        #     # print("INFO: done saving pruned hists", flush=True)
         if sample in samplesToSave:
             dictFinalHisto[sample] = histoDictThisSample
         outputTfile.Close()
@@ -670,6 +677,22 @@ def FillDictFromOption(option, years):
     for idx, year in enumerate(SeparateArgs(years)):
         theDict[year] = optionList[idx]
     return theDict
+
+
+def GetLookupYear(year):
+    if "16preVFP" in year:
+        lookupYear = "2016preVFP"
+    elif "16postVFP" in year:
+        lookupYear = "2016postVFP"
+    elif "17" in year:
+        lookupYear = "2017"
+    elif "18" in year:
+        lookupYear = "2018"
+    elif "20" in year:
+        lookupYear = year
+    else:
+        raise RuntimeError("Couldn't understand year '{}'".format(year))
+    return lookupYear
 
 
 ####################################################################################################
@@ -880,13 +903,38 @@ if __name__ == "__main__":
     samplesToOverrideFromYieldHistos = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "OTHERBKG_dibosonNLO_singleTop"]
     # postFitType = "b"
     # postFitType = "sb"
-    systNames = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "LHEPdf", "LHEScale"]
+    symmetrize = True
+    uncorrelatedSysts = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "UnclusteredEne", "Lumi"]
+    # as these systNames are only used for postfit-rescaling, and Lumi is a flat syst, it won't affect the shape (and the normalization is taken care of by the rescaling itself)
+    systNames = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "UnclusteredEne", "LHEPdf", "LHEScale"]  # , "Lumi"]
+    # flat systs
+    dyNormDeltaXOverX = 0.2
+    ttBarNormDeltaXOverX = 0.1
+    qcdNormDeltaXOverX = 0.4
+    lumiDeltaXOverX = {}
+    lumiCorrelatedDeltaXOverX = {}
+    lumi1718CorrelatedDeltaXOverX = {}
+    lumiDeltaXOverX["2016preVFP"] = 0.01
+    lumiCorrelatedDeltaXOverX["2016preVFP"] = 0.006
+    lumiDeltaXOverX["2016postVFP"] = 0.01
+    lumiCorrelatedDeltaXOverX["2016postVFP"] = 0.006
+    lumiDeltaXOverX["2017"] = 0.02
+    lumiCorrelatedDeltaXOverX["2017"] = 0.009
+    lumi1718CorrelatedDeltaXOverX["2017"] = 0.006
+    lumiDeltaXOverX["2018"] = 0.015
+    lumiCorrelatedDeltaXOverX["2018"] = 0.02
+    lumi1718CorrelatedDeltaXOverX["2018"] = 0.002
     
     (options, args) = parser.parse_args()
     
     requiredOpts = [options.inputList, options.analysisCode, options.inputDir, options.intLumi, options.xsection, options.outputDir, options.sampleListForMerging, options.sample, options.years]
+    requiredOptNames = ["inputList", "analysisCode", "inputDir", "intLumi", "xsection", "outputDir", "sampleListForMerging", "sample", "years"]
+    optionsMissing = []
+    for index, opt in enumerate(requiredOpts):
+        if opt is None:
+            optionsMissing.append(requiredOptNames[index])
     if any(opt is None for opt in requiredOpts):
-        print("ERROR: one or more required options not given.")
+        print("ERROR: one or more required options not given:", optionsMissing)
         raise RuntimeError(usage)
     
     # ---Check if necessary files exist
@@ -979,6 +1027,7 @@ if __name__ == "__main__":
     # preselectionRatios = FillDictFromOption(options.preselectionRatio, options.years) if options.preselectionRatio is not None else None
     # check to make sure we have xsections for all samples
     dictDatasetsFileNames = {}
+    d_flatSystematics = {}
     # FIXME to look at only files we need in this job
     for year in SeparateArgs(options.years):
         inputList = inputLists[year]
@@ -1001,6 +1050,18 @@ if __name__ == "__main__":
         else:
             print("\bDone.  All root/dat files are present for year {}.".format(year))
             print()
+        # add relevant flat systematics
+        lookupYear = GetLookupYear(year)
+        # d_flatSystematics.update({lookupYear: {"Lumi"+lookupYear: lumiDeltaXOverX[lookupYear]} })
+        d_flatSystematics.update({lookupYear: {"Lumi": lumiDeltaXOverX[lookupYear]} })
+        d_flatSystematics[lookupYear].update({"LumiCorrelated": lumiCorrelatedDeltaXOverX[lookupYear]})
+        if lookupYear == "2017" or lookupYear == "2018":
+            d_flatSystematics[lookupYear].update({"LumiCorrelated1718": lumi1718CorrelatedDeltaXOverX[lookupYear]})
+        else:
+            d_flatSystematics[lookupYear].update({"LumiCorrelated1718": 0.0})
+        d_flatSystematics[lookupYear].update({"DYNorm": dyNormDeltaXOverX})
+        d_flatSystematics[lookupYear].update({"TTBarNorm": ttBarNormDeltaXOverX})
+
     
     tfileOutputPath = options.outputDir
     if options.outputDir.startswith("/eos/"):
@@ -1031,12 +1092,19 @@ if __name__ == "__main__":
     sampleTFileNameTemplate = tfilePrefix + "_{}_plots.root"
     sampleDatFileNameTemplate = tfilePrefix + "_{}_tables.dat"
     
-    if options.preFit or options.postFit:
-        outputFile, outputDatFile = MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
-                                                       sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
-    else:
-        outputFile, outputDatFile = MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
-                                                       sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
+    # print("INFO: do MakeCombinedSample")
+    # outputFile, outputDatFile = MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
+    #                                                sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
+    print("INFO: do MakeCombinedSampleScaled")
+    outputFile, outputDatFile = MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
+                                                         sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
+    # if options.preFit or options.postFit:
+    #     outputFile, outputDatFile = MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
+    #                                                    sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
+    # else:
+    #     print("INFO: do MakeCombinedSample")
+    #     outputFile, outputDatFile = MakeCombinedSample(sample, dictSamples, dictDatasetsFileNames, sampleTFileNameTemplate,
+    #                                                   sampleDatFileNameTemplate, samplesToSave, dictFinalHisto, dictFinalTables)
     
     # --- Write tables
     # haveDatFile = True

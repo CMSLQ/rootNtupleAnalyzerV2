@@ -155,6 +155,7 @@ def GetSamplesToCombineDict(sampleListForMerging):
         dictSamples[sample]["pieces"] = pieces
         dictSamples[sample]["correlateLHESystematics"] = values["correlateLHESystematics"] if "correlateLHESystematics" in values.keys() else True
         dictSamples[sample]["save"] = values["save"] if "save" in values.keys() else False
+        dictSamples[sample]["analyze"] = values["analyze"] if "analyze" in values.keys() else False
         dictSamples[sample]["isMC"] = values["isMC"] if "isMC" in values.keys() else True
     return dictSamples
 
@@ -1114,14 +1115,19 @@ def ExtractBranchTitles(systHist, tmap):
         systName = systHist.GetYaxis().GetBinLabel(yBin)
         if any(substring in systName for substring in specialSysts):
             continue  # skip the special bins we may add ourselves
+        if "lumi" in systName.lower() or "dynorm" in systName.lower() or "ttbarnorm" in systName.lower():
+            continue
         branchTitleList = []
         mapObject = tmap.FindObject(systName)
         if not mapObject:
             # assume it's an array syst, so try to match stripping off the _N part
             mapObject = tmap.FindObject(systName[:systName.rfind("_")])
         if not mapObject:
-            raise RuntimeError("For syst {}, using systHist {} and map {}, could not find matching map object for syst name nor for array type systName={}.".format(
-                systName, systHist.GetName(), tmap.GetName(), systName[:systName.rfind("_")]))
+            yBinLabels = [label.GetString().Data() for label in systHist.GetYaxis().GetLabels()]
+            print("INFO: y bin labels=", len(list(yBinLabels)), list(yBinLabels))
+            print("INFO: {} y bins in hist".format(systHist.GetNbinsY()))
+            raise RuntimeError("For syst '{}', yBin={}, using systHist {} and map {}, could not find matching map object for syst name nor for array type systName={}. yBinLabels={}".format(
+                systName, yBin, systHist.GetName(), tmap.GetName(), systName[:systName.rfind("_")], yBinLabels))
         #print("INFO: for syst {}, found matching mapObject key: {}, value: {}".format(systName, mapObject.Key(), mapObject.Value()))
         branchTitleListItr = r.TIter(mapObject.Value())
         branchTitle = branchTitleListItr.Next()
@@ -1129,6 +1135,11 @@ def ExtractBranchTitles(systHist, tmap):
             branchTitleList.append(branchTitle.GetName())
             branchTitle = branchTitleListItr.Next()
         systDict[systName] = branchTitleList
+    # # SICDEBUG block
+    # sampleSystHist = systHist
+    # yBinLabels = [label.GetString().Data() for label in sampleSystHist.GetYaxis().GetLabels()]
+    # print("SICDEBUG ExtractBranchTitles(): END - systhist={}, y bin labels=".format(sampleSystHist.GetName()), len(list(yBinLabels)), list(yBinLabels))
+    # print("SICDEBUG ExtractBranchTitles(): END - systhist={}, {} y bins in hist".format(sampleSystHist.GetName(), sampleSystHist.GetNbinsY()))
     return systDict
 
 
@@ -1395,17 +1406,19 @@ def GetShortHistoName(histName):
         return histName
 
 
-def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeight=1.0, correlateLHESystematics=False, isData=False, isQCD=False):
+def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sameProcess=True, sample="", plotWeight=1.0, correlateLHESystematics=False, isData=False, isQCD=False, uncorrelatedSysts=[], symmetrize=True, flatSystematics={}):
     # print "INFO: UpdateHistoDict for sample {}".format(sample)
     # sys.stdout.flush()
     systNameToBranchTitleDict = {}
     if not isData:
         sampleTMap = next((x for x in pieceHistoList if x.ClassName() == "TMap" and "systematicNameToBranchesMap" in x.GetName()), None)
         sampleSystHist = next((x for x in pieceHistoList if x.GetName() == "systematics"), None)
+        if sampleSystHist is None:
+            sampleSystHist = next((x for x in pieceHistoList if "systematics" == x.GetName().split("__")[-1] ), None)
         if sampleSystHist is not None:
             systNameToBranchTitleDict = ExtractBranchTitles(sampleSystHist, sampleTMap)
         elif not isQCD:
-            print("WARN: Did not find systematics hist for the piece {}, though it's not data.".format(piece))
+            print("WARN UpdateHistoDict(): Did not find systematics hist for the piece {}, though it's not data.".format(piece))
     idx = 0
     # scaledHistos = []
     for pieceHisto in pieceHistoList:
@@ -1424,12 +1437,12 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
                 unscaledEvtsPassingCuts = copy.deepcopy(pieceHisto)
                 unscaledEvtsPassingCuts.SetNameTitle(pieceHisto.GetName()+"_unscaled", pieceHisto.GetTitle()+"_unscaled")
                 #print("INFO: UpdateHistoDict(): sample={}, piece={}, create new EventsPassingCuts hist from {} that doesn't have scaling/reweighting by int. lumi. idx is now {}".format(sample, piece, pieceHisto.GetName(), idx), flush=True)
-                sampleHistoDict, unscaledEvtsPassingCuts = updateSample(sampleHistoDict, unscaledEvtsPassingCuts, idx, piece, sample, 1.0, correlateLHESystematics, isData, systNameToBranchTitleDict)
+                sampleHistoDict, unscaledEvtsPassingCuts = updateSample(sampleHistoDict, unscaledEvtsPassingCuts, idx, piece, sameProcess, sample, 1.0, correlateLHESystematics, isData, systNameToBranchTitleDict, uncorrelatedSysts, symmetrize, flatSystematics)
                 # scaledHistos.append(unscaledEvtsPassingCuts)
                 idx += 1
         #print("INFO: updateSample for sample={}, correlateLHESystematics={}".format(sample, correlateLHESystematics), flush=True)
         #print("INFO: [1] UpdateHistoDict(): sample={}, piece={}, pieceHisto={}, idx={}".format(sample, piece, pieceHisto.GetName(), idx), flush=True)
-        sampleHistoDict, pieceHisto = updateSample(sampleHistoDict, pieceHisto, idx, piece, sample, plotWeight, correlateLHESystematics, isData, systNameToBranchTitleDict)
+        sampleHistoDict, pieceHisto = updateSample(sampleHistoDict, pieceHisto, idx, piece, sameProcess, sample, plotWeight, correlateLHESystematics, isData, systNameToBranchTitleDict, uncorrelatedSysts, symmetrize, flatSystematics)
         # scaledHistos.append(pieceHisto)
         # if idx < 2:
         #     print "\tINFO: UpdateHistoDict for sample {}: added pieceHisto {} with entries {} to sampleHistoDict[idx], which has name {} and entries {}".format(
@@ -1439,19 +1452,29 @@ def UpdateHistoDict(sampleHistoDict, pieceHistoList, piece, sample="", plotWeigh
     # check TMap consistency
     #sampleTMap = next((x for x in pieceHistoList if x.ClassName() == "TMap" and "systematicNameToBranchesMap" in x.GetName()), None)
     comboTMap = next((x for x in list(sampleHistoDict.values()) if x.ClassName() == "TMap" and "systematicNameToBranchesMap" in x.GetName()), None)
-    comboSystHist = next((x for x in list(sampleHistoDict.values()) if x.GetName().endswith("systematics")), None)
-    # if comboSystHist is None:
-        # print "Could not find comboSystHist in sampleHistoDict"
-        # print [x.GetName() for x in sampleHistoDict.values() if "systematics" in x.GetName()]
+    # comboSystHist = next((x for x in list(sampleHistoDict.values()) if x.GetName().endswith("systematics")), None)
+    comboSystHist = next((x for x in list(sampleHistoDict.values()) if x.GetName() == "systematics"), None)
+    if comboSystHist is None:
+        comboSystHist = next((x for x in list(sampleHistoDict.values()) if "systematics" == x.GetName().split("__")[-1] ), None)
+    # if comboSystHist is not None:
+    #     # print "Could not find comboSystHist in sampleHistoDict"
+    #     # print [x.GetName() for x in sampleHistoDict.values() if "systematics" in x.GetName()]
+    #     yBinLabels = [label.GetString().Data() for label in comboSystHist.GetYaxis().GetLabels()]
+    #     print("SICDEBUG UpdateHistoDict() (AFTER COMBINING): combo/sample systhist={}, y bin labels=".format(comboSystHist.GetName()), len(list(yBinLabels)), list(yBinLabels))
+    #     print("SICDEBUG UpdateHistoDict() (AFTER COMBINING): combo/sample systhist={}, {} y bins in hist".format(comboSystHist.GetName(), comboSystHist.GetNbinsY()))
     if not isData and comboSystHist is not None:
         # ignore pdf/scale weight bins, since we handle them specially
         binLabels = list(comboSystHist.GetYaxis().GetLabels())
-        binLabels = [label for label in binLabels if "pdf" not in label.GetString().Data().lower() and "scale" not in label.GetString().Data().lower()]
+        binLabels = [label for label in binLabels if "pdf" not in label.GetString().Data().lower()
+                     and "scale" not in label.GetString().Data().lower()
+                     and "lumi" not in label.GetString().Data().lower()
+                     and "dynorm" not in label.GetString().Data().lower()
+                     and "ttbarnorm" not in label.GetString().Data().lower()]
         CheckSystematicsTMapConsistency(comboTMap, sampleTMap, binLabels)
     return sampleHistoDict #, scaledHistos  # copy.deepcopy(pieceHistoList)
 
 
-def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, correlateLHESystematics, isData, systNameToBranchTitleDict):
+def updateSample(dictFinalHistoAtSample, htemp, h, piece, sameProcess, sample, plotWeight, correlateLHESystematics, isData, systNameToBranchTitleDict, uncorrelatedSysts, symmetrize, flatSystematics):
     histoName = htemp.GetName()
     histoTitle = htemp.GetTitle()
     if "systematics" in histoName.lower():
@@ -1464,6 +1487,10 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                     #    because any array systematics will have size zero, instead of the actual size.
                     # In the case where the input tree has zero entries, the systematics hist will be empty anyway, so we can safely skip it.
                     return dictFinalHistoAtSample, htemp
+        # # SICDEBUG
+        # yBinLabels = [label.GetString().Data() for label in htemp.GetYaxis().GetLabels()]
+        # print("SICDEBUG1 updateSample() : sample={}, htemp hist={}, y bin labels=".format(sample, htemp.GetName()), len(list(yBinLabels)), list(yBinLabels))
+        # print("SICDEBUG1 updateSample() : sample={}, htemp hist={}, {} y bins in hist".format(sample, htemp.GetName(), htemp.GetNbinsY()))
     if "systematicsdiffs" in histoName.lower():
         # ignore systematicsDiffs hist here; we remake this at the end so that it's correct
         return dictFinalHistoAtSample, htemp
@@ -1555,10 +1582,13 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
             # CheckSystematicsTMapConsistency(dictFinalHistoAtSample[h], htemp)
             # no-op
             return dictFinalHistoAtSample, htemp
-        if "systematics" in histoName.lower() and not isData and sample != "":
-            # in the case where sample is empty, we are combining individual root files in the same dataset, so we can simply add the histograms
+        if "systematics" in histoName.lower() and not isData and not sameProcess:
+            # in the case where sample=="", we are combining individual root files in the same dataset, so we can simply add the histograms
+            # so here, we must account for potentially different processes being summed (and these processes might have different PDF weights, etc.)
             pdfSysts = False
             labelsToAdd = ["LHEPdfWeightMC_UpComb", "LHEPdfWeightMC_DownComb", "LHEPdfWeightHessian_NominalComb", "LHEScaleWeight_maxComb", "LHEScaleWeight_preselYield"]
+            flatSystematicsLabels = [name + "Up" for name in flatSystematics.keys()] + [name + "Down" for name in flatSystematics.keys()]
+            labelsToAdd.extend(flatSystematicsLabels)
             labelsToAdd = [label for label in labelsToAdd if label not in  list(htemp.GetYaxis().GetLabels())]
             # if not any(substring in list(htemp.GetYaxis().GetLabels()) for substring in labelsToAdd):
             if len(labelsToAdd):
@@ -1576,6 +1606,15 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                     if mcUpContent != 0 or mcDownContent != 0 or hessianContent != 0:
                         pdfSysts = True
                         break
+            for syst, systVal in flatSystematics.items():
+                yBin1 = htemp.GetYaxis().FindFixBin(syst+"Up")
+                yBin2 = htemp.GetYaxis().FindFixBin(syst+"Down")
+                # all of these are symmetric and are deltaX/X
+                for xBin in range(0, htemp.GetNbinsX()+2):
+                    nominal = htemp.GetBinContent(xBin, 1)
+                    htemp.SetBinContent(xBin, yBin1, nominal*(1+systVal))
+                    htemp.SetBinContent(xBin, yBin2, nominal*(1-systVal))
+            # handle PDF/scale combinations
             if not IsHistEmpty(htemp) and not pdfSysts:
                 hessianNominalYields = np.zeros(htemp.GetNbinsX()+2)
                 pdfSystDeltasUp = np.zeros(htemp.GetNbinsX()+2)
@@ -1669,6 +1708,21 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
                 if list(htemp.GetXaxis().GetLabels()) != list(dictFinalHistoAtSample[h].GetXaxis().GetLabels()):
                     raise RuntimeError("htemp {} from piece {} to be added has x-axis bin labels {} which are inconsistent with existing hist from sample {}: {}".format(
                         htemp.GetName(), piece, list(htemp.GetXaxis().GetLabels()), sample, list(dictFinalHistoAtSample[h].GetXaxis().GetLabels())))
+        elif "systematics" in histoName.lower() and not isData and len(uncorrelatedSysts):
+            # same process here
+            # # SICDEBUG
+            # yBinLabels = [label.GetString().Data() for label in htemp.GetYaxis().GetLabels()]
+            # print("SICDEBUG1.5 updateSample() : sample={}, htemp hist={}, y bin labels=".format(sample, htemp.GetName()), len(list(yBinLabels)), list(yBinLabels))
+            # print("SICDEBUG1.5 updateSample() : sample={}, htemp hist={}, {} y bins in hist".format(sample, htemp.GetName(), htemp.GetNbinsY()))
+            # in this case, we are combining one year with another (when sample is not specified and we have correlated systs given)
+            # Nov. 2025
+            # now we need to compute the systematic effects for those that are uncorrelated
+            # we keep the current exp[sqrt(sumInQuad of log-normals)] in the systUp bin
+            keffsDict = {}
+            for syst in uncorrelatedSysts:
+                keffs = GetCombinedSystematicTerms(htemp, dictFinalHistoAtSample[h], syst, symmetrize)  #, True if syst=="Prefire" else False)
+                keffsDict[syst] = keffs
+
         # Sep. 17 2017: scale first, then add with weight=1 to have "entries" correct
         # htemp.Scale(plotWeight)
         if plotWeight != 1.0:
@@ -1689,7 +1743,48 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
         #     lheScale1Bin = htemp.GetYaxis().FindFixBin("LHEScaleWeight_1")
         #     print("DEBUG: addHists - for sample={}, htemp={}, xbin=xbin, LHEScaleWeight_1 binc={} bine={}, nom={}".format(sample, htemp.GetName(),
         #         htemp.GetBinContent(xbin, lheScale1Bin), htemp.GetBinError(xbin, lheScale1Bin), htemp.GetBinContent(xbin,1)))
+        # SICDEBUG
+        # if "systematics" == dictFinalHistoAtSample[h].GetName().split("__")[-1]:
+        #     yBinLabels = [label.GetString().Data() for label in dictFinalHistoAtSample[h].GetYaxis().GetLabels()]
+        #     print("SICDEBUG2.1 updateSample() : final hist={}, y bin labels=".format(dictFinalHistoAtSample[h].GetName()), len(list(yBinLabels)), list(yBinLabels))
+        #     print("SICDEBUG2.1 updateSample() : final hist={}, {} y bins in hist".format(dictFinalHistoAtSample[h].GetName(), dictFinalHistoAtSample[h].GetNbinsY()))
+        #     yBinLabels = [label.GetString().Data() for label in htemp.GetYaxis().GetLabels()]
+        #     print("SICDEBUG2.1 updateSample() : htemp hist={}, y bin labels=".format(htemp.GetName()), len(list(yBinLabels)), list(yBinLabels))
+        #     print("SICDEBUG2.1 updateSample() : htemp hist={}, {} y bins in hist".format(htemp.GetName(), htemp.GetNbinsY()))
         returnVal = dictFinalHistoAtSample[h].Add(htemp)
+        # SICDEBUG
+        # if "systematics" == dictFinalHistoAtSample[h].GetName().split("__")[-1]:
+        #     print("SICDEBUG2.2 updateSample() : final hist={}, {} y bins in hist".format(dictFinalHistoAtSample[h].GetName(), dictFinalHistoAtSample[h].GetNbinsY()))
+        if "systematics" in histoName.lower() and not isData and len(uncorrelatedSysts) and sameProcess:
+            # store the combined keff in the syst "Up" bin error
+            # this is because we assume symmetrized systematics here
+            if not symmetrize:
+                raise RuntimeError("Need to implement support for asymmetric systematics")
+            for syst in keffsDict.keys():
+                systBinUp = dictFinalHistoAtSample[h].GetYaxis().FindFixBin(syst+"Up")
+                systBinDown = dictFinalHistoAtSample[h].GetYaxis().FindFixBin(syst+"Down")
+                for systBin in [systBinUp, systBinDown]:
+                    for xBin in range(0, dictFinalHistoAtSample[h].GetNbinsX()+2):
+                        # nominal = dictFinalHistoAtSample[h].GetBinContent(xBin, 1)
+                        nominal = dictFinalHistoAtSample[h].GetBinContent(xBin, 1)
+                        if dictFinalHistoAtSample[h].GetYaxis().FindFixBin("OriginalNominal") > 0:
+                            nominal = dictFinalHistoAtSample[h].GetBinContent(xBin, dictFinalHistoAtSample[h].GetYaxis().FindFixBin("OriginalNominal"))
+                        # if "Pt1stEle" in histoName and
+                        # if syst=="Prefire" and dictFinalHistoAtSample[h].GetBinContent(xBin, 1) != 0:
+                        #     print("SICINFO: For hist={}, xBin={}, syst={}, nominal={}; origErr={}; set bin content to nom*keff={} and binError to keff={}".format(
+                        #         dictFinalHistoAtSample[h].GetName(), xBin, syst, nominal,
+                        #         dictFinalHistoAtSample[h].GetBinError(xBin, systBin),
+                        #         nominal*keffsDict[syst][xBin],
+                        #         keffsDict[syst][xBin]
+                        #         ))
+                        dictFinalHistoAtSample[h].SetBinContent(xBin, systBin, nominal*keffsDict[syst][xBin])
+                        dictFinalHistoAtSample[h].SetBinError(xBin, systBin, keffsDict[syst][xBin])
+            # SICDEBUG
+            # if "systematics" == dictFinalHistoAtSample[h].GetName().split("__")[-1]:
+            #     yBinLabels = [label.GetString().Data() for label in dictFinalHistoAtSample[h].GetYaxis().GetLabels()]
+            #     print("SICDEBUG3 updateSample() : final hist={}, y bin labels=".format(dictFinalHistoAtSample[h].GetName()), len(list(yBinLabels)), list(yBinLabels))
+            #     print("SICDEBUG3 updateSample() : final hist={}, {} y bins in hist".format(dictFinalHistoAtSample[h].GetName(), dictFinalHistoAtSample[h].GetNbinsY()))
+
         # if histoName == "systematics":
         #     print("DEBUG: after adding hists - for sample={}, finalHist, xbin=xbin, LHEScaleWeight_maxComb binc={} bine={}, nom={}".format(sample,
         #         dictFinalHistoAtSample[h].GetBinContent(xbin, lheScaleMaxCombBin), dictFinalHistoAtSample[h].GetBinError(xbin, lheScaleMaxCombBin), dictFinalHistoAtSample[h].GetBinContent(xbin,1)))
@@ -1710,6 +1805,129 @@ def updateSample(dictFinalHistoAtSample, htemp, h, piece, sample, plotWeight, co
     # if "systematics" == htemp.GetName().lower():
     #     print("SICDEBUG: updateSample [7] - DONE: while handling htemp '{}' with factor {}; integral after={}, bin(1,1)={}, entries={}".format(htemp.GetName(), plotWeight, htemp.Integral(), htemp.GetBinContent(1, 1), htemp.GetEntries()))
     return dictFinalHistoAtSample, htemp
+
+
+def GetCombinedSystematicTerms(htemp, finalHist, syst, symmetrize, verbose=False):
+    # verbose = True
+    keffsTmp = CalculateUpDownSystematic(htemp, syst, symmetrize, verbose)
+    keffsComb = {}
+    systUpBin = finalHist.GetYaxis().FindFixBin(syst+"Up")
+    for xBin in keffsTmp.keys():
+        # if "Pt1stEle" in htemp.GetName() and syst=="Prefire" and "Pt1stEle" in htemp.GetName():
+        #     # verbose = True
+        # if keffsTmp[xBin] > 1.0:
+        #     verbose = True
+        # else:
+        #     verbose = False
+        nominalTmp = htemp.GetBinContent(xBin, 1)
+        if htemp.GetYaxis().FindFixBin("OriginalNominal") > 0:
+            nominalTmp = htemp.GetBinContent(xBin, htemp.GetYaxis().FindFixBin("OriginalNominal"))
+        nominalFinal = finalHist.GetBinContent(xBin, 1)
+        if finalHist.GetYaxis().FindFixBin("OriginalNominal") > 0:
+            nominalFinal = finalHist.GetBinContent(xBin, finalHist.GetYaxis().FindFixBin("OriginalNominal"))
+
+        if verbose:
+            print("INFO: CombineLognormals for hist={}, xBin={}, syst={}, keffTmp={}".format(finalHist.GetName(), xBin, syst, keffsTmp[xBin]))
+        _, keffsComb[xBin] = CombineLognormals(nominalFinal, finalHist.GetBinError(xBin, systUpBin), nominalTmp, keffsTmp[xBin], verbose)
+        if verbose:
+            print("INFO: For hist={}, xBin={}, syst={}, nominal={}, keff={}; keff tmp={}; now combined keff={}".format(
+                finalHist.GetName(), xBin, syst, nominalFinal, finalHist.GetBinError(xBin, systUpBin), keffsTmp[xBin], keffsComb[xBin]
+                ))
+    return keffsComb
+
+
+def CalculateUpDownSystematic(htemp, syst, symmetrize=False, verbose=False):
+    # simple calculation here, so really only works for preselection (e.g., doesn't take into account switching selections for systematics,
+    # but that shouldn't happen for preselection anyway.
+    systUpBin = htemp.GetYaxis().FindFixBin(syst+"Up")
+    systDownBin = htemp.GetYaxis().FindFixBin(syst+"Down")
+    systEffects = {}
+    for xBin in range(0, htemp.GetNbinsX()+2):
+        systYieldUp = htemp.GetBinContent(xBin, systUpBin)
+        systYieldDown = htemp.GetBinContent(xBin, systDownBin)
+        nominal =  htemp.GetBinContent(xBin, 1)
+        if htemp.GetYaxis().FindFixBin("OriginalNominal") > 0:
+            nominal =  htemp.GetBinContent(xBin, htemp.GetYaxis().FindFixBin("OriginalNominal"))
+
+        kUp = systYieldUp/nominal if nominal != 0 else 0
+        kDown = systYieldDown/nominal if nominal != 0 else 0
+        upDelta = systYieldUp-nominal if nominal != 0 else 0
+        downDelta = systYieldDown-nominal if nominal != 0 else 0
+        entry = kDown/kUp if kUp != 0 else 0
+        deltaNomUp = upDelta/nominal if nominal != 0 else 0
+        deltaNomDown = downDelta/nominal if nominal != 0 else 0
+        deltaOverNomAvg = (math.fabs(deltaNomDown) + math.fabs(deltaNomUp)) / 2
+        entry = 1 + deltaOverNomAvg
+        logString = "CalculateUpDownSystematic(): For hist={}, xBin={}, syst={}, nominal={}, systYieldUp={}, systYieldDown={}, deltaNomUp={}, deltaNomDown={}, deltaOverNomAvg={}, entry={}".format(
+                    htemp.GetName(), xBin, syst, nominal, systYieldUp, systYieldDown, deltaNomUp, deltaNomDown, deltaOverNomAvg, entry
+                    )
+        if deltaNomUp == deltaNomDown or symmetrize:
+            # if "Pt1stEle" in htemp.GetName():
+            if nominal != 0 and verbose:
+                print(logString)
+            deltaNomUp /= 2
+            deltaNomDown /= 2
+            symmetric = True
+            if verbose:
+                print(logString)
+                print("CalculateUpDownSystematic(): kDown/kUp = {}/{}; return '{}', {}, {}, {}".format(kDown, kUp, str(entry), deltaNomUp, deltaNomDown, symmetric))
+            systEffects[xBin] = entry
+        elif kUp <= 0:
+            if verbose:
+                print(logString)
+                print("CalculateUpDownSystematic(): kUp <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kUp, str(1 + math.fabs(deltaNomDown)), deltaNomDown, deltaNomDown))
+            systEffects[xBin] = 1 + math.fabs(deltaNomDown)
+        elif kDown <= 0:
+            if verbose:
+                print(logString)
+                print("CalculateUpDownSystematic(): kDown <= 0 = {}; return symmetric kDown syst '{}', {}, {}".format(kDown, str(1 + math.fabs(deltaNomUp)), deltaNomUp, deltaNomUp))
+            systEffects[xBin] = 1 + math.fabs(deltaNomUp)
+    return systEffects
+    
+
+def VarThetaFromK(k):
+    if k != 0:
+        sigma = np.log(k)
+        with np.errstate(all='raise'):
+            try:
+                varTheta = np.exp(2*sigma**2) - np.exp(sigma**2)
+            except Exception as e:
+                raise RuntimeError("Caught numpy warning when calling VarThetaFromK with k={}, sigma={}: {}".format(k, sigma, e))
+        return varTheta
+    else:
+        return 0
+
+
+def ReconstructAccumulator(mu_acc, k_acc):
+    var_theta = VarThetaFromK(k_acc)
+    V_acc = mu_acc**2 * var_theta
+    return V_acc
+
+
+def CombineLognormals(mu_acc, k_acc, mu_next, k_next, verbose=False):
+    if verbose:
+        print("CombineLognormals({}, {}, {}, {})".format(mu_acc, k_acc, mu_next, k_next))
+    # reconstruct variance of the accumulator
+    V_acc = ReconstructAccumulator(mu_acc, k_acc)
+    if verbose:
+        print("CombineLognormals - V_acc={}".format(V_acc))
+    # variance of the new term
+    V_next = mu_next**2 * VarThetaFromK(k_next)
+    if verbose:
+        print("CombineLognormals - V_next={}".format(V_next))
+    # update totals
+    mu_new = mu_acc + mu_next
+    V_new  = V_acc + V_next
+    if verbose:
+        print("CombineLognormals - mu_new={}, V_new={}".format(mu_new, V_new))
+    # convert back to effective log-normal
+    a = V_new / mu_new**2 if mu_new != 0 else 0
+    y = 0.5 * (1 + np.sqrt(1 + 4*a))
+    sigma_new = np.sqrt(np.log(y))
+    k_new = np.exp(sigma_new) if sigma_new != 0 else 1
+    if verbose:
+        print("CombineLognormals - a={}, y={}, sigma_new={}, k_new={}".format(a, y, sigma_new, k_new))
+    return mu_new, k_new
 
 
 def GetNormAndUncertaintyFromJSON(sample, postFitJson, mass, postFitType):
@@ -1754,7 +1972,7 @@ def GetNormAndTotalUncertaintyFromFitDiagFile(sample, fitDiagFilePath, year, mas
     return norm, unc
 
 
-def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, postFitJSON, doPrefit, fitType, systNames, nYears, verbose=True):
+def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagFilePath, postFitJSON, doPrefit, fitType, systNames, nYears, verbose=False):
     if not isMC:
         return histoDict
     
@@ -1811,7 +2029,14 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
                     # in this case, it's a kind of 2-D hist that we don't really know how to scale properly
                     print("WARN: not scaling hist {}, as we don't know how".format(hist.GetName()))
                     continue
-                hist = AddHistoBins(hist, "y", ["TotalSystematic"])
+                hist = AddHistoBins(hist, "y", ["TotalSystematic", "OriginalNominal"])
+                yBin = hist.GetYaxis().FindFixBin("OriginalNominal")
+                # copy nominal binc/bine into OriginalNominal to save them
+                for xBin in range(0, hist.GetNbinsX()+2):
+                    binc = hist.GetBinContent(xBin, 1)
+                    bine = hist.GetBinError(xBin, 1)
+                    hist.SetBinContent(xBin, yBin, binc)
+                    hist.SetBinError(xBin, yBin, bine)
                 # # DEBUG
                 # yBin = hist.GetYaxis().FindFixBin("TotalSystematic")
                 # for xBin in range(0, hist.GetNbinsX()+2):
@@ -1879,17 +2104,15 @@ def GetSystematicEffect(bkgTotalHist, systName, correlated=True):
     downErrs = []
     downBin = -1
     upBin = -1
-    systBins = [i for i in range(1, bkgTotalHist.GetNbinsY()+1) if systName in bkgTotalHist.GetYaxis().GetBinLabel(i) and 
-                ("Up" in  bkgTotalHist.GetYaxis().GetBinLabel(i) or "Down" in  bkgTotalHist.GetYaxis().GetBinLabel(i) or "TotalSystematic" in bkgTotalHist.GetYaxis().GetBinLabel(i))]
-    if systName == "LHEPdf":
-        binsToRemove = []
-        for i in systBins:
-            if "WeightMC" in bkgTotalHist.GetYaxis().GetBinLabel(i):
-                binsToRemove.append(i)
-        for i in binsToRemove:
-            systBins.remove(i)
+    upSuffix = "Up"
+    downSuffix = "Down"
+    if systName == "LHEPdf" or systName == "LHEScale":
+        upSuffix = "_UpComb"
+        downSuffix = "_DownComb"
+    systBins = [i for i in range(1, bkgTotalHist.GetNbinsY()+1) if systName == bkgTotalHist.GetYaxis().GetBinLabel(i) or
+                systName+upSuffix == bkgTotalHist.GetYaxis().GetBinLabel(i) or systName+downSuffix == bkgTotalHist.GetYaxis().GetBinLabel(i)]
     if len(systBins) < 1:
-        raise RuntimeError("Could not find any bins that match for systematic named {}".format(systName))
+        raise RuntimeError("Could not find any bins that match for systematic named {}; bin labels={}".format(systName, [label.GetString().Data() for label in bkgTotalHist.GetYaxis().GetLabels()]))
     if len(systBins) != 2:
         if not (systName == "TotalSystematic" and len(systBins) == 1):
             raise RuntimeError("Did not find two bins that match for systematic named {}; found {} bins with labels {} instead.".format(systName, len(systBins), [bkgTotalHist.GetYaxis().GetBinLabel(i) for i in systBins]))
@@ -1947,7 +2170,7 @@ def GetSystematicGraphAndHist(bkgTotalHist, systNames, verbose=False):
     downErrsPercentBySyst = {}
     # add all the specified systs in quadrature
     for systName in systNames:
-        print("DEBUG: calculate syst for systName={}".format(systName))
+        # print("DEBUG: calculate syst for systName={}".format(systName))
         if "lhepdf" in systName.lower():
             upErrs, downErrs = GetSystematicEffect(bkgTotalHist, "LHEPdf", False)
         elif "lhescale" in systName.lower():
