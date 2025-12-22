@@ -1891,7 +1891,7 @@ lumi1718CorrelatedDeltaXOverX["2017"] = 0.006
 lumiDeltaXOverX["2018"] = 0.015
 lumiCorrelatedDeltaXOverX["2018"] = 0.02
 lumi1718CorrelatedDeltaXOverX["2018"] = 0.002
-lumiDeltaXOverX["all"] = 0.013
+lumiDeltaXOverX["all"] = 0.0073  # Dec. 19, 2025, https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun2
 
 uncorrelatedSysts = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "UnclusteredEne"]
 
