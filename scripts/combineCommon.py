@@ -1995,6 +1995,11 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
             systUnc /= math.sqrt(nYears)
             statUncsByMass[mass] = statUnc
             systUncsByMass[mass] = systUnc
+            print("INFO: RenormalizeHistoNormsAndUncs(): Got norm {} and uncertainty {} +/- {} from postFitJSON={}, year={}, mass={}, sample={}, fitType={}".format(norm,
+                                                                                                                             statUnc,
+                                                                                                                             systUnc,
+                                                                                                                             postFitJSON,
+                                                                                                                             year, mass, sample, fitType))
         normsByMass[mass] = norm
 
     scaledHists = {}

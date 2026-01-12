@@ -903,6 +903,7 @@ if __name__ == "__main__":
     samplesToOverrideFromYieldHistos = ["ZJet_amcatnlo_ptBinned_IncStitch", "TTTo2L2Nu", "OTHERBKG_dibosonNLO_singleTop"]
     # postFitType = "b"
     # postFitType = "sb"
+    # postFitType = "s"
     symmetrize = True
     uncorrelatedSysts = ["Prefire", "EES", "EER", "JES", "JER", "EleRecoSF", "EleIDSF", "EleTrigSF", "Pileup", "UnclusteredEne", "Lumi"]
     # as these systNames are only used for postfit-rescaling, and Lumi is a flat syst, it won't affect the shape (and the normalization is taken care of by the rescaling itself)
