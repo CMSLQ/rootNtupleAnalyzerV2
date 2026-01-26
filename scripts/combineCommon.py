@@ -1075,9 +1075,9 @@ def OverrideTableSelectionYieldAndUncertainty(inputTable, selection, value, unce
 def GetSampleHistosFromTFile(tfileName, sample, keepHistName=True):
     histNameToHistDict = {}
     if tfileName.startswith("/eos/cms"):
-        tfileName = "root://eoscms/" + tfileName
+        tfileName = "root://eoscms.cern.ch/" + tfileName
     elif tfileName.startswith("/eos/user"):
-        tfileName = "root://eosuser/" + tfileName
+        tfileName = "root://eosuser.cern.ch/" + tfileName
     tfile = r.TFile.Open(tfileName)
     for key in tfile.GetListOfKeys():
         histoName = key.GetName()
@@ -2010,7 +2010,8 @@ def RenormalizeHistoNormsAndUncs(sample, year, histoDict, isMC, masses, fitDiagF
             if "LQ{}".format(mass) in hist.GetName():
                 # print("DEBUG: FOUND mass {} in histName={}".format(mass, hist.GetName()))
                 myMass = mass
-        if myMass is None:
+                break
+        if myMass is None or any(preselStr in hist.GetName() for preselStr in ["PAS", "CRRegion", "TrainRegion", "trainingSelection", "cutHisto"]):
             scaledHists[idx] = hist
             continue  # not a final selection plot
 

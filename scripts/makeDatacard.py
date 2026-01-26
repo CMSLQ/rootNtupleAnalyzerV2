@@ -342,29 +342,37 @@ class SampleInfo:
         if not DoesSystematicApply(systName, self.sampleName, applicableSystematics):
             return "-", 0, 0, True, nominal, selection
         if systName in uncorrelatedSysts:
-            entryUp = systDict[systName+"Up"][selection]["kEff"]
-            entryDown = systDict[systName+"Down"][selection]["kEff"]
-            newNominal = nominal
-            newSelection = selection
-            symmetric = (entryUp == entryDown)
-            deltaNomUp = entryUp - 1
-            deltaNomDown = entryDown - 1
+            entry = None
+            if "kEff" in systDict[systName+"Up"][selection].keys():
+                entryUp = systDict[systName+"Up"][selection]["kEff"]
+                entryDown = systDict[systName+"Down"][selection]["kEff"]
+                newNominal = nominal
+                newSelection = selection
+                symmetric = (entryUp == entryDown)
+                deltaNomUp = entryUp - 1
+                deltaNomDown = entryDown - 1
+            elif len(years) == 1:
+                entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic(systName, selection, False, symmetrize)
+            else:
+                raise RuntimeError("No kEff in systs dict, yet we should have one.")
             if verbose:
                 logString = "GetSystematicEffect(): selection={}, sample={}, syst={}, entryUp={}, entryDown={}, systYieldUp={}, systYieldDown={}, systNominal={}, origSystNominal={}".format(
                             selection, self.sampleName, systName, entryUp, entryDown, deltaNomUp*nominal, deltaNomDown*nominal, nominal, systDict["nominal"][selection])
                 print(logString)
             if deltaNomUp == deltaNomDown or symmetrize:
                 deltaOverNomAvg = (math.fabs(deltaNomDown) + math.fabs(deltaNomUp)) / 2
-                entry = str(entryUp)
+                if entry is None:
+                    entry = str(entryUp)
                 deltaNomUp /= 2
                 deltaNomDown /= 2
                 symmetric = True
-            elif entryUp <= 0:
-                entry = str(entryDown)
-            elif entryDown <= 0:
-                entry = str(entryUp)
-            else:
-                entry = entryDown/entryUp
+            elif entry is None:
+                if entryUp <= 0:
+                    entry = str(entryDown)
+                elif entryDown <= 0:
+                    entry = str(entryUp)
+                else:
+                    entry = entryDown/entryUp
         elif "shape" in systName.lower():
             entry, deltaNomUp, deltaNomDown, symmetric, newNominal, newSelection = self.CalculateUpDownSystematic("LHEScaleComb", selection, verbose, symmetrize)
         elif systName == "LHEPdfWeight":
