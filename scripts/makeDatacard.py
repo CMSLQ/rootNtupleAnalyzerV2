@@ -236,6 +236,7 @@ class SampleInfo:
         # verbose = True
         # if "ptBinned" in self.sampleName and selection == "preselection":
         #     verbose = True
+        # if systName == "JES": verbose = True
         entry, deltaOverNomUp, deltaOverNomDown, symmetric, systNominal, systSelection = self.GetSystematicEffect(year, systName, selection, applicableSysts[year], symmetrize, verbose)
         if verbose:
             print("INFO GetSystematicEffectAbs(): For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}".format(
@@ -325,12 +326,13 @@ class SampleInfo:
                 rawEvents = self.unscaledRates[systSelection]
                 print("WARN: For sample={}, selection={}, syst={}: deltaOverNomUp or deltaOverNomDown is larger than {}%! entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}, rawEvents={}".format(
                     self.sampleName, selection, systName, 100*tolerance, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection, rawEvents))
-        # if "zjet" in self.sampleName.lower():
-        #     print("DEBUGINFO GetSystematicEffectAbs(): For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}, preselRatioSystUp={}, preselRatioSystDown={}".format(
-        #         self.sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection, preselRatioSystUp, preselRatioSystDown))
+        if verbose:
+            print("INFO GetSystematicEffectAbs(): For sample={}, selection={}, syst={}: entry={}, deltaOverNomUp={}, deltaOverNomDown={}, systNominal={}, systSelection={}, preselRatioSystUp={}, preselRatioSystDown={}".format(
+                self.sampleName, selection, systName, entry, deltaOverNomUp, deltaOverNomDown, systNominal, systSelection, preselRatioSystUp, preselRatioSystDown))
         return entry, math.fabs(deltaOverNomUp), math.fabs(deltaOverNomDown), nomYield, systNomSelection, [preselRatioSystUp, preselRatioSystDown]
 
     def GetSystematicEffect(self, year, systName, selection, applicableSystematics, symmetrize, verbose=False):
+        # if systName == "JES": verbose = True
         # print("GetSystematicEffect(systName={}, selection={}. d_applicableSystematics={})".format(systName, selection, d_applicableSystematics))
         systDict = self.systematics
         try:
@@ -343,6 +345,8 @@ class SampleInfo:
             return "-", 0, 0, True, nominal, selection
         if systName in uncorrelatedSysts:
             entry = None
+            entryUp = None
+            entryDown = None
             if "kEff" in systDict[systName+"Up"][selection].keys():
                 entryUp = systDict[systName+"Up"][selection]["kEff"]
                 entryDown = systDict[systName+"Down"][selection]["kEff"]
@@ -437,6 +441,7 @@ class SampleInfo:
     #     return str(1 + math.fabs(delta)/nominal), delta/nominal, delta/nominal, True
     
     def CalculateUpDownSystematic(self, systName, selection, verbose=False, symmetrize=False, forceAdjustSystSelection=False):
+        # if systName == "JES": verbose = True
         symmetric = False
         systDict = self.systematics
         nominal = systDict["nominal"][selection]["yield"]
