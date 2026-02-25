@@ -1659,7 +1659,8 @@ def WriteDatacard(card_file_path, year):
                     # else:
                     #     selectionNameSyst = selectionName
                     selectionNameSyst = selectionName
-                    systName = syst
+                    # systName = syst
+                    systName = GetCMSSystName(syst)
                     # if systName == "Lumi":
                     #     systName += year.replace("preVFP", "").replace("postVFP", "")
                     line = systName + " lnN "
@@ -1774,6 +1775,29 @@ def WriteDatacard(card_file_path, year):
             if not doMassPointLoop:
                 break
     card_file.close()
+
+
+def GetCMSSystName(ourSystName):
+    mapOfCMSSystNames = {"DY_Norm": "CMS_EXO24019_scale_dyj"}
+    mapOfCMSSystNames["DY_Shape"] = "QCDscale_V2in"  # is this correct?
+    mapOfCMSSystNames["EER"] = "CMS_res_e_13TeV"  # are these 13TeV ones correct in our case, where we combine separate years?
+    mapOfCMSSystNames["EES"] = "CMS_scale_e_13TeV" # ditto
+    mapOfCMSSystNames["EleIDSF"] = "CMS_eff_e_id_13TeV" # ditto
+    mapOfCMSSystNames["EleRecoSF"] = "CMS_eff_e_reco_13TeV" # ditto
+    mapOfCMSSystNames["EleTrigSF"] = "CMS_EXO24019_eff_e_trig_13TeV"
+    mapOfCMSSystNames["JER"] = "CMS_res_j_13TeV" # ditto
+    mapOfCMSSystNames["JES"] = "CMS_scale_j_13TeV" # ditto
+    mapOfCMSSystNames["LHEPdfWeight"] = "CMS_EXO24019_pdf"
+    mapOfCMSSystNames["Lumi"] = "lumi_13TeV"
+    mapOfCMSSystNames["OtherBkg_Shape"] = "QCDscale_VV"
+    mapOfCMSSystNames["Pileup"] = "CMS_pileup_13TeV"
+    mapOfCMSSystNames["Prefire"] = "CMS_l1_ecal_prefiring"
+    mapOfCMSSystNames["QCD_Norm"] = "CMS_EXO24019_fake_e_13TeV"
+    mapOfCMSSystNames["TT_Norm"] = "CMS_EXO24019_scale_ttbar"
+    mapOfCMSSystNames["TT_Shape"] = "QCDscale_ttbar"
+    mapOfCMSSystNames["UnclusteredEne"] = "CMS_EXO24019_scale_met_unclustered_energy_13TeV"
+
+    return mapOfCMSSystNames[ourSystName]
 
 
 ###################################################################################################
