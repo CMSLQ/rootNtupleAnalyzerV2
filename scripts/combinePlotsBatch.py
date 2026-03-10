@@ -303,7 +303,7 @@ def LoadDataFromRootFile(datasetsFileNamesCleaned, currentPiece, sample, histoNa
 
         if doHists:
             print("INFO: updating thisPieceHistos using plotWeight=", plotWeight)
-            thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, sampleHistos, matchingPiece, True, sample, plotWeight, corrLHESysts, not isMC, isQCD, [], symmetrize)
+            thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, sampleHistos, matchingPiece, True, sample, plotWeight, corrLHESysts, not isMC, isQCD, [], symmetrize, True)
     Ntot = float(thisYearTable[0]["Npass"])
     print("INFO: inputDatFile={} for sample={}, {}={}".format(inputDatFile, sample, thisYearTable[0]["variableName"], Ntot), flush=True)
     return thisYearTable, thisYearHistos, sumWeights, lhePdfWeightSumw, Ntot
@@ -489,6 +489,9 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
         yearSampleInfo = dictSamples[year][sample]
         yearPieceList = yearSampleInfo["pieces"]
         piecesToAdd = combineCommon.ExpandPieces(yearPieceList, dictSamples[year])
+        #FIXME: we don't check here to make sure that this doesn't change over the years
+        sameProcess = len(piecesToAdd) == 1
+        print("INFO: for sample={}, these are all the same process".format(sample))
         for currentPiece in piecesToAdd:
             thisPieceTable = {}
             thisPieceHistos = {}
@@ -538,8 +541,8 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
                 thisPieceTable = combineCommon.CreateWeightedTable(thisPieceTable, weight, xsection_X_intLumi)
                 Ntot = float(thisPieceTable[0]["Npass"])
             if doHists:
-                # here is where we might have to combine different processes
-                thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, list(thisPieceHistos.values()), matchingPiece, False, sample, plotWeight, corrLHESysts, not isMC, isQCD, [], symmetrize, d_flatSystematics[GetLookupYear(year)])
+                # here is where we might have to combine different processes (same year)
+                thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, list(thisPieceHistos.values()), matchingPiece, sameProcess, sample, plotWeight, corrLHESysts, not isMC, isQCD, [], symmetrize, d_flatSystematics[GetLookupYear(year)], True)
                 # thisYearHistos = combineCommon.UpdateHistoDict(thisYearHistos, list(thisPieceHistos.values()), matchingPiece, "", plotWeight, corrLHESysts, not isMC, isQCD)
             thisYearTable = combineCommon.UpdateTable(thisPieceTable, thisYearTable)
             print("INFO: for sample={}, currentPiece={} NoCuts(weighted)={}".format(sample, currentPiece, Ntot), flush=True)
@@ -557,7 +560,8 @@ def MakeCombinedSampleScaled(sample, dictSamples, dictDatasetsFileNames, tfileNa
                 thisYearHistos = combineCommon.RenormalizeHistoNormsAndUncs(sample, year, thisYearHistos, isMC, masses, options.fitDiagFilepath, options.postfitjson, doPrefit, fitType, systNames, len(yearsToUse))
             plotWeight = 1.0  # we already scaled each sample above
             # print("INFO: finally, updating histoDictThisSample using plotWeight=", plotWeight, "sample=", sample)
-            histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, True, sample, plotWeight, corrLHESysts, not isMC, isQCD, uncorrelatedSysts, symmetrize)
+            sameYear = False if len(yearsToUse) > 1 else True
+            histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, True, sample, plotWeight, corrLHESysts, not isMC, isQCD, uncorrelatedSysts, symmetrize, [], sameYear)
             # histoDictThisSample = combineCommon.UpdateHistoDict(histoDictThisSample, list(thisYearHistos.values()), matchingPiece, sample, plotWeight, corrLHESysts, not isMC, isQCD)
 
     # ---Create final tables
