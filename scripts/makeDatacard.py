@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 import combineCommon as cc
 
-sys.path.append(os.getenv("LQMACRO").rstrip("/") + "/plotting2016/")
+sys.path.insert(0, os.getenv("LQMACRO").rstrip("/") + "/plotting2016/")
 from plotSignalEfficiencyTimesAcceptance import plotSignalEfficiencyTimesAcceptance
 
 r.gROOT.SetBatch()
@@ -1917,7 +1917,8 @@ def GetCMSSystName(ourSystName):
 def latexReplace(text):
     newText = text.replace("TTbar", r"\ttbar")
     newText = newText.replace("DYJ", r"\zjets")
-    newText = newText.replace("MET", r"\ptmiss")
+    # newText = newText.replace("MET", r"\ptmiss")
+    newText = newText.replace("Unclustered energy (MET)", r"\ptmiss")
     return newText
 
 
@@ -1995,7 +1996,7 @@ systTitleDict = OrderedDict([
         ("UnclusteredEne", "Unclustered energy (MET)"),
         ("EleTrigSF", "Trigger"),
         ("Pileup", "Pileup"),
-        ("Prefire", "L1EcalPrefiring"),
+        ("Prefire", "Level-1 Ecal Prefiring"),
         ("LHEPdfWeight", "PDF"),
         ("DY_Norm", "DYJ normalization"),
         ("DY_Shape", "DYJ shape"),
@@ -2394,8 +2395,8 @@ if not os.path.exists(tablesDir):
 
 if doSystematics:
     # tables
-    columnNames = ["Systematic", "Signal (%)", "Background (%)"]
-    columnNamesLatex = ["Systematic", "Signal (\%)", "Background (\%)"]
+    columnNames = ["Source of uncertainty", "Signal (%)", "Background (%)"]
+    columnNamesLatex = ["Source of uncertainty", "Signal (\%)", "Background (\%)"]
     for selectionName in selectionNames:
         print("INFO: total syst table for selection {}".format(selectionName))
         table = []
@@ -3112,5 +3113,5 @@ with open(tablesDir + "/eventYieldsPaper.tex", "w") as table_file:
     # table_file.write("\n")
 
 # acc * eff
-plotSignalEfficiencyTimesAcceptance(dataMC_filepath, signalNameTemplate, [int(m) for m in mass_points], yearsRequestedStr)
+plotSignalEfficiencyTimesAcceptance(dataMC_filepaths, signalNameTemplate, [int(m) for m in mass_points], yearsRequestedStr)
 print("datacard written to {}".format(datacard_filePath))
